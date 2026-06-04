@@ -1,0 +1,118 @@
+package com.wms.controller.auth;
+
+import com.wms.controller.BaseController;
+import com.wms.model.User;
+import com.wms.service.AuthService;
+import com.wms.util.AppConstants;
+
+import jakarta.servlet.ServletException;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
+import jakarta.servlet.http.HttpSession;
+import java.io.IOException;
+
+/**
+ * LoginServlet — Handles GET (show form) and POST (authenticate).
+ * Performs primary authentication and redirects to 2-Factor OTP verification.
+ */
+public class LoginServlet extends BaseController {
+
+    private final AuthService authService = new AuthService();
+
+    /** GET /login — display the login form */
+    @Override
+    protected void doGet(HttpServletRequest req, HttpServletResponse res)
+            throws ServletException, IOException {
+
+        // If already logged in, redirect to their role-specific landing page
+        if (isLoggedIn(req)) {
+            User user = (User) req.getSession().getAttribute(AppConstants.SESSION_USER);
+            String role = user != null ? user.getRole() : "";
+            redirect(res, req.getContextPath() + getDashboardTarget(role));
+            return;
+        }
+
+        HttpSession session = req.getSession(false);
+        if (session != null) {
+            clearPendingOtp(session);
+        }
+        forward(req, res, "auth/login");
+    }
+
+    /** POST /login — process credentials */
+    @Override
+    protected void doPost(HttpServletRequest req, HttpServletResponse res)
+            throws ServletException, IOException {
+
+        String identity = req.getParameter("identity");
+        String password = req.getParameter("password");
+
+        // Basic validation
+        if (isNullOrEmpty(identity) || isNullOrEmpty(password)) {
+            setError(req, "Vui lòng nhập đầy đủ tên đăng nhập và mật khẩu.");
+            forward(req, res, "auth/login");
+            return;
+        }
+
+        // Authenticate via service layer
+        User user = authService.authenticate(identity.trim(), password);
+
+        if (user == null) {
+            setError(req, "Tên đăng nhập hoặc mật khẩu không đúng.");
+            req.setAttribute("identity", identity); // preserve input
+            forward(req, res, "auth/login");
+            return;
+        }
+
+        // Check if user is active
+        if (!user.isActive()) {
+            setError(req, "Tài khoản của bạn đã bị khóa. Vui lòng liên hệ quản trị hệ thống.");
+            req.setAttribute("identity", identity);
+            forward(req, res, "auth/login");
+            return;
+        }
+
+        // Initialize session and set intermediate 2-Factor Authentication state
+        HttpSession session = req.getSession(true);
+        clearPendingOtp(session);
+
+        session.setAttribute(AppConstants.SESSION_PENDING_USER, user);
+        session.setAttribute(AppConstants.SESSION_PENDING_OTP_TARGET, getDashboardTarget(user.getRole()));
+        session.setMaxInactiveInterval(10 * 60); // 10 min limit to complete 2FA
+
+        // Redirect to OTP verification page
+        redirect(res, req.getContextPath() + "/otp");
+    }
+
+    /**
+     * Resolves the correct landing page URL depending on the user's system role.
+     */
+    private String getDashboardTarget(String role) {
+        if (role == null) {
+            return "/login";
+        }
+        switch (role) {
+            case "ADMIN":
+                return "/admin/users";
+            case "MANAGER":
+                return "/business/dashboard";
+            case "WAREHOUSE_STAFF":
+                return "/warehouse/master-sku";
+            case "SALES_STAFF":
+                return "/sales/orders";
+            default:
+                return "/login";
+        }
+    }
+
+    private void clearPendingOtp(HttpSession session) {
+        session.removeAttribute(AppConstants.SESSION_USER);
+        session.removeAttribute(AppConstants.SESSION_ROLE);
+        session.removeAttribute(AppConstants.SESSION_WAREHOUSE);
+        session.removeAttribute(AppConstants.SESSION_PENDING_USER);
+        session.removeAttribute(AppConstants.SESSION_PENDING_OTP);
+        session.removeAttribute(AppConstants.SESSION_PENDING_OTP_EXPIRES);
+        session.removeAttribute(AppConstants.SESSION_PENDING_OTP_DEST);
+        session.removeAttribute(AppConstants.SESSION_PENDING_OTP_TARGET);
+    }
+}

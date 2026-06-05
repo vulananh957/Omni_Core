@@ -216,6 +216,19 @@
     display: inline-block;
 }
 
+/* Sync status badge variants */
+.sm-badge-sync {
+    color: #fff;
+    border-radius: 4px;
+    font-weight: 700;
+    font-size: 11px;
+    padding: 0.25rem 0.5rem;
+    display: inline-block;
+}
+.sm-badge-sync.synced  { background: #059669; }
+.sm-badge-sync.error   { background: #dc2626; }
+.sm-badge-sync.pending { background: #d97706; }
+
 /* Mapped channel pills with hoverable delete cross */
 .sm-mapped-pill {
     display: inline-flex;
@@ -473,17 +486,23 @@
     font-size: 14px;
 }
 .op-empty svg { width: 36px; height: 36px; margin: 0 auto 0.75rem; color: rgba(16,55,92,.2); display: block; }
+
+.sm-form-group {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
 </style>
 
-<%-- ── DYNAMIC STATS CARDS ── --%>
+<%-- ── STATS CARDS — populated by JSP on first load; updated by JS on subsequent renders ── --%>
 <div class="sm-stats-grid">
     <div class="sm-stat-card">
         <div class="sm-stat-icon-wrapper blue">
             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path><polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline><line x1="12" y1="22.08" x2="12" y2="12"></line></svg>
         </div>
         <div>
-            <div class="sm-stat-num" id="statTotalMaster">0</div>
-            <div class="sm-stat-label">Tổng Master SKU nội bộ</div>
+            <div class="sm-stat-num" id="statTotalMaster">${totalMappings}</div>
+            <div class="sm-stat-label">Tổng Ánh Xạ SKU (Database)</div>
         </div>
     </div>
     <div class="sm-stat-card">
@@ -491,8 +510,8 @@
             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>
         </div>
         <div>
-            <div class="sm-stat-num" id="statUnmapped">0</div>
-            <div class="sm-stat-label">Mã Sàn chưa ánh xạ</div>
+            <div class="sm-stat-num" id="statUnmapped">${pendingMappings}</div>
+            <div class="sm-stat-label">Ánh xạ PENDING / ERROR</div>
         </div>
     </div>
     <div class="sm-stat-card">
@@ -500,8 +519,8 @@
             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg>
         </div>
         <div>
-            <div class="sm-stat-num" id="statMappings">0</div>
-            <div class="sm-stat-label">Liên kết ánh xạ (Join Rows)</div>
+            <div class="sm-stat-num" id="statMappings">${syncedMappings}</div>
+            <div class="sm-stat-label">Ánh xạ SYNCED</div>
         </div>
     </div>
 </div>
@@ -516,9 +535,16 @@
         <button class="sm-tab" id="tabMapped" onclick="switchTab('mapped')">
             DANH SÁCH ĐÃ ÁNH XẠ (MAPPED SKUs)
         </button>
+        <button class="sm-tab" id="tabDb" onclick="switchTab('db')">
+            ÁNH XẠ TỪ DATABASE
+        </button>
     </div>
     <div>
-        <button class="sm-btn-pull" onclick="pullMarketplaceProducts()" id="btnPullProducts">
+        <button class="sm-btn-pull" onclick="syncAllMappings()" id="btnSyncAll" title="Đồng bộ tất cả ánh xạ đang PENDING/ERROR">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"></path></svg>
+            Sync All
+        </button>
+        <button class="sm-btn-pull" onclick="pullMarketplaceProducts()" id="btnPullProducts" style="margin-left:0.5rem">
             <svg id="pullSpinnerIcon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"></path></svg>
             Kéo sản phẩm từ Sàn
         </button>
@@ -533,6 +559,16 @@
         </svg>
         <input type="text" placeholder="Tìm theo mã sàn, tên SP trên sàn..." id="smSearchInput" oninput="onSearch(this.value)" />
     </div>
+    <select class="sm-select" id="smChannelFilter" onchange="onChannelFilterChange(this.value)" style="min-width:140px">
+        <option value="">Tất cả kênh</option>
+        <c:forEach var="ch" items="${channels}">
+            <option value="${ch.channelId}">${ch.channelName}</option>
+        </c:forEach>
+    </select>
+    <button class="sm-btn-add-row" onclick="openCreateModal()" id="btnCreateMapping" style="display:none">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+        Tạo ánh xạ mới
+    </button>
 </div>
 
 <%-- ── DATA GRID TABLE ── --%>
@@ -548,13 +584,165 @@
         <table class="sm-table">
             <thead>
                 <tr id="smTableHeader">
-                    <%-- Populated by JS --%>
+                    <%-- Populated by JS for unmapped/mapped tabs --%>
+                    <%-- Populated server-side for db tab --%>
                 </tr>
             </thead>
             <tbody id="smTableBody">
-                <%-- Populated by JS --%>
+                <%-- Populated by JS for unmapped/mapped tabs --%>
+            </tbody>
+            <tbody id="smDbTableBody" style="display:none">
+                <%-- Server-rendered: SKU mappings from database --%>
+                <c:choose>
+                    <c:when test="${empty skuMappings}">
+                        <tr>
+                            <td colspan="7" class="op-empty">
+                                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><line x1="9" y1="9" x2="15" y2="15"></line><line x1="15" y1="9" x2="9" y2="15"></line></svg>
+                                Chưa có ánh xạ SKU nào trong cơ sở dữ liệu.
+                            </td>
+                        </tr>
+                    </c:when>
+                    <c:otherwise>
+                        <c:forEach var="m" items="${skuMappings}">
+                            <tr data-mapping-id="${m.mappingId}" data-channel-id="${m.channelId}" data-sku-id="${m.skuId}">
+                                <td><span style="font-family:monospace;font-weight:700">${m.skuCode}</span></td>
+                                <td><strong style="color:var(--navy)">${m.productName}</strong></td>
+                                <td>
+                                    <c:choose>
+                                        <c:when test="${m.channelPlatform == 'Lazada'}">
+                                            <span class="sm-badge-channel" style="background:#0F146D">${m.channelName}</span>
+                                        </c:when>
+                                        <c:when test="${m.channelPlatform == 'Shopee'}">
+                                            <span class="sm-badge-channel" style="background:#EE4D2D">${m.channelName}</span>
+                                        </c:when>
+                                        <c:when test="${m.channelPlatform == 'TikTok'}">
+                                            <span class="sm-badge-channel" style="background:#69C9D0">${m.channelName}</span>
+                                        </c:when>
+                                        <c:otherwise>
+                                            <span class="sm-badge-channel" style="background:#64748b">${m.channelName}</span>
+                                        </c:otherwise>
+                                    </c:choose>
+                                </td>
+                                <td><span style="font-family:monospace;font-weight:700">${m.externalSku}</span></td>
+                                <td><span style="font-family:monospace">${m.sellerSku}</span></td>
+                                <td>
+                                    <c:choose>
+                                        <c:when test="${m.syncStatus == 'SYNCED'}">
+                                            <span class="sm-badge-sync synced">${m.syncStatus}</span>
+                                        </c:when>
+                                        <c:when test="${m.syncStatus == 'ERROR'}">
+                                            <span class="sm-badge-sync error">${m.syncStatus}</span>
+                                        </c:when>
+                                        <c:otherwise>
+                                            <span class="sm-badge-sync pending">${m.syncStatus}</span>
+                                        </c:otherwise>
+                                    </c:choose>
+                                </td>
+                                <td>
+                                    <div style="display:flex;gap:6px;align-items:center">
+                                        <button class="sm-btn-action" onclick="openDbEditModal('${m.mappingId}')" title="Sửa">
+                                            <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
+                                        </button>
+                                        <button class="sm-btn-action" onclick="syncSingleMapping('${m.mappingId}')" title="Sync">
+                                            <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"></path></svg>
+                                        </button>
+                                        <button class="sm-btn-action" onclick="deleteDbMapping('${m.mappingId}')" style="background:#dc2626" title="Xóa">
+                                            <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+                                        </button>
+                                    </div>
+                                </td>
+                            </tr>
+                        </c:forEach>
+                    </c:otherwise>
+                </c:choose>
             </tbody>
         </table>
+    </div>
+</div>
+
+<%-- ── CRUD / SYNC MODAL FOR DATABASE MAPPINGS ── --%>
+<div class="sm-modal-overlay" id="smCrudModalOverlay" onclick="closeCrudModal()">
+    <div class="sm-modal" onclick="event.stopPropagation()">
+        <div class="sm-modal-header">
+            <div class="sm-modal-title">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"></path><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"></path></svg>
+                <span id="smCrudModalTitle">Tạo Ánh Xạ SKU</span>
+            </div>
+            <button class="sm-modal-close" onclick="closeCrudModal()">
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+            </button>
+        </div>
+        <form method="post" id="smCrudForm">
+            <input type="hidden" name="action" id="smCrudAction" value="create" />
+            <input type="hidden" name="mappingId" id="smCrudMappingId" value="" />
+            <div class="sm-modal-body">
+                <div class="sm-form-group">
+                    <label class="sm-field-label">Kênh bán hàng *</label>
+                    <select class="sm-select" name="channelId" id="smCrudChannelId" required style="width:100%">
+                        <option value="">-- Chọn kênh --</option>
+                        <c:forEach var="ch" items="${channels}">
+                            <option value="${ch.channelId}">${ch.channelName} (${ch.platform})</option>
+                        </c:forEach>
+                    </select>
+                </div>
+                <div class="sm-form-group">
+                    <label class="sm-field-label">Mã SKU Sàn (Channel SKU) *</label>
+                    <input type="text" class="sm-input" name="channelSku" id="smCrudChannelSku" placeholder="VD: LZD-SET5-SKU001" required style="text-align:left;padding:0.4rem 0.6rem" />
+                </div>
+                <div class="sm-form-group">
+                    <label class="sm-field-label">Mã Seller SKU (tùy chọn)</label>
+                    <input type="text" class="sm-input" name="sellerSku" id="smCrudSellerSku" placeholder="Mã SKU của người bán" style="text-align:left;padding:0.4rem 0.6rem" />
+                </div>
+                <div class="sm-form-group">
+                    <label class="sm-field-label">Trạng thái Sync</label>
+                    <select class="sm-select" name="syncStatus" id="smCrudSyncStatus" style="width:100%">
+                        <option value="PENDING">PENDING</option>
+                        <option value="SYNCED">SYNCED</option>
+                        <option value="ERROR">ERROR</option>
+                    </select>
+                </div>
+            </div>
+            <div class="sm-modal-footer">
+                <button type="button" class="sm-btn white" onclick="closeCrudModal()">HỦY</button>
+                <button type="submit" class="sm-btn primary">LƯU</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<%-- ── SYNC SINGLE CONFIRM MODAL ── --%>
+<div class="sm-modal-overlay" id="smSyncModalOverlay" onclick="closeSyncModal()">
+    <div class="sm-modal" style="max-width:400px" onclick="event.stopPropagation()">
+        <div class="sm-modal-header">
+            <div class="sm-modal-title">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"></path></svg>
+                Đồng bộ Ánh Xạ SKU
+            </div>
+            <button class="sm-modal-close" onclick="closeSyncModal()">
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+            </button>
+        </div>
+        <form method="post" id="smSyncForm">
+            <input type="hidden" name="action" value="sync" />
+            <input type="hidden" name="channelProductId" id="smSyncChannelProductId" value="" />
+            <div class="sm-modal-body">
+                <p style="font-size:13px;color:var(--navy);line-height:1.6">
+                    Xác nhận đồng bộ trạng thái <strong>SYNCED</strong> cho ánh xạ này?
+                </p>
+                <div style="margin-top:1rem">
+                    <label class="sm-field-label">Giá mới (VNĐ)</label>
+                    <input type="number" class="sm-input" name="price" id="smSyncPrice" placeholder="Giá mới" style="text-align:left;padding:0.4rem 0.6rem;width:100%" />
+                </div>
+                <div style="margin-top:0.75rem">
+                    <label class="sm-field-label">Tồn kho mới</label>
+                    <input type="number" class="sm-input" name="stock" id="smSyncStock" placeholder="Tồn kho mới" style="text-align:left;padding:0.4rem 0.6rem;width:100%" />
+                </div>
+            </div>
+            <div class="sm-modal-footer">
+                <button type="button" class="sm-btn white" onclick="closeSyncModal()">HỦY</button>
+                <button type="submit" class="sm-btn primary">ĐỒNG BỘ</button>
+            </div>
+        </form>
     </div>
 </div>
 
@@ -617,25 +805,38 @@
     <span id="opToastMsg">Thông báo hệ thống</span>
 </div>
 
+<%
+    // Clear session toast after displaying
+    if (request.getSession().getAttribute("toastMessage") != null) {
+        request.getSession().removeAttribute("toastMessage");
+        request.getSession().removeAttribute("toastSuccess");
+    }
+%>
 <script>
 // ── GLOBALS ─────────────────────────────────────────────────────────
 let activeTab = "unmapped";
 let searchQuery = "";
+let channelFilter = "";
 
-let APPROVED_MASTER_SKUS = []; // loaded from wms_skus dynamically
+let APPROVED_MASTER_SKUS = [];
 let unmappedList = [];
 let rawMappings = [];
 
-// Form configuration variables for mapping modal
 let selectedUnmappedProduct = null;
-let modalLinkedRows = []; // array of { masterSKU: string, conversionRate: number }
+let modalLinkedRows = [];
 
 // ── INIT DOMContentLoaded ──────────────────────────────────────────
 document.addEventListener("DOMContentLoaded", function() {
     loadDataFromStorage();
     renderAll();
-    
-    // Cross-tab / React sync
+
+    // Server-side toast from session
+    const toastMsg = "<c:out value='${sessionScope.toastMessage}' />";
+    const toastSuccess = "<c:out value='${sessionScope.toastSuccess}' />";
+    if (toastMsg && toastMsg !== "") {
+        showToast(toastMsg, toastSuccess === "true" ? "success" : "error");
+    }
+
     window.addEventListener("ORDER_STORE_UPDATED", function() {
         loadDataFromStorage();
         renderAll();
@@ -727,18 +928,25 @@ function showToast(msg, type = "success") {
 // ── RENDER & SWITCH TABS ─────────────────────────────────────────────
 function switchTab(tabId) {
     activeTab = tabId;
-    
+
     document.querySelectorAll(".sm-tab").forEach(btn => btn.classList.remove("active"));
     if (tabId === "unmapped") document.getElementById("tabUnmapped").classList.add("active");
     if (tabId === "mapped") document.getElementById("tabMapped").classList.add("active");
-    
+    if (tabId === "db") document.getElementById("tabDb").classList.add("active");
+
     const searchInp = document.getElementById("smSearchInput");
+    const createBtn = document.getElementById("btnCreateMapping");
     if (tabId === "unmapped") {
         searchInp.placeholder = "Tìm theo mã sàn, tên SP trên sàn...";
-    } else {
+        createBtn.style.display = "none";
+    } else if (tabId === "mapped") {
         searchInp.placeholder = "Tìm theo Master SKU, tên SP gốc WMS...";
+        createBtn.style.display = "none";
+    } else {
+        searchInp.placeholder = "Tìm theo SKU, kênh...";
+        createBtn.style.display = "flex";
     }
-    
+
     renderAll();
 }
 
@@ -767,7 +975,37 @@ function renderTabBadges() {
 
 function onSearch(val) {
     searchQuery = val.trim().toLowerCase();
-    renderAll();
+    if (activeTab === "db") {
+        filterDbTable();
+    } else {
+        renderAll();
+    }
+}
+
+function onChannelFilterChange(val) {
+    channelFilter = val;
+    if (activeTab === "db") {
+        filterDbTable();
+    }
+}
+
+function filterDbTable() {
+    const rows = document.querySelectorAll("#smDbTableBody tr[data-mapping-id]");
+    rows.forEach(function(row) {
+        const sku = (row.getAttribute("data-sku-id") || "").toLowerCase();
+        const channelId = row.getAttribute("data-channel-id") || "";
+        const skuCode = row.querySelector("td") ? row.querySelector("td").textContent.toLowerCase() : "";
+        const externalSku = row.querySelectorAll("td")[3] ? row.querySelectorAll("td")[3].textContent.toLowerCase() : "";
+
+        let show = true;
+        if (searchQuery && !(skuCode.includes(searchQuery) || externalSku.includes(searchQuery))) {
+            show = false;
+        }
+        if (channelFilter && channelId !== channelFilter) {
+            show = false;
+        }
+        row.style.display = show ? "" : "none";
+    });
 }
 
 // ── MARKETPLACE SANDBOX API PULL SIMULATION ─────────────────────────
@@ -834,6 +1072,26 @@ function pullMarketplaceProducts() {
 // ── RENDER DYNAMIC TABLES ────────────────────────────────────────────
 function renderTableHeader() {
     const header = document.getElementById("smTableHeader");
+    const dbTbody = document.getElementById("smDbTableBody");
+
+    if (activeTab === "db") {
+        dbTbody.style.display = "";
+        document.getElementById("smTableBody").closest(".sm-table-scroll").querySelector("table").style.display = "none";
+        header.innerHTML = `
+            <th style="width: 144px">Master SKU</th>
+            <th style="width: 220px">Tên sản phẩm</th>
+            <th style="width: 120px">Kênh</th>
+            <th style="width: 160px">Channel SKU</th>
+            <th style="width: 140px">Seller SKU</th>
+            <th style="width: 100px">Trạng thái</th>
+            <th style="width: 150px; text-align: center">Hành động</th>
+        `;
+        return;
+    }
+
+    document.getElementById("smTableBody").closest(".sm-table-scroll").querySelector("table").style.display = "";
+    dbTbody.style.display = "none";
+
     let html = "";
     if (activeTab === "unmapped") {
         html = `
@@ -861,14 +1119,17 @@ function renderTableHeader() {
 function renderTableBody() {
     const tbody = document.getElementById("smTableBody");
     tbody.innerHTML = "";
-    
-    if (activeTab === "unmapped") {
+
+    if (activeTab === "db") {
+        filterDbTable();
+        return;
+    } else if (activeTab === "unmapped") {
         const filtered = unmappedList.filter(item => {
             if (!searchQuery) return true;
             return (item.channelSKU && item.channelSKU.toLowerCase().indexOf(searchQuery) > -1) ||
                    (item.channelItemName && item.channelItemName.toLowerCase().indexOf(searchQuery) > -1);
         });
-        
+
         if (filtered.length === 0) {
             tbody.innerHTML = `<tr>
                 <td colspan="5" class="op-empty">
@@ -878,7 +1139,7 @@ function renderTableBody() {
             </tr>`;
             return;
         }
-        
+
         filtered.forEach(item => {
             const tr = document.createElement("tr");
             tr.innerHTML = `
@@ -1166,5 +1427,83 @@ function saveMappingConfig() {
     closeMappingModal();
     renderAll();
     showToast("Thiết lập ánh xạ Nhiều-Nhiều và các quy tắc Combo quy đổi thành công!", "success");
+}
+
+// ── DATABASE CRUD / SYNC MODAL CONTROLS ─────────────────────────────
+
+function openCreateModal() {
+    document.getElementById("smCrudModalTitle").textContent = "Tạo Ánh Xạ SKU Mới";
+    document.getElementById("smCrudAction").value = "create";
+    document.getElementById("smCrudMappingId").value = "";
+    document.getElementById("smCrudChannelId").value = "";
+    document.getElementById("smCrudChannelSku").value = "";
+    document.getElementById("smCrudSellerSku").value = "";
+    document.getElementById("smCrudSyncStatus").value = "PENDING";
+    document.getElementById("smCrudModalOverlay").classList.add("open");
+}
+
+function openDbEditModal(mappingId) {
+    const row = document.querySelector('tr[data-mapping-id="' + mappingId + '"]');
+    if (!row) return;
+
+    const tds = row.querySelectorAll("td");
+    document.getElementById("smCrudModalTitle").textContent = "Sửa Ánh Xạ SKU";
+    document.getElementById("smCrudAction").value = "update";
+    document.getElementById("smCrudMappingId").value = mappingId;
+    document.getElementById("smCrudChannelId").value = row.getAttribute("data-channel-id");
+    document.getElementById("smCrudChannelSku").value = tds[3] ? tds[3].textContent.trim() : "";
+    document.getElementById("smCrudSellerSku").value = tds[4] ? tds[4].textContent.trim() : "";
+    document.getElementById("smCrudSyncStatus").value = tds[5] ? tds[5].textContent.trim() : "PENDING";
+    document.getElementById("smCrudModalOverlay").classList.add("open");
+}
+
+function closeCrudModal() {
+    document.getElementById("smCrudModalOverlay").classList.remove("open");
+}
+
+function deleteDbMapping(mappingId) {
+    if (!confirm("Bạn có chắc chắn muốn xóa ánh xạ SKU này không?")) return;
+
+    const form = document.createElement("form");
+    form.method = "post";
+    form.action = "";
+    const actionInput = document.createElement("input");
+    actionInput.type = "hidden";
+    actionInput.name = "action";
+    actionInput.value = "delete";
+    const idInput = document.createElement("input");
+    idInput.type = "hidden";
+    idInput.name = "mappingId";
+    idInput.value = mappingId;
+    form.appendChild(actionInput);
+    form.appendChild(idInput);
+    document.body.appendChild(form);
+    form.submit();
+}
+
+function syncSingleMapping(mappingId) {
+    document.getElementById("smSyncChannelProductId").value = mappingId;
+    document.getElementById("smSyncPrice").value = "";
+    document.getElementById("smSyncStock").value = "";
+    document.getElementById("smSyncModalOverlay").classList.add("open");
+}
+
+function closeSyncModal() {
+    document.getElementById("smSyncModalOverlay").classList.remove("open");
+}
+
+function syncAllMappings() {
+    if (!confirm("Xác nhận đồng bộ tất cả ánh xạ đang PENDING / ERROR?")) return;
+
+    const form = document.createElement("form");
+    form.method = "post";
+    form.action = "";
+    const actionInput = document.createElement("input");
+    actionInput.type = "hidden";
+    actionInput.name = "action";
+    actionInput.value = "syncAll";
+    form.appendChild(actionInput);
+    document.body.appendChild(form);
+    form.submit();
 }
 </script>

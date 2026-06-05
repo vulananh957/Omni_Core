@@ -2,6 +2,110 @@
 <%@ taglib prefix="c" uri="jakarta.tags.core" %>
 
 <style>
+    /* ─── Inbound DB Section ─── */
+    .db-section-header {
+        display: flex; align-items: center; justify-content: space-between;
+        margin-bottom: 12px;
+    }
+    .db-section-title {
+        font-size: 15px; font-weight: 800; color: var(--navy); letter-spacing: -0.02em;
+    }
+    .db-badge {
+        display: inline-flex; align-items: center; gap: 4px;
+        padding: 3px 10px; border-radius: 20px;
+        font-size: 10px; font-weight: 700;
+        background: rgba(6, 182, 212, 0.1); color: #0891b2;
+        border: 1px solid rgba(6, 182, 212, 0.2);
+    }
+    .db-table-card {
+        background: #fff; border: 1px solid var(--border);
+        border-radius: var(--radius-card); overflow: hidden; margin-bottom: 20px;
+    }
+    .db-table { width: 100%; border-collapse: collapse; }
+    .db-table thead tr { background: var(--alice); border-bottom: 1px solid var(--border); }
+    .db-table thead th {
+        padding: 10px 16px;
+        font-size: 10px; font-weight: 700; text-transform: uppercase;
+        letter-spacing: .08em; color: rgba(16,55,92,0.40);
+    }
+    .db-table thead th:first-child { padding-left: 20px; }
+    .db-table thead th.text-right { text-align: right; }
+    .db-table tbody tr { border-bottom: 1px solid var(--border); transition: background .12s; }
+    .db-table tbody tr:last-child { border-bottom: none; }
+    .db-table tbody tr:hover { background: rgba(240,244,250,0.50); }
+    .db-table tbody td { padding: 12px 16px; font-size: 13px; color: var(--navy); }
+    .db-table tbody td:first-child { padding-left: 20px; }
+    .db-table tbody td.text-right { text-align: right; }
+    .db-inbound-code { font-family: monospace; font-weight: 700; color: var(--navy); font-size: 12px; }
+    .db-supplier { font-weight: 500; }
+    .db-warehouse { font-size: 12px; color: rgba(16,55,92,0.60); }
+    .db-empty-row td { text-align: center; padding: 32px !important; color: rgba(16,55,92,0.40); }
+
+    .status-pill {
+        display: inline-flex; align-items: center; gap: 4px;
+        padding: 3px 10px; border-radius: 20px; font-size: 10px; font-weight: 700;
+    }
+    .status-pill__dot { width: 5px; height: 5px; border-radius: 50%; }
+    .status-pill.pending   { background: #eff6ff; color: #1d4ed8; }
+    .status-pill.pending .status-pill__dot { background: #3b82f6; }
+    .status-pill.confirmed { background: rgba(245,200,66,0.15); color: #d97706; }
+    .status-pill.confirmed .status-pill__dot { background: #f5c842; }
+    .status-pill.received  { background: #ecfdf5; color: #047857; }
+    .status-pill.received .status-pill__dot { background: #10b981; }
+    .status-pill.cancelled { background: #fef2f2; color: #b91c1c; }
+    .status-pill.cancelled .status-pill__dot { background: #ef4444; }
+
+    .db-filter-tabs {
+        display: flex; flex-wrap: wrap; gap: 4px;
+        background: #fff; border: 1px solid var(--border);
+        border-radius: var(--radius-card); padding: 4px;
+        margin-bottom: 16px;
+    }
+    .db-filter-btn {
+        display: flex; align-items: center; gap: 6px;
+        padding: 6px 14px; font-size: 12px; font-weight: 600;
+        border: none; background: none; cursor: pointer;
+        color: rgba(16,55,92,0.50); border-radius: calc(var(--radius-btn) - 4px);
+        transition: all .15s;
+    }
+    .db-filter-btn.active { background: var(--navy); color: #fff; }
+    .db-filter-btn:not(.active):hover { color: var(--navy); }
+    .db-filter-count {
+        font-size: 9px; font-weight: 700; padding: 1px 5px;
+        border-radius: 9999px;
+    }
+    .db-filter-btn.active .db-filter-count { background: rgba(255,255,255,.20); color: #fff; }
+    .db-filter-btn:not(.active) .db-filter-count { background: rgba(16,55,92,.08); color: rgba(16,55,92,.50); }
+
+    .db-action-btn {
+        display: inline-flex; align-items: center; gap: 4px;
+        padding: 5px 12px; border: none; border-radius: calc(var(--radius-btn) - 4px);
+        font-size: 11px; font-weight: 700; cursor: pointer; white-space: nowrap;
+        transition: opacity .12s;
+    }
+    .db-action-btn:hover { opacity: .88; }
+    .db-action-btn--orange { background: var(--orange); color: #fff; }
+    .db-action-btn--navy  { background: var(--navy); color: #fff; }
+    .db-action-btn--emerald { background: #059669; color: #fff; }
+    .db-action-btn--white  { background: #fff; border: 1px solid var(--border); color: rgba(16,55,92,.7); }
+
+    /* Toast Notification */
+    .toast-container { position: fixed; top: 20px; right: 20px; z-index: 9999; display: flex; flex-direction: column; gap: 8px; }
+    .toast {
+        display: flex; align-items: center; gap: 10px;
+        padding: 12px 16px; background: #fff; border-radius: var(--radius-card);
+        box-shadow: 0 10px 25px rgba(16,55,92,.15);
+        font-size: 13px; font-weight: 500; color: var(--navy);
+        border-left: 4px solid var(--navy);
+        animation: slideInToast .2s ease;
+        max-width: 360px;
+    }
+    .toast.success { border-left-color: #10b981; }
+    .toast.error   { border-left-color: #ef4444; }
+    .toast__icon { width: 18px; height: 18px; flex-shrink: 0; }
+    @keyframes slideInToast { from { transform: translateX(100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+
+<style>
     /* ─── Tabs & Layout ─── */
     .tabs-wrap {
         display: flex;
@@ -962,7 +1066,53 @@
         </div>
     </div>
 
+    <!-- ─── DB-SIDE INBOUND ORDERS ─── -->
+    <!-- Pulls from InboundDAO.findAll() passed by WarehouseInboundServlet -->
+    <c:if test="${not empty inboundList || param.showDb eq 'true'}">
+    <div class="db-section-header" style="margin-bottom:16px;">
+        <div>
+            <div class="db-section-title">Danh sách phiếu nhập (từ Database)</div>
+            <div style="font-size:12px; color:rgba(16,55,92,0.40); margin-top:2px;">Dữ liệu thực từ MySQL — InboundOrder</div>
+        </div>
+        <div class="db-badge">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:12px;height:12px;"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/></svg>
+            MySQL
+        </div>
+    </div>
+
+    <!-- Server-side status filter -->
+    <div class="db-filter-tabs" id="dbFilterTabs">
+        <button class="db-filter-btn active" data-filter="all">Tất cả <span class="db-filter-count" id="db-count-all">0</span></button>
+        <button class="db-filter-btn" data-filter="PENDING">Chờ <span class="db-filter-count" id="db-count-PENDING">0</span></button>
+        <button class="db-filter-btn" data-filter="IN_PROGRESS">Đang nhập <span class="db-filter-count" id="db-count-IN_PROGRESS">0</span></button>
+        <button class="db-filter-btn" data-filter="RECEIVED">Đã nhập <span class="db-filter-count" id="db-count-RECEIVED">0</span></button>
+        <button class="db-filter-btn" data-filter="CANCELLED">Đã hủy <span class="db-filter-count" id="db-count-CANCELLED">0</span></button>
+    </div>
+
+    <div class="db-table-card">
+        <table class="db-table">
+            <thead>
+                <tr>
+                    <th>Mã phiếu</th>
+                    <th>Nhà cung cấp</th>
+                    <th>Kho</th>
+                    <th>Ngày tạo</th>
+                    <th>Trạng thái</th>
+                    <th class="text-right">Thao tác</th>
+                </tr>
+            </thead>
+            <tbody id="dbInboundTableBody">
+            </tbody>
+        </table>
+    </div>
+    </c:if>
+
+    <!-- ══ EXISTING LOCAL-STORAGE SECTION ══════════════════════════════ -->
     <!-- Toolbar -->
+    <div style="margin-bottom:16px; padding-bottom:16px; border-bottom:1px dashed var(--border);">
+        <div style="font-size:13px; font-weight:700; color:rgba(16,55,92,0.40); text-transform:uppercase; letter-spacing:.05em; margin-bottom:8px;">Local Demo</div>
+        <div style="font-size:12px; color:rgba(16,55,92,0.30);">Dữ liệu phiếu nhập demo sử dụng localStorage — dùng bảng Database phía trên để làm việc thực tế.</div>
+    </div>
     <div class="toolbar">
         <div class="search-wrap">
             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"></svg>
@@ -1121,6 +1271,78 @@
             <button class="modal-btn-cancel" onclick="closeReceiveModal()">Hủy</button>
             <button class="modal-btn-submit modal-btn-emerald" onclick="submitConfirmReceive()">Xác nhận nhập kho</button>
         </div>
+    </div>
+</div>
+
+<!-- ══ MODAL: CREATE PO (Server-side) ════════════════════════════════ -->
+<div class="modal-overlay" id="createPOModal">
+    <div class="modal-box" style="max-width:560px;">
+        <div class="modal-hdr">
+            <div>
+                <h2 class="modal-title">Tạo phiếu nhập mới</h2>
+                <p class="modal-subtitle">Tạo đơn nhập hàng từ nhà cung cấp</p>
+            </div>
+            <button class="modal-close" onclick="closeCreatePOModal()">&times;</button>
+        </div>
+        <form method="POST" action="${pageContext.request.contextPath}/warehouse/inbound" id="createPOForm">
+            <input type="hidden" name="action" value="create"/>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label class="form-label" for="po-supplier">Nhà cung cấp *</label>
+                    <input class="form-input" style="background:#fff;" type="text" id="po-supplier" name="supplierName" placeholder="Tên nhà cung cấp..." required/>
+                </div>
+                <div class="form-group">
+                    <label class="form-label" for="po-warehouse">Kho nhập *</label>
+                    <select class="form-input" style="background:#fff;" id="po-warehouse" name="warehouseId" required>
+                        <option value="">— Chọn kho —</option>
+                        <c:forEach items="${warehouses}" var="w">
+                            <option value="${w.warehouseId}">${w.warehouseName}</option>
+                        </c:forEach>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label class="form-label" for="po-date">Ngày dự kiến nhận</label>
+                    <input class="form-input" style="background:#fff;" type="date" id="po-date" name="expectedDate"/>
+                </div>
+                <div class="form-group">
+                    <label class="form-label" for="po-notes">Ghi chú</label>
+                    <textarea class="form-textarea" style="background:#fff;" id="po-notes" name="notes" rows="3" placeholder="Ghi chú thêm (nếu có)..."></textarea>
+                </div>
+            </div>
+            <div class="modal-ftr" style="background:#fff;">
+                <button type="button" class="modal-btn-cancel" onclick="closeCreatePOModal()">Hủy</button>
+                <button type="submit" class="modal-btn-submit">Tạo phiếu nhập</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- ══ MODAL: CONFIRM RECEIVE (Server-side) ═════════════════════════ -->
+<div class="modal-overlay" id="receiveDBModal">
+    <div class="modal-box" style="max-width:600px;">
+        <div class="modal-hdr">
+            <div>
+                <h2 class="modal-title">Xác nhận nhập kho thực tế</h2>
+                <p class="modal-subtitle" id="receiveDB-subtitle">Mã phiếu: ...</p>
+            </div>
+            <button class="modal-close" onclick="closeReceiveDBModal()">&times;</button>
+        </div>
+        <form method="POST" action="${pageContext.request.contextPath}/warehouse/inbound" id="receiveDBForm">
+            <input type="hidden" name="action" value="receive"/>
+            <input type="hidden" name="inboundId" id="receiveDB-inboundId"/>
+            <div class="modal-body">
+                <p style="font-size:12px; color:rgba(16,55,92,0.60); margin-bottom:8px;">
+                    Nhập số lượng thực tế cho từng sản phẩm. Hệ thống sẽ cộng tồn kho khả dụng và tạo ledger entry.
+                </p>
+                <div id="receiveDBItemsContainer" style="display:flex; flex-direction:column; gap:10px;">
+                    <!-- Dynamic items -->
+                </div>
+            </div>
+            <div class="modal-ftr" style="background:#fff;">
+                <button type="button" class="modal-btn-cancel" onclick="closeReceiveDBModal()">Hủy</button>
+                <button type="submit" class="modal-btn-submit modal-btn-emerald">Xác nhận nhập kho</button>
+            </div>
+        </form>
     </div>
 </div>
 
@@ -2054,8 +2276,176 @@ function renderPricing() {
 // ─── HELPERS ───
 function padZero(n) { return n < 10 ? '0' + n : n; }
 
-// ─── INITIALIZATION ───
+// ─── INIT ───
 renderReceipts();
 
+// ─── DB-SIDE INBOUND TABLE (from WarehouseInboundServlet) ───
+(function() {
+    'use strict';
+
+    // Inbound orders data from servlet (via JSTL)
+    var dbInboundList = [
+        <c:forEach items="${inboundList}" var="io" varStatus="s">
+            {
+                inboundId: ${io.inboundId},
+                inboundCode: "<c:out value='${io.inboundCode}'/>",
+                supplierName: "<c:out value='${io.supplierName}'/>",
+                warehouseName: "<c:out value='${io.warehouseName}'/>",
+                status: "<c:out value='${io.status}'/>",
+                createdAt: "<c:out value='${io.createdAt}'/>"
+            }${!s.last ? ',' : ''}
+        </c:forEach>
+    ];
+
+    var dbActiveFilter = 'all';
+
+    function dbStatusLabel(status) {
+        var m = {
+            'PENDING':    { label: 'Chờ',        cls: 'pending' },
+            'IN_PROGRESS':{ label: 'Đang nhập',   cls: 'confirmed' },
+            'CONFIRMED':  { label: 'Đã xác nhận', cls: 'confirmed' },
+            'RECEIVED':   { label: 'Đã nhập',     cls: 'received' },
+            'CANCELLED':  { label: 'Đã hủy',      cls: 'cancelled' }
+        };
+        var c = m[status] || { label: status, cls: 'pending' };
+        return '<span class="status-pill ' + c.cls + '"><span class="status-pill__dot"></span>' + c.label + '</span>';
+    }
+
+    function dbCounts() {
+        return {
+            all:       dbInboundList.length,
+            PENDING:   dbInboundList.filter(function(o){ return o.status === 'PENDING'; }).length,
+            CONFIRMED: dbInboundList.filter(function(o){ return o.status === 'CONFIRMED'; }).length,
+            RECEIVED:  dbInboundList.filter(function(o){ return o.status === 'RECEIVED'; }).length,
+            CANCELLED: dbInboundList.filter(function(o){ return o.status === 'CANCELLED'; }).length
+        };
+    }
+
+    function esc(v) {
+        if (v == null) return '';
+        return String(v).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+    }
+
+    function renderDbTable() {
+        var filtered = dbActiveFilter === 'all'
+            ? dbInboundList
+            : dbInboundList.filter(function(o){ return o.status === dbActiveFilter; });
+
+        var counts = dbCounts();
+        document.getElementById('db-count-all').textContent       = counts.all;
+        document.getElementById('db-count-PENDING').textContent   = counts.PENDING;
+        document.getElementById('db-count-IN_PROGRESS').textContent = counts.IN_PROGRESS;
+        document.getElementById('db-count-RECEIVED').textContent   = counts.RECEIVED;
+        document.getElementById('db-count-CANCELLED').textContent   = counts.CANCELLED;
+
+        var tbody = document.getElementById('dbInboundTableBody');
+        if (!tbody) return;
+
+        if (filtered.length === 0) {
+            tbody.innerHTML = '<tr class="db-empty-row"><td colspan="6">Không có phiếu nhập nào.</td></tr>';
+            return;
+        }
+
+        tbody.innerHTML = filtered.map(function(o) {
+            var confirmBtn = o.status === 'PENDING'
+                ? '<button class="db-action-btn db-action-btn--navy" onclick="dbConfirmInbound(' + o.inboundId + ',\'' + esc(o.inboundCode) + '\')">Xác nhận</button>'
+                : '';
+            var receiveBtn = (o.status === 'CONFIRMED' || o.status === 'IN_PROGRESS')
+                ? '<button class="db-action-btn db-action-btn--emerald" onclick="dbOpenReceiveModal(' + o.inboundId + ',\'' + esc(o.inboundCode) + '\')">Nhập kho</button>'
+                : '';
+
+            return '<tr>' +
+                '<td><span class="db-inbound-code">' + esc(o.inboundCode) + '</span></td>' +
+                '<td><span class="db-supplier">' + esc(o.supplierName) + '</span></td>' +
+                '<td><span class="db-warehouse">' + esc(o.warehouseName || '—') + '</span></td>' +
+                '<td style="font-size:12px; color:rgba(16,55,92,0.5);">' + esc(o.createdAt) + '</td>' +
+                '<td>' + dbStatusLabel(o.status) + '</td>' +
+                '<td class="text-right">' +
+                    confirmBtn + receiveBtn +
+                '</td>' +
+            '</tr>';
+        }).join('');
+    }
+
+    // Filter tabs
+    var tabs = document.getElementById('dbFilterTabs');
+    if (tabs) {
+        tabs.addEventListener('click', function(e) {
+            var btn = e.target.closest('.db-filter-btn');
+            if (!btn) return;
+            dbActiveFilter = btn.dataset.filter;
+            tabs.querySelectorAll('.db-filter-btn').forEach(function(b){ b.classList.remove('active'); });
+            btn.classList.add('active');
+            renderDbTable();
+        });
+    }
+
+    // Create PO modal helpers
+    window.openCreatePOModal = function() {
+        document.getElementById('createPOModal').classList.add('active');
+    };
+    window.closeCreatePOModal = function() {
+        document.getElementById('createPOModal').classList.remove('active');
+    };
+
+    // Confirm action (form submit)
+    window.dbConfirmInbound = function(id, code) {
+        if (confirm('Xác nhận phiếu ' + code + '? Trạng thái sẽ chuyển sang Đã xác nhận.')) {
+            var form = document.createElement('form');
+            form.method = 'POST';
+            form.action = '${pageContext.request.contextPath}/warehouse/inbound';
+            var a = document.createElement('input'); a.type='hidden'; a.name='action'; a.value='confirm';
+            var b = document.createElement('input'); b.type='hidden'; b.name='inboundId'; b.value=id;
+            form.appendChild(a); form.appendChild(b);
+            document.body.appendChild(form);
+            form.submit();
+        }
+    };
+
+    // Receive modal
+    window.dbOpenReceiveModal = function(id, code) {
+        document.getElementById('receiveDB-inboundId').value = id;
+        document.getElementById('receiveDB-subtitle').textContent = 'Mã phiếu: ' + code;
+
+        var container = document.getElementById('receiveDBItemsContainer');
+        // Default: single product input for quick entry
+        container.innerHTML =
+            '<div class="receive-item-card">' +
+                '<div style="flex:1; font-weight:600; color:var(--navy); font-size:13px;">Nhập thông tin nhập kho</div>' +
+            '</div>' +
+            '<div style="padding:12px; background:var(--alice); border-radius:8px; border:1px solid var(--border);">' +
+                '<div class="form-group">' +
+                    '<label class="form-label">Ghi chú nhập kho</label>' +
+                    '<input class="form-input" style="background:#fff;" type="text" placeholder="Ghi chú (tùy chọn)"/>' +
+                '</div>' +
+            '</div>';
+
+        document.getElementById('receiveDBModal').classList.add('active');
+    };
+
+    window.closeReceiveDBModal = function() {
+        document.getElementById('receiveDBModal').classList.remove('active');
+    };
+
+    // Modal overlay click-outside to close
+    ['createPOModal','receiveDBModal'].forEach(function(id) {
+        var el = document.getElementById(id);
+        if (el) el.addEventListener('click', function(e){ if(e.target===el) el.classList.remove('active'); });
+    });
+
+    // Init
+    renderDbTable();
+
+    // Hook "Tạo phiếu nhập" button to open server-side modal if data exists
+    var createBtn = document.getElementById('btnCreateGRNTrigger');
+    if (createBtn) {
+        createBtn.addEventListener('click', function() {
+            <c:choose>
+                <c:when test="${not empty inboundList}">openCreatePOModal();</c:when>
+                <c:otherwise>openDraftModal('create');</c:otherwise>
+            </c:choose>
+        });
+    }
 })();
+
 </script>

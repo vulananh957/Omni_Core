@@ -2,6 +2,85 @@
 <%@ taglib prefix="c" uri="jakarta.tags.core" %>
 
 <style>
+    /* ─── DB Transfer Section ─── */
+    .db-tr-header {
+        display: flex; align-items: center; justify-content: space-between;
+        margin-bottom: 16px;
+    }
+    .db-tr-title { font-size: 15px; font-weight: 800; color: var(--navy); letter-spacing: -0.02em; }
+    .db-tr-subtitle { font-size: 12px; color: rgba(16,55,92,.40); margin-top: 2px; }
+    .db-tr-badge {
+        display: inline-flex; align-items: center; gap: 4px;
+        padding: 3px 10px; border-radius: 20px;
+        font-size: 10px; font-weight: 700;
+        background: rgba(6,182,212,.1); color: #0891b2;
+        border: 1px solid rgba(6,182,212,.2);
+    }
+    .db-tr-tabs {
+        background: #fff; border: 1px solid var(--border);
+        border-radius: var(--radius-card); padding: 4px;
+        display: flex; flex-wrap: wrap; gap: 4px;
+        margin-bottom: 16px;
+    }
+    .db-tr-tab {
+        display: flex; align-items: center; gap: 6px;
+        padding: 6px 14px; font-size: 12px; font-weight: 600;
+        border: none; background: none; cursor: pointer;
+        color: rgba(16,55,92,.50); border-radius: calc(var(--radius-btn) - 4px);
+        transition: all .15s;
+    }
+    .db-tr-tab.active { background: var(--navy); color: #fff; }
+    .db-tr-tab:not(.active):hover { color: var(--navy); }
+    .db-tr-count {
+        font-size: 9px; font-weight: 700; padding: 1px 5px; border-radius: 9999px;
+    }
+    .db-tr-tab.active .db-tr-count { background: rgba(255,255,255,.2); color: #fff; }
+    .db-tr-tab:not(.active) .db-tr-count { background: rgba(16,55,92,.08); color: rgba(16,55,92,.5); }
+    .db-tr-table-card {
+        background: #fff; border: 1px solid var(--border);
+        border-radius: var(--radius-card); overflow: hidden; margin-bottom: 20px;
+    }
+    .db-tr-table { width: 100%; border-collapse: collapse; }
+    .db-tr-table thead tr { background: var(--alice); border-bottom: 1px solid var(--border); }
+    .db-tr-table thead th {
+        padding: 10px 16px; font-size: 10px; font-weight: 700;
+        text-transform: uppercase; letter-spacing: .08em; color: rgba(16,55,92,.4);
+    }
+    .db-tr-table thead th:first-child { padding-left: 20px; }
+    .db-tr-table thead th.text-right { text-align: right; }
+    .db-tr-table tbody tr { border-bottom: 1px solid var(--border); transition: background .12s; }
+    .db-tr-table tbody tr:last-child { border-bottom: none; }
+    .db-tr-table tbody tr:hover { background: rgba(240,244,250,.5); }
+    .db-tr-table tbody td { padding: 12px 16px; font-size: 13px; color: var(--navy); }
+    .db-tr-table tbody td:first-child { padding-left: 20px; }
+    .db-tr-table tbody td.text-right { text-align: right; }
+    .db-tr-empty { text-align: center; padding: 32px; color: rgba(16,55,92,.4); }
+    .db-tr-code { font-family: monospace; font-weight: 700; color: var(--navy); font-size: 12px; }
+    .db-tr-wh { font-weight: 500; }
+    .db-tr-zone { font-size: 11px; color: rgba(16,55,92,.5); margin-top: 2px; }
+    .db-tr-status-pill {
+        display: inline-flex; align-items: center; gap: 4px;
+        padding: 3px 10px; border-radius: 20px; font-size: 10px; font-weight: 700;
+    }
+    .db-tr-status-pill__dot { width: 5px; height: 5px; border-radius: 50%; }
+    .db-tr-status-pill.draft     { background: rgba(16,55,92,.08); color: rgba(16,55,92,.6); }
+    .db-tr-status-pill.draft .db-tr-status-pill__dot { background: rgba(16,55,92,.3); }
+    .db-tr-status-pill.in_transit { background: rgba(245,200,66,.15); color: #d97706; }
+    .db-tr-status-pill.in_transit .db-tr-status-pill__dot { background: #f5c842; }
+    .db-tr-status-pill.received  { background: #ecfdf5; color: #047857; }
+    .db-tr-status-pill.received .db-tr-status-pill__dot { background: #10b981; }
+    .db-tr-status-pill.cancelled { background: #fef2f2; color: #991b1b; }
+    .db-tr-status-pill.cancelled .db-tr-status-pill__dot { background: #ef4444; }
+    .db-tr-action {
+        display: inline-flex; align-items: center; gap: 4px;
+        padding: 5px 12px; border: none; border-radius: calc(var(--radius-btn) - 4px);
+        font-size: 11px; font-weight: 700; cursor: pointer;
+        background: var(--navy); color: #fff; transition: opacity .12s;
+    }
+    .db-tr-action:hover { opacity: .88; }
+</style>
+
+<style>
     /* ─── Stats Grid ─── */
     .tr-stats-grid {
         display: grid;
@@ -305,6 +384,60 @@
         border: 1px solid #fde68a; border-radius: calc(var(--radius-btn) - 2px);
     }
 </style>
+
+<!-- ═══ DB-SIDE TRANSFERS (from servlet) ═══ -->
+<c:if test="${not empty transfers || not empty warehouses}">
+<div class="db-tr-header">
+    <div>
+        <div class="db-tr-title">Danh sách lệnh chuyển kho (Database)</div>
+        <div class="db-tr-subtitle">Dữ liệu chuyển kho từ MySQL — Logic xử lý Day 3</div>
+    </div>
+    <div class="db-tr-badge">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:12px;height:12px;"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/></svg>
+        MySQL · Transfer Day 3
+    </div>
+</div>
+
+<div class="db-tr-tabs" id="dbTrTabs">
+    <button class="db-tr-tab active" data-tab="all">
+        Tất cả <span class="db-tr-count" id="dbTr-all">0</span>
+    </button>
+    <button class="db-tr-tab" data-tab="DRAFT">
+        Nháp <span class="db-tr-count" id="dbTr-DRAFT">0</span>
+    </button>
+    <button class="db-tr-tab" data-tab="IN_TRANSIT">
+        Đang chuyển <span class="db-tr-count" id="dbTr-IN_TRANSIT">0</span>
+    </button>
+    <button class="db-tr-tab" data-tab="RECEIVED">
+        Đã nhận <span class="db-tr-count" id="dbTr-RECEIVED">0</span>
+    </button>
+    <button class="db-tr-tab" data-tab="CANCELLED">
+        Đã hủy <span class="db-tr-count" id="dbTr-CANCELLED">0</span>
+    </button>
+</div>
+
+<div class="db-tr-table-card">
+    <table class="db-tr-table">
+        <thead>
+            <tr>
+                <th>Mã phiếu</th>
+                <th>Từ kho</th>
+                <th>Đến kho</th>
+                <th>Ngày tạo</th>
+                <th>Trạng thái</th>
+                <th class="text-right">Thao tác</th>
+            </tr>
+        </thead>
+        <tbody id="dbTrTableBody">
+        </tbody>
+    </table>
+</div>
+
+<div style="margin-bottom:16px; padding-bottom:16px; border-bottom:1px dashed var(--border);">
+    <div style="font-size:12px; font-weight:700; color:rgba(16,55,92,.40); text-transform:uppercase; letter-spacing:.05em; margin-bottom:6px;">Local Demo</div>
+    <div style="font-size:12px; color:rgba(16,55,92,.30);">Dữ liệu demo sử dụng localStorage — dùng bảng Database phía trên để làm việc thực tế.</div>
+</div>
+</c:if>
 
 <!-- ═══ STATS ROW ═══ -->
 <div class="tr-stats-grid" id="trStatsGrid">
@@ -910,5 +1043,132 @@
 
     // ─── Init ───
     render();
+
+    // ─── DB-Side Transfer Table ───
+    (function() {
+        'use strict';
+
+        var dbTransfers = [
+            <c:forEach items="${transfers}" var="t" varStatus="s">
+                {
+                    transferId: ${t.transferId},
+                    transferCode: "<c:out value='${t.transferCode}'/>",
+                    fromWarehouseName: "<c:out value='${t.fromWarehouseName}'/>",
+                    toWarehouseName: "<c:out value='${t.toWarehouseName}'/>",
+                    status: "<c:out value='${t.status}'/>",
+                    createdAt: "<c:out value='${t.createdAt}'/>"
+                }${!s.last ? ',' : ''}
+            </c:forEach>
+        ];
+
+        var dbWarehouses = [
+            <c:forEach items="${warehouses}" var="w" varStatus="s">
+                { warehouseId: ${w.warehouseId}, warehouseName: "<c:out value='${w.warehouseName}'/>" }${!s.last ? ',' : ''}
+            </c:forEach>
+        ];
+
+        var dbProducts = [
+            <c:forEach items="${products}" var="p" varStatus="s">
+                { sku: "<c:out value='${p.sku}'/>", name: "<c:out value='${p.name}'/>" }${!s.last ? ',' : ''}
+            </c:forEach>
+        ];
+
+        var dbActiveTab = 'all';
+
+        function dbTrStatusCfg(status) {
+            var m = {
+                'DRAFT':     { label: 'Nháp',       cls: 'draft' },
+                'IN_TRANSIT':{ label: 'Đang chuyển', cls: 'in_transit' },
+                'RECEIVED':  { label: 'Đã nhận',    cls: 'received' },
+                'CANCELLED': { label: 'Đã hủy',     cls: 'cancelled' }
+            };
+            return m[status] || { label: status, cls: 'draft' };
+        }
+
+        function esc(v) {
+            if (v == null) return '';
+            return String(v).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+        }
+
+        function renderDbTrTable() {
+            var counts = {
+                all:        dbTransfers.length,
+                DRAFT:      dbTransfers.filter(function(t){ return t.status==='DRAFT'; }).length,
+                IN_TRANSIT: dbTransfers.filter(function(t){ return t.status==='IN_TRANSIT'; }).length,
+                RECEIVED:   dbTransfers.filter(function(t){ return t.status==='RECEIVED'; }).length,
+                CANCELLED:  dbTransfers.filter(function(t){ return t.status==='CANCELLED'; }).length
+            };
+
+            ['all','DRAFT','IN_TRANSIT','RECEIVED','CANCELLED'].forEach(function(k) {
+                var el = document.getElementById('dbTr-' + k);
+                if (el) el.textContent = counts[k] || 0;
+            });
+
+            var filtered = dbActiveTab === 'all'
+                ? dbTransfers
+                : dbTransfers.filter(function(t){ return t.status === dbActiveTab; });
+
+            var tbody = document.getElementById('dbTrTableBody');
+            if (!tbody) return;
+
+            if (filtered.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="6" class="db-tr-empty">Không có phiếu chuyển kho nào.</td></tr>';
+                return;
+            }
+
+            tbody.innerHTML = filtered.map(function(t) {
+                var sc = dbTrStatusCfg(t.status);
+                return '<tr>' +
+                    '<td><span class="db-tr-code">' + esc(t.transferCode) + '</span></td>' +
+                    '<td><span class="db-tr-wh">' + esc(t.fromWarehouseName || '—') + '</span></td>' +
+                    '<td><span class="db-tr-wh">' + esc(t.toWarehouseName || '—') + '</span></td>' +
+                    '<td style="font-size:12px; color:rgba(16,55,92,.5);">' + esc(t.createdAt) + '</td>' +
+                    '<td><span class="db-tr-status-pill ' + sc.cls + '"><span class="db-tr-status-pill__dot"></span>' + sc.label + '</span></td>' +
+                    '<td class="text-right">' +
+                        '<button class="db-tr-action">Xem chi tiết</button>' +
+                    '</td>' +
+                '</tr>';
+            }).join('');
+        }
+
+        var tabs = document.getElementById('dbTrTabs');
+        if (tabs) {
+            tabs.addEventListener('click', function(e) {
+                var btn = e.target.closest('.db-tr-tab');
+                if (!btn) return;
+                dbActiveTab = btn.dataset.tab;
+                tabs.querySelectorAll('.db-tr-tab').forEach(function(t){ t.classList.remove('active'); });
+                btn.classList.add('active');
+                renderDbTrTable();
+            });
+        }
+
+        // Populate warehouse selects with DB warehouses
+        var srcWH = document.getElementById('formSourceWH');
+        var dstWH = document.getElementById('formDestWH');
+        if (srcWH && dbWarehouses.length > 0) {
+            var defOpt = '<option value="">— Chọn kho —</option>';
+            srcWH.innerHTML = defOpt + dbWarehouses.map(function(w){
+                return '<option value="' + w.warehouseId + '">' + esc(w.warehouseName) + '</option>';
+            }).join('');
+        }
+        if (dstWH && dbWarehouses.length > 0) {
+            var defOpt = '<option value="">— Chọn kho —</option>';
+            dstWH.innerHTML = defOpt + dbWarehouses.map(function(w){
+                return '<option value="' + w.warehouseId + '">' + esc(w.warehouseName) + '</option>';
+            }).join('');
+        }
+
+        // Populate product select with DB products
+        var skuSelect = document.getElementById('formSkuCode');
+        if (skuSelect && dbProducts.length > 0) {
+            var defOpt = '<option value="">— Chọn sản phẩm (SKU) —</option>';
+            skuSelect.innerHTML = defOpt + dbProducts.map(function(p){
+                return '<option value="' + esc(p.sku) + '">' + esc(p.sku) + ' - ' + esc(p.name) + '</option>';
+            }).join('');
+        }
+
+        renderDbTrTable();
+    })();
 })();
 </script>

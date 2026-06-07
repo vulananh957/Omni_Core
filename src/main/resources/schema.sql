@@ -61,6 +61,7 @@ CREATE TABLE IF NOT EXISTS warehouses (
     warehouse_code VARCHAR(20)  NOT NULL UNIQUE,
     warehouse_name VARCHAR(100) NOT NULL,
     address        VARCHAR(255),
+    phone          VARCHAR(20)  DEFAULT NULL,
     capacity       INT          DEFAULT 0,
     active         TINYINT(1)   NOT NULL DEFAULT 1,
     created_at     DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP
@@ -75,6 +76,7 @@ CREATE TABLE IF NOT EXISTS zones (
     zone_type   ENUM('NORMAL','RETURN','DAMAGED','DESTROY') NOT NULL DEFAULT 'NORMAL',
     description TEXT,
     active      TINYINT(1) NOT NULL DEFAULT 1,
+    is_default  TINYINT(1) NOT NULL DEFAULT 0,
     FOREIGN KEY (warehouse_id) REFERENCES warehouses(warehouse_id),
     UNIQUE KEY uq_zone_code_wh (zone_code, warehouse_id),
     INDEX idx_zones_wh (warehouse_id),

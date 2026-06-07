@@ -1106,9 +1106,8 @@
     JAVASCRIPT LOGIC
     ════════════════════════════════════════════════════ -->
 <script>
-    // In-memory data store. Starts empty as requested (no hardcode, no seed data).
-    var savedWarehouses = localStorage.getItem('wms_warehouses');
-    window.WMS_WAREHOUSE_DATA = savedWarehouses ? JSON.parse(savedWarehouses) : [];
+    // In-memory data store. Starts empty and populated from backend.
+    window.WMS_WAREHOUSE_DATA = [];
 
     (function() {
         'use strict';
@@ -1329,25 +1328,28 @@
             // Add standard default zones if checked
             if (chkNormal.checked) {
                 generatedZones.push({
-                    id: editingWarehouseId ? editingWarehouseId + '-normal' : 'z-' + codeVal + '-normal',
+                    id: 0,
                     code: codeVal + '-NORM',
                     name: "Khu Hàng Thường (Normal Zone)",
+                    zoneType: "NORMAL",
                     isDefault: true
                 });
             }
             if (chkDefect.checked) {
                 generatedZones.push({
-                    id: editingWarehouseId ? editingWarehouseId + '-defect' : 'z-' + codeVal + '-defect',
+                    id: 0,
                     code: codeVal + '-DEFC',
                     name: "Khu Hàng Hỏng (Defect Zone)",
+                    zoneType: "DAMAGED",
                     isDefault: true
                 });
             }
             if (chkDispute.checked) {
                 generatedZones.push({
-                    id: editingWarehouseId ? editingWarehouseId + '-dispute' : 'z-' + codeVal + '-dispute',
+                    id: 0,
                     code: codeVal + '-DISP',
                     name: "Khu Hàng Khiếu Nại (Dispute Zone)",
+                    zoneType: "RETURN",
                     isDefault: true
                 });
             }
@@ -1355,56 +1357,65 @@
             // Add custom zones
             currentCustomZones.forEach(function(cz, idx) {
                 if (cz.name.trim()) {
+                    var isNew = cz.id.toString().indexOf('cz-') === 0;
                     generatedZones.push({
-                        id: cz.id,
+                        id: isNew ? 0 : parseInt(cz.id),
                         code: codeVal + '-CUST-' + (idx + 1),
                         name: cz.name.trim(),
+                        zoneType: "NORMAL",
                         isDefault: false
                     });
                 }
             });
 
-            if (editingWarehouseId !== null) {
-                // Find and edit
-                window.WMS_WAREHOUSE_DATA = window.WMS_WAREHOUSE_DATA.map(function(w) {
-                    if (w.id === editingWarehouseId) {
-                        return {
-                            id: w.id,
-                            code: codeVal,
-                            phone: phoneVal,
-                            name: nameVal,
-                            address: addressVal,
-                            status: currentFormStatus,
-                            createdAt: w.createdAt,
-                            zones: generatedZones
-                        };
-                    }
-                    return w;
-                });
-            } else {
-                // Add new
-                var newId = 'wh-' + Math.random().toString(36).substring(2, 9);
-                var newWarehouse = {
-                    id: newId,
-                    code: codeVal,
-                    phone: phoneVal,
-                    name: nameVal,
-                    address: addressVal,
-                    status: currentFormStatus,
-                    createdAt: new Date().toISOString().substring(0, 10),
-                    zones: generatedZones
-                };
-                window.WMS_WAREHOUSE_DATA.push(newWarehouse);
-            }
+            var payload = {
+                id: editingWarehouseId ? parseInt(editingWarehouseId) : 0,
+                code: codeVal,
+                phone: phoneVal,
+                name: nameVal,
+                address: addressVal,
+                status: currentFormStatus,
+                zones: generatedZones
+            };
 
-            closeModal();
-            renderWarehouses();
+            fetch(window.location.pathname + '?action=save', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(payload)
+            })
+            .then(function(res) { return res.json(); })
+            .then(function(resData) {
+                if (resData.success) {
+                    closeModal();
+                    fetchWarehouses();
+                } else {
+                    alert(resData.message || 'Lỗi khi lưu kho hàng.');
+                }
+            })
+            .catch(function(err) {
+                console.error('Error saving warehouse:', err);
+                alert('Có lỗi mạng xảy ra khi lưu kho hàng.');
+            });
+        }
+
+        // Fetch warehouses from backend API
+        function fetchWarehouses() {
+            fetch(window.location.pathname + '?action=list')
+                .then(function(res) { return res.json(); })
+                .then(function(data) {
+                    window.WMS_WAREHOUSE_DATA = data;
+                    renderWarehouses();
+                })
+                .catch(function(err) {
+                    console.error('Error fetching warehouses:', err);
+                });
         }
 
         // Render function
         function renderWarehouses() {
             var list = window.WMS_WAREHOUSE_DATA;
-            localStorage.setItem('wms_warehouses', JSON.stringify(list));
             
             // Search filters
             var filtered = list.filter(function(w) {
@@ -1559,22 +1570,26 @@
 
         // Toggle status handler
         function toggleWarehouseStatus(id) {
-            window.WMS_WAREHOUSE_DATA = window.WMS_WAREHOUSE_DATA.map(function(w) {
-                if (w.id === id) {
-                    return {
-                        id: w.id,
-                        code: w.code,
-                        phone: w.phone,
-                        name: w.name,
-                        address: w.address,
-                        status: w.status === "active" ? "closed" : "active",
-                        createdAt: w.createdAt,
-                        zones: w.zones
-                    };
+            var currentWh = window.WMS_WAREHOUSE_DATA.find(function(w) { return w.id === id; });
+            if (!currentWh) return;
+            
+            var nextActive = currentWh.status !== 'active';
+            
+            fetch(window.location.pathname + '?action=toggleStatus&id=' + id + '&active=' + nextActive, {
+                method: 'POST'
+            })
+            .then(function(res) { return res.json(); })
+            .then(function(resData) {
+                if (resData.success) {
+                    fetchWarehouses();
+                } else {
+                    alert(resData.message || 'Không thể thay đổi trạng thái kho hàng.');
                 }
-                return w;
+            })
+            .catch(function(err) {
+                console.error('Error toggling status:', err);
+                alert('Có lỗi mạng xảy ra khi cập nhật trạng thái.');
             });
-            renderWarehouses();
         }
 
         // Helper: Escape HTML to avoid XSS injections
@@ -1588,7 +1603,7 @@
                 .replace(/'/g, "&#039;");
         }
 
-        // Initialize empty table render
-        renderWarehouses();
+        // Initialize table render from backend
+        fetchWarehouses();
     })();
 </script>

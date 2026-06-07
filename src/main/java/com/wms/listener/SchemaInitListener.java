@@ -159,6 +159,8 @@ public class SchemaInitListener implements ServletContextListener {
         try (Connection conn = DBConnection.getConnection()) {
             createTableIfNotExists(conn, "warehouses",
                 "CREATE TABLE warehouses (warehouse_id INT AUTO_INCREMENT PRIMARY KEY, warehouse_code VARCHAR(20) NOT NULL UNIQUE, warehouse_name VARCHAR(100) NOT NULL, address VARCHAR(255), capacity INT DEFAULT 0, active TINYINT(1) NOT NULL DEFAULT 1, created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+            DatabaseMetaData md = conn.getMetaData();
+            addColumnIfMissing(conn, md, "warehouses", "phone", "VARCHAR(20) DEFAULT NULL");
         }
     }
 
@@ -173,6 +175,8 @@ public class SchemaInitListener implements ServletContextListener {
         try (Connection conn = DBConnection.getConnection()) {
             createTableIfNotExists(conn, "zones",
                 "CREATE TABLE zones (zone_id INT AUTO_INCREMENT PRIMARY KEY, warehouse_id INT NOT NULL, zone_code VARCHAR(10) NOT NULL, zone_name VARCHAR(100) NOT NULL, zone_type ENUM('NORMAL','RETURN','DAMAGED','DESTROY') NOT NULL DEFAULT 'NORMAL', description TEXT, active TINYINT(1) NOT NULL DEFAULT 1, UNIQUE KEY uq_zone_code_wh (zone_code, warehouse_id)) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+            DatabaseMetaData md = conn.getMetaData();
+            addColumnIfMissing(conn, md, "zones", "is_default", "TINYINT(1) NOT NULL DEFAULT 0");
         }
     }
 

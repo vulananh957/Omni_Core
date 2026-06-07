@@ -4,6 +4,7 @@ import com.wms.controller.BaseController;
 import com.wms.dao.UserDAO;
 import com.wms.dao.WarehouseDAO;
 import com.wms.model.User;
+import com.wms.model.Warehouse;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
@@ -32,10 +33,10 @@ public class StaffServlet extends BaseController {
 
         try {
             List<User> staffList = userDAO.findByRoles("MANAGER", "SALES_STAFF", "WAREHOUSE_STAFF");
-            List<WarehouseDAO.Warehouse> warehouses = warehouseDAO.findAll();
+            List<Warehouse> warehouses = warehouseDAO.findAll();
 
             Map<Integer, String> warehouseMap = warehouses.stream()
-                .collect(Collectors.toMap(WarehouseDAO.Warehouse::getWarehouseId, WarehouseDAO.Warehouse::getWarehouseName, (v1, v2) -> v1));
+                .collect(Collectors.toMap(Warehouse::getWarehouseId, Warehouse::getWarehouseName, (v1, v2) -> v1));
 
             req.setAttribute("pageTitle",    "Quản Lý Nhân Sự");
             req.setAttribute("pageSubtitle", "Giám sát, luân chuyển vai trò và quản lý trạng thái kích hoạt tài khoản hệ thống");

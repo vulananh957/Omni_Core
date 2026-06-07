@@ -87,6 +87,7 @@ CREATE TABLE IF NOT EXISTS categories (
     category_id   INT AUTO_INCREMENT PRIMARY KEY,
     parent_id     INT DEFAULT NULL,
     category_name VARCHAR(100) NOT NULL,
+    description   VARCHAR(255) DEFAULT NULL,
     level_depth   INT DEFAULT 0,
     active        TINYINT(1) NOT NULL DEFAULT 1,
     FOREIGN KEY (parent_id) REFERENCES categories(category_id) ON DELETE SET NULL,

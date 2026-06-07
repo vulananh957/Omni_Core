@@ -12,6 +12,7 @@ public class Category {
     private String categoryName;
     private Integer parentId;
     private String description;
+    private int levelDepth;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 
@@ -75,6 +76,14 @@ public class Category {
 
     public void setUpdatedAt(LocalDateTime updatedAt) {
         this.updatedAt = updatedAt;
+    }
+
+    public int getLevelDepth() {
+        return levelDepth;
+    }
+
+    public void setLevelDepth(int levelDepth) {
+        this.levelDepth = levelDepth;
     }
 
     @Override

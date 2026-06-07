@@ -1,0 +1,34 @@
+# ============================================================
+# Maven build output
+# ============================================================
+target/
+*.class
+*.jar
+*.war
+*.ear
+
+# ============================================================
+# IDE files
+# ============================================================
+.idea/
+*.iml
+.eclipse/
+.settings/
+.project
+.classpath
+.vscode/
+*.swp
+
+# ============================================================
+# OS junk
+# ============================================================
+.DS_Store
+Thumbs.db
+
+# ============================================================
+# Sensitive config — keep templates, ignore real files
+# ============================================================
+# Uncomment the line below to protect real credentials.
+# The .example files should be committed instead.
+# src/main/resources/db.properties
+# src/main/resources/mail.properties

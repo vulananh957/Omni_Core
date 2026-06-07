@@ -29,13 +29,13 @@ public class OrderDAO {
      */
     public List<Order> getAllOrders() {
         List<Order> list = new ArrayList<>();
-        String sqlOrders = "SELECT o.order_id, o.order_code, o.customer_id, o.warehouse_id, w.warehouse_name, o.channel, o.order_status, o.total_actual_paid, o.sync_status, o.created_at, o.updated_at "
+        String sqlOrders = "SELECT o.order_id, o.order_code, o.customer_id, o.warehouse_id, w.warehouse_name, o.channel, o.status, o.total_amount, o.created_by, o.created_at, o.updated_at "
                            + "FROM orders o "
                            + "LEFT JOIN warehouses w ON o.warehouse_id = w.warehouse_id "
                            + "ORDER BY o.created_at DESC LIMIT 100";
-        String sqlItems = "SELECT p.sku_code, p.product_name, oi.quantity, oi.unit_price " +
+        String sqlItems = "SELECT s.sku_code, s.product_name, oi.qty, oi.unit_price " +
                           "FROM order_items oi " +
-                          "JOIN products p ON oi.product_id = p.product_id " +
+                          "JOIN skus s ON oi.sku_id = s.sku_id " +
                           "WHERE oi.order_id = ?";
 
         try (Connection conn = DBConnection.getConnection();
@@ -55,8 +55,8 @@ public class OrderDAO {
                     order.setWarehouseId(rsOrders.getInt("warehouse_id"));
                     order.setWarehouseName(rsOrders.getString("warehouse_name"));
                     order.setChannel(rsOrders.getString("channel"));
-                    order.setStatus(rsOrders.getString("order_status"));
-                    order.setTotalAmount(rsOrders.getDouble("total_actual_paid"));
+                    order.setStatus(rsOrders.getString("status"));
+                    order.setTotalAmount(rsOrders.getDouble("total_amount"));
                     
                     int createdBy = rsOrders.getInt("created_by");
                     order.setCreatedBy(rsOrders.wasNull() ? null : createdBy);
@@ -79,7 +79,7 @@ public class OrderDAO {
                             OrderItem item = new OrderItem();
                             item.setSkuCode(rsItems.getString("sku_code"));
                             item.setProductName(rsItems.getString("product_name"));
-                            item.setQuantity(rsItems.getInt("quantity"));
+                            item.setQuantity(rsItems.getInt("qty"));
                             item.setUnitPrice(rsItems.getDouble("unit_price"));
                             items.add(item);
                         }

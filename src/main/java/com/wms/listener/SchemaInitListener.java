@@ -122,10 +122,6 @@ public class SchemaInitListener implements ServletContextListener {
                     + "(1,'DAMAGED','Khu Hong','DAMAGED','Khu vuc hang hong'),"
                     + "(1,'DESTROY','Khu Tieu Huy','DESTROY','Khu vuc tieu huy hang loi')");
 
-            // Default categories
-            st.executeUpdate("INSERT IGNORE INTO categories (category_name, level_depth) VALUES "
-                    + "('Thuc Pham',0),('Do Gia Dung',0),('Dien Tu',0),('My Pham',0),('Sach',0)");
-
             // Default admin user
             st.executeUpdate("INSERT IGNORE INTO users (username, password_hash, full_name, email, phone, role) VALUES "
                     + "('quanpm','$2a$12$ezv1v4fjwnwMSYQ4DvPHN./NuNfVdwEzGbHuUvlbsabeCZqrLkzxe',"
@@ -155,7 +151,7 @@ public class SchemaInitListener implements ServletContextListener {
             DatabaseMetaData md = conn.getMetaData();
             addColumnIfMissing(conn, md, "users", "phone", "VARCHAR(20) DEFAULT NULL");
             addColumnIfMissing(conn, md, "users", "otp_preference", "VARCHAR(20) DEFAULT 'EMAIL'");
-            addColumnIfMissing(conn, md, "users", "warehouse_id", "INT NOT NULL DEFAULT 1");
+            addColumnIfMissing(conn, md, "users", "warehouse_id", "INT DEFAULT NULL");
         }
     }
 
@@ -184,6 +180,8 @@ public class SchemaInitListener implements ServletContextListener {
         try (Connection conn = DBConnection.getConnection()) {
             createTableIfNotExists(conn, "categories",
                 "CREATE TABLE categories (category_id INT AUTO_INCREMENT PRIMARY KEY, parent_id INT DEFAULT NULL, category_name VARCHAR(100) NOT NULL, level_depth INT DEFAULT 0, active TINYINT(1) NOT NULL DEFAULT 1) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+            DatabaseMetaData md = conn.getMetaData();
+            addColumnIfMissing(conn, md, "categories", "description", "VARCHAR(255) DEFAULT NULL");
         }
     }
 

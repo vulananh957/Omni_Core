@@ -42,7 +42,7 @@ public class WarehouseDAO {
                 w.setActive(rs.getBoolean("active"));
                 Timestamp ts = rs.getTimestamp("created_at");
                 if (ts != null) {
-                    w.setCreatedAt(ts.toLocalDateTime());
+                    w.setCreatedAt(ts.toLocalDateTime().toLocalDate().toString());
                 }
                 w.setZones(findZonesByWarehouseId(conn, w.getWarehouseId()));
                 list.add(w);
@@ -77,7 +77,7 @@ public class WarehouseDAO {
                     w.setActive(rs.getBoolean("active"));
                     Timestamp ts = rs.getTimestamp("created_at");
                     if (ts != null) {
-                        w.setCreatedAt(ts.toLocalDateTime());
+                        w.setCreatedAt(ts.toLocalDateTime().toLocalDate().toString());
                     }
                     w.setZones(findZonesByWarehouseId(conn, id));
                     return w;

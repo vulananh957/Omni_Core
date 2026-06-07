@@ -861,12 +861,20 @@
         "channel": "${order.channel == 'ONLINE' ? 'Lazada' : order.channel}",
         "customerName": "Khách hàng #${order.customerId != null ? order.customerId : 'N/A'}",
         "customerPhone": "090xxxxxxx",
+        "customerAddress": "Số 123 Đường Láng, Đống Đa, Hà Nội",
         "totalItems": ${totalQty},
         "totalAmount": ${order.totalAmount},
-        "status": "${order.status == 'PENDING' ? 'pending_review' : (order.status == 'CONFIRMED' ? 'confirmed' : (order.status == 'PACKING' ? 'packing' : (order.status == 'PACKED' ? 'packed' : (order.status == 'SHIPPED' ? 'shipping' : (order.status == 'DELIVERED' ? 'delivered' : (order.status == 'COMPLETED' ? 'completed' : (order.status == 'RETURNED' ? 'returned' : (order.status == 'DISPUTED' ? 'disputed' : (order.status == 'DISPUTE_SUCCESS' ? 'dispute_success' : (order.status == 'CANCELLED' ? 'cancelled' : order.status.toLowerCase()))))))))))}",
+        "status": "${order.status == 'PENDING' ? 'pending_review' : (order.status == 'CONFIRMED' ? 'confirmed' : (order.status == 'PICKING' ? 'confirmed' : (order.status == 'PACKED' ? 'packed' : (order.status == 'SHIPPED' ? 'shipping' : (order.status == 'DELIVERED' ? 'delivered' : (order.status == 'COMPLETED' ? 'completed' : (order.status == 'RETURNED' ? 'returned' : (order.status == 'DISPUTED' ? 'disputed' : (order.status == 'DISPUTE_SUCCESS' ? 'dispute_success' : (order.status == 'CANCELLED' ? 'cancelled' : order.status.toLowerCase()))))))))))}",
         "warehouse": "${order.warehouseName != null ? order.warehouseName : 'Chưa chỉ định kho'}",
-        "trackingNo": "LHD-${order.orderCode}",
+        "trackingNo": "${order.trackingNo != null ? order.trackingNo : ''}",
+        "reviewNote": "${order.reviewNote != null ? order.reviewNote : ''}",
+        "rmaReason": "${order.rmaReason != null ? order.rmaReason : ''}",
+        "rmaPhysicalStatus": "${order.rmaPhysicalStatus != null ? order.rmaPhysicalStatus : ''}",
+        "rmaPlatformStatus": "${order.rmaPlatformStatus != null ? order.rmaPlatformStatus : ''}",
+        "disputeEvidenceVideo": "${order.disputeEvidenceVideo != null ? order.disputeEvidenceVideo : ''}",
+        "disputeNote": "${order.disputeNote != null ? order.disputeNote : ''}",
         "createdAt": "${order.createdAt}",
+        "updatedAt": "${order.updatedAt}",
         "items": [
             <c:forEach var="item" items="${order.items}" varStatus="itemStatus">
             <%
@@ -968,12 +976,14 @@ document.addEventListener("DOMContentLoaded", function() {
 });
 
 function loadOrdersFromStorage() {
-    const data = localStorage.getItem("b2c_orders_v2");
-    if (data) {
+    const orderDataElem = document.getElementById("orderDataContainer");
+    if (orderDataElem) {
         try {
-            allOrders = JSON.parse(data);
+            allOrders = JSON.parse(orderDataElem.textContent.trim());
+            // Sync to local storage for any listening components
+            localStorage.setItem("b2c_orders_v2", JSON.stringify(allOrders));
         } catch(e) {
-            console.error("Failed to parse local storage orders:", e);
+            console.error("Failed to parse orders data from JSTL container:", e);
         }
     }
 }
@@ -982,6 +992,37 @@ function saveOrdersToStorage() {
     localStorage.setItem("b2c_orders_v2", JSON.stringify(allOrders));
     // Trigger event for cross-component sync
     window.dispatchEvent(new CustomEvent("ORDER_STORE_UPDATED"));
+}
+
+function postOrderAction(params, callback) {
+    const urlParams = new URLSearchParams();
+    for (const key in params) {
+        urlParams.append(key, params[key]);
+    }
+    fetch(window.location.origin + "${pageContext.request.contextPath}/sales/order-action", {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/x-www-form-urlencoded; charset=UTF-8"
+        },
+        body: urlParams.toString()
+    })
+    .then(response => {
+        if (!response.ok) {
+            throw new Error("HTTP error " + response.status);
+        }
+        return response.json();
+    })
+    .then(data => {
+        if (data.success) {
+            callback(null, data);
+        } else {
+            callback(data.message || "Đã xảy ra lỗi khi cập nhật.");
+        }
+    })
+    .catch(error => {
+        console.error("Error posting order action:", error);
+        callback("Lỗi kết nối tới máy chủ.");
+    });
 }
 
 function getWarehouseStock(sku, wname) {
@@ -1500,18 +1541,55 @@ function executeBatchGenerateTracking() {
     isGeneratingTracking = true;
     renderStickyBar();
     
-    setTimeout(() => {
+    const targets = allOrders.filter(o => selectedBatchIds.indexOf(o.id) > -1 && !o.trackingNo);
+    if (targets.length === 0) {
+        isGeneratingTracking = false;
+        renderStickyBar();
+        return;
+    }
+    
+    const promises = targets.map(o => {
+        let pref = "GHN";
+        if (o.channel === "Shopee") pref = "SPX";
+        else if (o.channel === "Lazada") pref = "LZE";
+        else if (o.channel === "TikTok") pref = "TKT";
+        else if (o.channel === "Website") pref = "VTP";
+        
+        const rand = Math.floor(100000000 + Math.random() * 900000000);
+        const trackingNo = pref + "-" + rand;
+        
+        const urlParams = new URLSearchParams();
+        urlParams.append("action", "generate_tracking");
+        urlParams.append("orderCode", o.id);
+        urlParams.append("trackingNo", trackingNo);
+        
+        return fetch(window.location.origin + "${pageContext.request.contextPath}/sales/order-action", {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/x-www-form-urlencoded; charset=UTF-8"
+            },
+            body: urlParams.toString()
+        })
+        .then(res => {
+            if (!res.ok) throw new Error("HTTP error " + res.status);
+            return res.json();
+        })
+        .then(data => {
+            if (data.success) {
+                return { id: o.id, trackingNo: trackingNo };
+            } else {
+                throw new Error(data.message || "Failed");
+            }
+        });
+    });
+    
+    Promise.all(promises)
+    .then(results => {
         let cnt = 0;
         allOrders = allOrders.map(o => {
-            if (selectedBatchIds.indexOf(o.id) > -1 && !o.trackingNo) {
-                let pref = "GHN";
-                if (o.channel === "Shopee") pref = "SPX";
-                else if (o.channel === "Lazada") pref = "LZE";
-                else if (o.channel === "TikTok") pref = "TKT";
-                else if (o.channel === "Website") pref = "VTP";
-                
-                const rand = Math.floor(100000000 + Math.random() * 900000000);
-                o.trackingNo = pref + "-" + rand;
+            const res = results.find(r => r.id === o.id);
+            if (res) {
+                o.trackingNo = res.trackingNo;
                 o.updatedAt = new Date().toLocaleString("sv-SE").replace("T", " ").slice(0, 16);
                 cnt++;
             }
@@ -1522,16 +1600,56 @@ function executeBatchGenerateTracking() {
         isGeneratingTracking = false;
         renderAll();
         showToast("Tạo mã vận đơn thành công cho " + cnt + " đơn hàng!", "success");
-    }, 1200);
+    })
+    .catch(err => {
+        isGeneratingTracking = false;
+        renderStickyBar();
+        alert("Lỗi khi tạo mã vận đơn hàng loạt: " + err.message);
+    });
 }
 
 function executeBatchRTS() {
     isSubmittingRTS = true;
     renderStickyBar();
     
-    setTimeout(() => {
+    const targets = allOrders.filter(o => selectedBatchIds.indexOf(o.id) > -1);
+    if (targets.length === 0) {
+        isSubmittingRTS = false;
+        renderStickyBar();
+        return;
+    }
+    
+    const promises = targets.map(o => {
+        const urlParams = new URLSearchParams();
+        urlParams.append("action", "webhook");
+        urlParams.append("orderCode", o.id);
+        urlParams.append("type", "pickup");
+        
+        return fetch(window.location.origin + "${pageContext.request.contextPath}/sales/order-action", {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/x-www-form-urlencoded; charset=UTF-8"
+            },
+            body: urlParams.toString()
+        })
+        .then(res => {
+            if (!res.ok) throw new Error("HTTP error " + res.status);
+            return res.json();
+        })
+        .then(data => {
+            if (data.success) {
+                return { id: o.id };
+            } else {
+                throw new Error(data.message || "Failed");
+            }
+        });
+    });
+    
+    Promise.all(promises)
+    .then(results => {
         allOrders = allOrders.map(o => {
-            if (selectedBatchIds.indexOf(o.id) > -1) {
+            const res = results.find(r => r.id === o.id);
+            if (res) {
                 o.status = "shipping";
                 o.updatedAt = new Date().toLocaleString("sv-SE").replace("T", " ").slice(0, 16);
                 o.reviewNote = "Ready to Ship (Đồng bộ RTS API thành công). Đang chờ bưu tá lấy hàng.";
@@ -1544,7 +1662,12 @@ function executeBatchRTS() {
         selectedBatchIds = [];
         renderAll();
         showToast("Đã đồng bộ Ready to Ship! Trạng thái chuyển sang Đang giao (Chờ lấy hàng)", "success");
-    }, 1200);
+    })
+    .catch(err => {
+        isSubmittingRTS = false;
+        renderStickyBar();
+        alert("Lỗi khi đồng bộ Ready to Ship: " + err.message);
+    });
 }
 
 // ── WEBHOOK SIMULATOR ────────────────────────────────────────────────
@@ -1552,62 +1675,75 @@ function triggerWebhook(orderId, type) {
     const order = allOrders.find(o => o.id === orderId);
     if (!order) return;
     
-    const nowStr = new Date().toLocaleString("sv-SE").replace("T", " ").slice(0, 16);
-    if (!order.webhookEvents) order.webhookEvents = [];
+    const params = {
+        action: "webhook",
+        orderCode: orderId,
+        type: type
+    };
     
-    if (type === "pickup") {
-        order.status = "shipping";
-        order.updatedAt = nowStr;
-        order.webhookEvents.push({
-            time: nowStr,
-            eventName: "Lấy hàng thành công",
-            description: "Shipper của ĐVVC đã bốc hàng ra khỏi kho và quét mã vạch thành công."
-        });
-        showToast("Webhook nhận: Đã lấy hàng thành công!", "success");
-    } else if (type === "transit") {
-        order.status = "shipping";
-        order.updatedAt = nowStr;
-        order.webhookEvents.push({
-            time: nowStr,
-            eventName: "Đang giao hàng",
-            description: "Đơn hàng đang trên xe trung chuyển của bưu cục phát đến địa chỉ người nhận."
-        });
-        showToast("Webhook nhận: Đang vận chuyển...", "info");
-    } else if (type === "delivered") {
-        order.status = "delivered";
-        order.updatedAt = nowStr;
-        order.webhookEvents.push({
-            time: nowStr,
-            eventName: "Giao hàng thành công",
-            description: "Bưu tá đã giao hàng thành công tới tay khách hàng. Bắt đầu tính 3 ngày đối soát ví."
-        });
-        showToast("Webhook nhận: Giao hàng thành công!", "success");
+    postOrderAction(params, function(err, resp) {
+        if (err) {
+            alert("Lỗi webhook: " + err);
+            return;
+        }
         
-        // Start 5s countdown simulation of 3-day completion auto-disbursement
-        startDisbursementCountdown(orderId);
-    } else if (type === "return") {
-        order.status = "returned";
-        order.updatedAt = nowStr;
-        order.webhookEvents.push({
-            time: nowStr,
-            eventName: "Yêu cầu Trả hàng (Return Request)",
-            description: "Khách hàng bấm yêu cầu Trả hàng/Hoàn tiền trên App Sàn TMĐT do sản phẩm lỗi hoặc không đúng hình ảnh."
-        });
-        order.rmaReason = "Khách hàng báo sản phẩm bị lỗi hoặc không khớp mô tả";
-        order.rmaPhysicalStatus = "Đã nhập Zone Khiếu Nại";
-        order.rmaPlatformStatus = "Chờ xử lý";
-        order.rmaCustomerImages = ["https://images.unsplash.com/photo-1597843798940-023a85055b8e?w=500&auto=format&fit=crop"];
+        const nowStr = new Date().toLocaleString("sv-SE").replace("T", " ").slice(0, 16);
+        if (!order.webhookEvents) order.webhookEvents = [];
         
-        showToast("Webhook nhận: Khách hàng yêu cầu Trả hàng/Hoàn tiền!", "error");
-    }
-    
-    saveOrdersToStorage();
-    renderAll();
-    
-    // Refresh details modal if currently looking at this order
-    if (activeDetailOrder && activeDetailOrder.id === orderId) {
-        openDetailModal(orderId);
-    }
+        if (type === "pickup") {
+            order.status = "shipping";
+            order.updatedAt = nowStr;
+            order.webhookEvents.push({
+                time: nowStr,
+                eventName: "Lấy hàng thành công",
+                description: "Shipper của ĐVVC đã bốc hàng ra khỏi kho và quét mã vạch thành công."
+            });
+            showToast("Webhook nhận: Đã lấy hàng thành công!", "success");
+        } else if (type === "transit") {
+            order.status = "shipping";
+            order.updatedAt = nowStr;
+            order.webhookEvents.push({
+                time: nowStr,
+                eventName: "Đang giao hàng",
+                description: "Đơn hàng đang trên xe trung chuyển của bưu cục phát đến địa chỉ người nhận."
+            });
+            showToast("Webhook nhận: Đang vận chuyển...", "info");
+        } else if (type === "delivered") {
+            order.status = "delivered";
+            order.updatedAt = nowStr;
+            order.webhookEvents.push({
+                time: nowStr,
+                eventName: "Giao hàng thành công",
+                description: "Bưu tá đã giao hàng thành công tới tay khách hàng. Bắt đầu tính 3 ngày đối soát ví."
+            });
+            showToast("Webhook nhận: Giao hàng thành công!", "success");
+            
+            // Start 5s countdown simulation of 3-day completion auto-disbursement
+            startDisbursementCountdown(orderId);
+        } else if (type === "return") {
+            order.status = "returned";
+            order.updatedAt = nowStr;
+            order.webhookEvents.push({
+                time: nowStr,
+                eventName: "Yêu cầu Trả hàng (Return Request)",
+                description: "Khách hàng bấm yêu cầu Trả hàng/Hoàn tiền trên App Sàn TMĐT do sản phẩm lỗi hoặc không đúng hình ảnh."
+            });
+            order.rmaReason = "Khách hàng báo sản phẩm bị lỗi hoặc không khớp mô tả";
+            order.rmaPhysicalStatus = "Đã nhập Zone Khiếu Nại";
+            order.rmaPlatformStatus = "Chờ xử lý";
+            order.rmaCustomerImages = ["https://images.unsplash.com/photo-1597843798940-023a85055b8e?w=500&auto=format&fit=crop"];
+            
+            showToast("Webhook nhận: Khách hàng yêu cầu Trả hàng/Hoàn tiền!", "error");
+        }
+        
+        saveOrdersToStorage();
+        renderAll();
+        
+        // Refresh details modal if currently looking at this order
+        if (activeDetailOrder && activeDetailOrder.id === orderId) {
+            openDetailModal(orderId);
+        }
+    });
 }
 
 function startDisbursementCountdown(orderId) {
@@ -1627,32 +1763,45 @@ function startDisbursementCountdown(orderId) {
             countdownInterval = null;
             
             // Auto complete order
-            allOrders = allOrders.map(o => {
-                if (o.id === countdownOrderId) {
-                    o.status = "completed";
-                    const nowStr = new Date().toLocaleString("sv-SE").replace("T", " ").slice(0, 16);
-                    o.updatedAt = nowStr;
-                    if (!o.webhookEvents) o.webhookEvents = [];
-                    o.webhookEvents.push({
-                        time: nowStr,
-                        eventName: "Đơn hàng Hoàn thành",
-                        description: "Hệ thống tự động hoàn thành đơn hàng sau 3 ngày kể từ lúc giao hàng thành công (Khách không khiếu nại)."
-                    });
+            const params = {
+                action: "webhook",
+                orderCode: countdownOrderId,
+                type: "completed"
+            };
+            
+            postOrderAction(params, function(err, resp) {
+                if (err) {
+                    console.error("Failed to auto-complete order:", err);
+                    return;
                 }
-                return o;
+                
+                allOrders = allOrders.map(o => {
+                    if (o.id === countdownOrderId) {
+                        o.status = "completed";
+                        const nowStr = new Date().toLocaleString("sv-SE").replace("T", " ").slice(0, 16);
+                        o.updatedAt = nowStr;
+                        if (!o.webhookEvents) o.webhookEvents = [];
+                        o.webhookEvents.push({
+                            time: nowStr,
+                            eventName: "Đơn hàng Hoàn thành",
+                            description: "Hệ thống tự động hoàn thành đơn hàng sau 3 ngày kể từ lúc giao hàng thành công (Khách không khiếu nại)."
+                        });
+                    }
+                    return o;
+                });
+                
+                saveOrdersToStorage();
+                webhookCountdown = null;
+                countdownOrderId = null;
+                renderAll();
+                
+                // Update modal if open
+                if (activeDetailOrder && activeDetailOrder.id === orderId) {
+                    openDetailModal(orderId);
+                }
+                
+                showToast("Giao dịch hoàn thành! Hệ thống tự động giải ngân ví sàn.", "success");
             });
-            
-            saveOrdersToStorage();
-            webhookCountdown = null;
-            countdownOrderId = null;
-            renderAll();
-            
-            // Update modal if open
-            if (activeDetailOrder && activeDetailOrder.id === orderId) {
-                openDetailModal(orderId);
-            }
-            
-            showToast("Giao dịch hoàn thành! Hệ thống tự động giải ngân ví sàn.", "success");
         } else {
             // Update details modal countdown digits if looking at the active order
             if (activeDetailOrder && activeDetailOrder.id === orderId) {
@@ -2071,7 +2220,20 @@ function submitApprove(approve) {
     
     isSubmitting = true;
     
-    setTimeout(() => {
+    const params = {
+        action: approve ? "approve" : "reject",
+        orderCode: activeDetailOrder.id,
+        warehouseName: wh,
+        note: note
+    };
+    
+    postOrderAction(params, function(err, resp) {
+        isSubmitting = false;
+        if (err) {
+            alert("Lỗi duyệt đơn: " + err);
+            return;
+        }
+        
         allOrders = allOrders.map(o => {
             if (o.id === activeDetailOrder.id) {
                 if (approve) {
@@ -2092,11 +2254,10 @@ function submitApprove(approve) {
         });
         
         saveOrdersToStorage();
-        isSubmitting = false;
         closeDetailModal();
         renderAll();
         showToast(approve ? "Đã duyệt đơn và chuyển giao việc kho thành công!" : "Đã từ chối đơn hàng thành công!", "success");
-    }, 600);
+    });
 }
 
 // RMA Video upload simulations
@@ -2127,7 +2288,20 @@ function submitRMADispute(orderId) {
     
     isSubmittingDispute = true;
     
-    setTimeout(() => {
+    const params = {
+        action: "dispute",
+        orderCode: orderId,
+        video: video,
+        note: note
+    };
+    
+    postOrderAction(params, function(err, resp) {
+        isSubmittingDispute = false;
+        if (err) {
+            alert("Lỗi gửi khiếu nại: " + err);
+            return;
+        }
+        
         const nowStr = new Date().toLocaleString("sv-SE").replace("T", " ").slice(0, 16);
         allOrders = allOrders.map(o => {
             if (o.id === orderId) {
@@ -2153,11 +2327,10 @@ function submitRMADispute(orderId) {
         });
         
         saveOrdersToStorage();
-        isSubmittingDispute = false;
         closeDetailModal();
         renderAll();
         showToast("Gửi hồ sơ khiếu nại thành công! Sàn đã duyệt đền bù 100% tiền hàng.", "success");
-    }, 1200);
+    });
 }
 
 // ── MERGED A6 THERMAL SHIPPING LABELS PRINT PREVIEW MODAL ──
@@ -2298,10 +2471,45 @@ function executeSimulatedPrint() {
     btn.disabled = true;
     btn.textContent = "Đang gửi lệnh in...";
     
-    setTimeout(() => {
+    const targets = allOrders.filter(o => selectedBatchIds.indexOf(o.id) > -1);
+    if (targets.length === 0) {
+        btn.disabled = false;
+        btn.textContent = "Tiến hành in tem vật lý";
+        closePrintModal();
+        return;
+    }
+    
+    const promises = targets.map(o => {
+        const urlParams = new URLSearchParams();
+        urlParams.append("action", "print_shipping");
+        urlParams.append("orderCode", o.id);
+        
+        return fetch(window.location.origin + "${pageContext.request.contextPath}/sales/order-action", {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/x-www-form-urlencoded; charset=UTF-8"
+            },
+            body: urlParams.toString()
+        })
+        .then(res => {
+            if (!res.ok) throw new Error("HTTP error " + res.status);
+            return res.json();
+        })
+        .then(data => {
+            if (data.success) {
+                return { id: o.id };
+            } else {
+                throw new Error(data.message || "Failed");
+            }
+        });
+    });
+    
+    Promise.all(promises)
+    .then(results => {
         allOrders = allOrders.map(o => {
-            if (selectedBatchIds.indexOf(o.id) > -1) {
-                o.status = "packing";
+            const res = results.find(r => r.id === o.id);
+            if (res) {
+                o.status = "packed";
                 o.updatedAt = new Date().toLocaleString("sv-SE").replace("T", " ").slice(0, 16);
             }
             return o;
@@ -2314,7 +2522,12 @@ function executeSimulatedPrint() {
         closePrintModal();
         selectedBatchIds = [];
         renderAll();
-        showToast("Đã gửi lệnh in tem hàng loạt xuống kho! Trạng thái chuyển sang [Đang đóng gói]", "success");
-    }, 1200);
+        showToast("Đã gửi lệnh in tem hàng loạt xuống kho! Trạng thái chuyển sang [Chờ bàn giao]", "success");
+    })
+    .catch(err => {
+        btn.disabled = false;
+        btn.textContent = "Tiến hành in tem vật lý";
+        alert("Lỗi khi gửi lệnh in tem: " + err.message);
+    });
 }
 </script>

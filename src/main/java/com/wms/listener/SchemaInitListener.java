@@ -37,6 +37,7 @@ public class SchemaInitListener implements ServletContextListener {
             ensureUserWarehouseAssignments();
             ensureZonesTable();
             ensureCategoriesTable();
+            ensureSkusTable();
             ensureProductsTable();
             ensureProductImagesTable();
             ensureChannelsTable();
@@ -132,6 +133,60 @@ public class SchemaInitListener implements ServletContextListener {
             // Assign admin to warehouse 1
             st.executeUpdate("INSERT IGNORE INTO user_warehouse_assignments (user_id, warehouse_id, is_primary) "
                     + "SELECT user_id, 1, 1 FROM users WHERE username = 'quanpm'");
+
+            // Default SKUs
+            st.executeUpdate("INSERT IGNORE INTO skus (sku_code, product_name, category, unit, min_stock, active) VALUES "
+                    + "('SKU-001', 'Sữa tươi Vinamilk 180ml', 'Thực Phẩm', 'Cái', 10, 1),"
+                    + "('SKU-002', 'Nồi chiên không dầu Philips', 'Đồ Gia Dụng', 'Cái', 5, 1),"
+                    + "('SKU-003', 'Tai nghe Sony WH-1000XM4', 'Điện Tử', 'Cái', 2, 1)");
+
+            // Check if orders exist
+            try (ResultSet rsOrdersCount = st.executeQuery("SELECT COUNT(*) FROM orders")) {
+                if (rsOrdersCount.next() && rsOrdersCount.getInt(1) == 0) {
+                    // Seed orders
+                    st.executeUpdate("INSERT INTO orders (order_code, warehouse_id, channel, status, total_amount, note, created_at, updated_at) VALUES "
+                            + "('ORD-98231', 1, 'ONLINE', 'PENDING', 24000.00, 'Khách đặt qua Shopee', NOW() - INTERVAL 2 HOUR, NOW() - INTERVAL 2 HOUR),"
+                            + "('ORD-12948', 1, 'ONLINE', 'PICKING', 1500000.00, 'Xác nhận nhanh', NOW() - INTERVAL 1 DAY, NOW() - INTERVAL 12 HOUR),"
+                            + "('ORD-48291', 1, 'ONLINE', 'PACKED', 2500000.00, 'Đóng kỹ chống sốc', NOW() - INTERVAL 1 DAY, NOW() - INTERVAL 10 HOUR),"
+                            + "('ORD-57291', 1, 'ONLINE', 'RETURNED', 24000.00, 'Khách trả hàng quay đầu', NOW() - INTERVAL 3 DAY, NOW() - INTERVAL 1 DAY)");
+
+                    // Get the generated order IDs
+                    int id1 = -1, id2 = -1, id3 = -1, id4 = -1;
+                    try (ResultSet rs = st.executeQuery("SELECT order_id, order_code FROM orders")) {
+                        while (rs.next()) {
+                            String code = rs.getString("order_code");
+                            int id = rs.getInt("order_id");
+                            if ("ORD-98231".equals(code)) id1 = id;
+                            else if ("ORD-12948".equals(code)) id2 = id;
+                            else if ("ORD-48291".equals(code)) id3 = id;
+                            else if ("ORD-57291".equals(code)) id4 = id;
+                        }
+                    }
+
+                    // Get SKU IDs
+                    int skuId1 = 1, skuId2 = 2, skuId3 = 3;
+                    try (ResultSet rs = st.executeQuery("SELECT sku_id, sku_code FROM skus")) {
+                        while (rs.next()) {
+                            String code = rs.getString("sku_code");
+                            int id = rs.getInt("sku_id");
+                            if ("SKU-001".equals(code)) skuId1 = id;
+                            else if ("SKU-002".equals(code)) skuId2 = id;
+                            else if ("SKU-003".equals(code)) skuId3 = id;
+                        }
+                    }
+
+                    // Seed order items
+                    if (id1 != -1) st.executeUpdate("INSERT INTO order_items (order_id, sku_id, qty, unit_price) VALUES (" + id1 + ", " + skuId1 + ", 2, 12000.00)");
+                    if (id2 != -1) st.executeUpdate("INSERT INTO order_items (order_id, sku_id, qty, unit_price) VALUES (" + id2 + ", " + skuId2 + ", 1, 1500000.00)");
+                    if (id3 != -1) st.executeUpdate("INSERT INTO order_items (order_id, sku_id, qty, unit_price) VALUES (" + id3 + ", " + skuId3 + ", 1, 2500000.00)");
+                    if (id4 != -1) st.executeUpdate("INSERT INTO order_items (order_id, sku_id, qty, unit_price) VALUES (" + id4 + ", " + skuId1 + ", 2, 12000.00)");
+
+                    // Seed custom column values for mock orders
+                    if (id2 != -1) st.executeUpdate("UPDATE orders SET tracking_no = 'LZE-8762312', review_note = 'Đã xác nhận và chuyển kho Hà Nội chuẩn bị hàng.' WHERE order_id = " + id2);
+                    if (id3 != -1) st.executeUpdate("UPDATE orders SET tracking_no = 'TKT-9281734', review_note = 'Đóng gói hoàn tất, chờ bưu tá lấy hàng.' WHERE order_id = " + id3);
+                    if (id4 != -1) st.executeUpdate("UPDATE orders SET tracking_no = 'VTP-1928374', rma_reason = 'Sản phẩm bị bóp méo khi vận chuyển', rma_physical_status = 'Đã nhập Zone Khiếu Nại', rma_platform_status = 'Chờ xử lý' WHERE order_id = " + id4);
+                }
+            }
 
             LOGGER.info("SchemaInitListener: Seed data applied.");
         }
@@ -252,17 +307,32 @@ public class SchemaInitListener implements ServletContextListener {
         }
     }
 
+    private void ensureSkusTable() throws SQLException {
+        try (Connection conn = DBConnection.getConnection()) {
+            createTableIfNotExists(conn, "skus",
+                "CREATE TABLE skus (sku_id INT AUTO_INCREMENT PRIMARY KEY, sku_code VARCHAR(50) NOT NULL UNIQUE, product_name VARCHAR(150) NOT NULL, category VARCHAR(80), unit VARCHAR(30) NOT NULL DEFAULT 'Cái', barcode VARCHAR(50), weight_kg DECIMAL(8,3), description TEXT, min_stock INT NOT NULL DEFAULT 0, active TINYINT(1) NOT NULL DEFAULT 1, created_by INT, created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP, updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+        }
+    }
+
     private void ensureOrdersTable() throws SQLException {
         try (Connection conn = DBConnection.getConnection()) {
             createTableIfNotExists(conn, "orders",
-                "CREATE TABLE orders (order_id INT AUTO_INCREMENT PRIMARY KEY, channel_id INT, channel_order_id VARCHAR(100), warehouse_id INT NOT NULL, order_status ENUM('PENDING','CONFIRMED','PICKING','PACKED','SHIPPED','DELIVERED','CANCELLED','RETURNED') NOT NULL DEFAULT 'PENDING', total_actual_paid DECIMAL(15,2) NOT NULL DEFAULT 0, fee_breakdown_json TEXT, sync_status ENUM('PENDING','SYNCED','FAILED') DEFAULT 'PENDING', created_by INT, customer_id INT, created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP, updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+                "CREATE TABLE orders (order_id INT AUTO_INCREMENT PRIMARY KEY, order_code VARCHAR(30) NOT NULL UNIQUE, customer_id INT, warehouse_id INT, channel ENUM('ONLINE','STORE','B2B') NOT NULL DEFAULT 'ONLINE', status ENUM('PENDING','PICKING','PACKED','SHIPPED','DELIVERED','CANCELLED','RETURNED','DISPUTED','DISPUTE_SUCCESS','COMPLETED') NOT NULL DEFAULT 'PENDING', total_amount DECIMAL(15,2) NOT NULL DEFAULT 0, note TEXT, created_by INT, created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP, updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP, tracking_no VARCHAR(100), review_note VARCHAR(255), rma_reason VARCHAR(255), rma_physical_status VARCHAR(100), rma_platform_status VARCHAR(100), dispute_evidence_video VARCHAR(255), dispute_note VARCHAR(255)) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+            DatabaseMetaData md = conn.getMetaData();
+            addColumnIfMissing(conn, md, "orders", "tracking_no", "VARCHAR(100) DEFAULT NULL");
+            addColumnIfMissing(conn, md, "orders", "review_note", "VARCHAR(255) DEFAULT NULL");
+            addColumnIfMissing(conn, md, "orders", "rma_reason", "VARCHAR(255) DEFAULT NULL");
+            addColumnIfMissing(conn, md, "orders", "rma_physical_status", "VARCHAR(100) DEFAULT NULL");
+            addColumnIfMissing(conn, md, "orders", "rma_platform_status", "VARCHAR(100) DEFAULT NULL");
+            addColumnIfMissing(conn, md, "orders", "dispute_evidence_video", "VARCHAR(255) DEFAULT NULL");
+            addColumnIfMissing(conn, md, "orders", "dispute_note", "VARCHAR(255) DEFAULT NULL");
         }
     }
 
     private void ensureOrderItemsTable() throws SQLException {
         try (Connection conn = DBConnection.getConnection()) {
             createTableIfNotExists(conn, "order_items",
-                "CREATE TABLE order_items (order_item_id INT AUTO_INCREMENT PRIMARY KEY, order_id INT NOT NULL, product_id INT NOT NULL, quantity DECIMAL(12,3) NOT NULL DEFAULT 1, unit_price DECIMAL(15,2) NOT NULL DEFAULT 0, seller_discount DECIMAL(15,2) DEFAULT 0, platform_discount DECIMAL(15,2) DEFAULT 0, item_shipping_fee DECIMAL(15,2) DEFAULT 0, actual_price DECIMAL(15,2) NOT NULL DEFAULT 0) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+                "CREATE TABLE order_items (order_item_id INT AUTO_INCREMENT PRIMARY KEY, order_id INT NOT NULL, sku_id INT NOT NULL, qty INT NOT NULL DEFAULT 1, unit_price DECIMAL(12,2) NOT NULL DEFAULT 0.00) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
         }
     }
 

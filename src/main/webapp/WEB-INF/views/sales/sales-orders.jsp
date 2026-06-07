@@ -722,7 +722,13 @@ let allOrders = [
         totalAmount: ${order.totalAmount},
         status: "${order.status == 'PENDING' ? 'pending_review' : (order.status == 'CONFIRMED' ? 'confirmed' : (order.status == 'PACKING' ? 'packing' : (order.status == 'PACKED' ? 'packed' : (order.status == 'SHIPPED' ? 'shipping' : (order.status == 'DELIVERED' ? 'delivered' : (order.status == 'COMPLETED' ? 'completed' : (order.status == 'RETURNED' ? 'returned' : (order.status == 'DISPUTED' ? 'disputed' : (order.status == 'DISPUTE_SUCCESS' ? 'dispute_success' : (order.status == 'CANCELLED' ? 'cancelled' : order.status.toLowerCase()))))))))))}",
         warehouse: "${order.warehouseName != null ? order.warehouseName : 'Chưa chỉ định kho'}",
-        trackingNo: "LHD-${order.orderCode}",
+        trackingNo: "${order.trackingNo != null ? order.trackingNo : ''}",
+        reviewNote: "${order.reviewNote != null ? order.reviewNote : ''}",
+        rmaReason: "${order.rmaReason != null ? order.rmaReason : ''}",
+        rmaPhysicalStatus: "${order.rmaPhysicalStatus != null ? order.rmaPhysicalStatus : ''}",
+        rmaPlatformStatus: "${order.rmaPlatformStatus != null ? order.rmaPlatformStatus : ''}",
+        disputeEvidenceVideo: "${order.disputeEvidenceVideo != null ? order.disputeEvidenceVideo : ''}",
+        disputeNote: "${order.disputeNote != null ? order.disputeNote : ''}",
         createdAt: "${order.createdAt}",
         items: [
             <c:forEach var="item" items="${order.items}" varStatus="itemStatus">
@@ -759,6 +765,7 @@ document.addEventListener("DOMContentLoaded", function () {
         renderAll();
     });
 
+    localStorage.setItem("b2c_orders_v2", JSON.stringify(allOrders));
     buildProductDropdown();
     renderAll();
     bindEvents();

@@ -1,5 +1,6 @@
 package com.wms.model;
 
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -15,7 +16,7 @@ public class Warehouse {
     private String phone;
     private int capacity;
     private boolean active;
-    private String createdAt;
+    private LocalDateTime createdAt;
     private List<Zone> zones = new ArrayList<>();
 
     // constructors
@@ -111,11 +112,11 @@ public class Warehouse {
         this.active = "active".equalsIgnoreCase(status);
     }
 
-    public String getCreatedAt() {
+    public LocalDateTime getCreatedAt() {
         return createdAt;
     }
 
-    public void setCreatedAt(String createdAt) {
+    public void setCreatedAt(LocalDateTime createdAt) {
         this.createdAt = createdAt;
     }
 

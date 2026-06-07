@@ -1,34 +1,22 @@
-# ============================================================
 # Maven build output
-# ============================================================
 target/
-*.class
-*.jar
-*.war
-*.ear
 
-# ============================================================
+# Mac system files
+.DS_Store
+**/.DS_Store
+
 # IDE files
-# ============================================================
 .idea/
 *.iml
-.eclipse/
-.settings/
-.project
-.classpath
 .vscode/
-*.swp
+.settings/
+.classpath
+.project
+.factorypath
 
-# ============================================================
-# OS junk
-# ============================================================
-.DS_Store
-Thumbs.db
+# Sensitive config (don't commit credentials)
+src/main/resources/db.properties
+src/main/resources/mail.properties
 
-# ============================================================
-# Sensitive config — keep templates, ignore real files
-# ============================================================
-# Uncomment the line below to protect real credentials.
-# The .example files should be committed instead.
-# src/main/resources/db.properties
-# src/main/resources/mail.properties
+# Log files
+*.log

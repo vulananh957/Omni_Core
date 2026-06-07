@@ -819,6 +819,31 @@ window.WMS_USER = {
     role: '<c:out value="${loggedInUser.role != null ? loggedInUser.role : 'Guest'}"/>'
 };
 
+function submitPostAction(action, params) {
+    var form = document.createElement('form');
+    form.method = 'POST';
+    form.action = window.location.pathname;
+
+    var actionInput = document.createElement('input');
+    actionInput.type = 'hidden';
+    actionInput.name = 'action';
+    actionInput.value = action;
+    form.appendChild(actionInput);
+
+    for (var key in params) {
+        if (params.hasOwnProperty(key)) {
+            var input = document.createElement('input');
+            input.type = 'hidden';
+            input.name = key;
+            input.value = params[key];
+            form.appendChild(input);
+        }
+    }
+
+    document.body.appendChild(form);
+    form.submit();
+}
+
 (function () {
 'use strict';
 
@@ -844,13 +869,15 @@ var skus = (SERVER_PRODUCTS.length > 0) ? SERVER_PRODUCTS.map(function(p) {
         sku: p.skuCode || '',
         name: p.productName || '',
         category: p.categoryName || '',
+        dimensions: p.attributesText || 'N/A',
+        weight: p.weightKg ? p.weightKg + ' kg' : 'N/A',
         qtyOnHand: 0,
         minStock: p.minStock || 0,
         maxStock: p.maxStock || 0,
         status: p.status || 'pending',
         approvalStatus: p.status === 'APPROVED' ? 'approved' : p.status === 'REJECTED' ? 'rejected' : 'pending',
         locationConfigs: [],
-        createdBy: p.createdBy || '',
+        createdBy: p.creatorName || p.createdBy || '',
         createdAt: p.createdAt || '',
         updatedBy: p.updatedBy || '',
         lastUpdated: p.updatedAt || ''
@@ -1002,37 +1029,15 @@ if (btnCreateSubmit) {
             return;
         }
 
-        var now = new Date();
-        var timeStr = now.getFullYear() + '-' + 
-                      padZero(now.getMonth()+1) + '-' + 
-                      padZero(now.getDate()) + ' ' + 
-                      padZero(now.getHours()) + ':' + 
-                      padZero(now.getMinutes());
-
-        var newSKU = {
-            id: 'temp-' + Date.now(),
-            sku: skuVal,
-            name: nameVal,
-            category: createCatInput.value.trim() || 'Vở & Sổ chép',
+        submitPostAction('create', {
+            skuCode: skuVal,
+            productName: nameVal,
+            categoryName: createCatInput.value.trim() || 'Vở & Sổ chép',
             dimensions: createDimInput.value.trim() || 'N/A',
-            weight: createWgtInput.value.trim() ? createWgtInput.value.trim() + ' kg' : 'N/A',
-            qtyOnHand: 0,
+            weight: createWgtInput.value.trim() || '0',
             minStock: parseInt(createMinInput.value) || 0,
-            maxStock: parseInt(createMaxInput.value) || 100,
-            status: 'active',
-            approvalStatus: 'pending',
-            locationConfigs: [],
-            createdBy: window.WMS_USER.fullName || 'Nhân viên kho',
-            createdAt: timeStr,
-            lastUpdated: timeStr,
-            updatedBy: window.WMS_USER.fullName || 'Nhân viên kho'
-        };
-
-        skus.push(newSKU);
-        createOverlay.classList.remove('active');
-        clearCreateForm();
-        renderAll();
-        alert('SKU đã được tạo thành công! Đang chờ phê duyệt từ Quản lý kinh doanh.');
+            maxStock: parseInt(createMaxInput.value) || 100
+        });
     });
 }
 
@@ -1044,6 +1049,19 @@ if (btnEditSubmit) {
         
         if (!nameVal) {
             alert('Tên sản phẩm không được bỏ trống!');
+            return;
+        }
+
+        if (id.indexOf('p-') === 0) {
+            var productId = id.substring(2);
+            submitPostAction('edit', {
+                productId: productId,
+                productName: nameVal,
+                dimensions: editDimInput.value.trim() || 'N/A',
+                weight: editWgtInput.value.trim() || '0',
+                minStock: parseInt(editMinInput.value) || 0,
+                maxStock: parseInt(editMaxInput.value) || 100
+            });
             return;
         }
 

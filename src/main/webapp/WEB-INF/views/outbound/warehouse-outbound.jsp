@@ -24,8 +24,9 @@
         }
     }
 
-    request.setAttribute("outboundOrdersJson", com.fasterxml.jackson.databind.ObjectMapper().valueToTree(outboundOrders));
-    request.setAttribute("statusCountsJson", com.fasterxml.jackson.databind.ObjectMapper().valueToTree(statusCounts));
+    com.fasterxml.jackson.databind.ObjectMapper mapper = new com.fasterxml.jackson.databind.ObjectMapper();
+    request.setAttribute("outboundOrdersJson", mapper.valueToTree(outboundOrders).toString());
+    request.setAttribute("statusCountsJson", mapper.valueToTree(statusCounts).toString());
 %>
 
 <style>
@@ -1540,6 +1541,70 @@
     var selectedDisposalSku = "";
     var disposalEvidence = "";
 
+    function submitPostAction(action, params) {
+        var form = document.createElement('form');
+        form.method = 'POST';
+        form.action = window.location.pathname;
+
+        var actionInput = document.createElement('input');
+        actionInput.type = 'hidden';
+        actionInput.name = 'action';
+        actionInput.value = action;
+        form.appendChild(actionInput);
+
+        for (var key in params) {
+            if (params.hasOwnProperty(key)) {
+                var input = document.createElement('input');
+                input.type = 'hidden';
+                input.name = key;
+                input.value = params[key];
+                form.appendChild(input);
+            }
+        }
+
+        document.body.appendChild(form);
+        form.submit();
+    }
+
+    function mapDbOrderToFrontend(dbOrder) {
+        var status = 'draft';
+        var statusLower = (dbOrder.status || '').toLowerCase();
+        if (statusLower === 'pending') status = 'pending_pick';
+        else if (statusLower === 'picking') status = 'picking';
+        else if (statusLower === 'packed') status = 'packed';
+        else if (statusLower === 'shipped') status = 'dispatched';
+        else if (statusLower === 'cancelled') status = 'cancelled';
+
+        var totalQty = 0;
+        var itemsMapped = (dbOrder.items || []).map(function(item) {
+            totalQty += item.qty || 0;
+            return {
+                skuCode: item.skuCode || ('PROD-' + item.productId),
+                skuName: item.skuName || 'Sản phẩm #' + item.productId,
+                qty: item.qty || 0,
+                location: item.shelfLocation || "—",
+                picked: item.pickedQty >= item.qty
+            };
+        });
+
+        return {
+            id: dbOrder.outboundCode || ('DB-' + dbOrder.outboundId),
+            dbOutboundId: dbOrder.outboundId,
+            issueDocumentId: dbOrder.outboundCode || ('DB-' + dbOrder.outboundId),
+            mappedOrderId: dbOrder.orderId,
+            soRef: 'SO-' + dbOrder.orderId,
+            channel: "Sales",
+            channelColor: "#3b82f6",
+            customer: "Khách hàng từ đơn #" + dbOrder.orderId,
+            address: dbOrder.notes || "Khu vực hàng thường",
+            status: status,
+            courier: "Giao hàng nhanh",
+            createdAt: dbOrder.createdAt ? dbOrder.createdAt.replace('T', ' ').substring(0, 16) : '',
+            note: dbOrder.notes,
+            items: itemsMapped
+        };
+    }
+
     // Bootstrap data initialization
     function initLocalStorageData() {
         var hasMockData = localStorage.getItem(DO_STORAGE_KEY) && 
@@ -1552,8 +1617,27 @@
             localStorage.setItem(FULFILLMENT_STORAGE_KEY, JSON.stringify([]));
         }
         
-        pickOrders = JSON.parse(localStorage.getItem(DO_STORAGE_KEY));
+        var localOrders = JSON.parse(localStorage.getItem(DO_STORAGE_KEY));
         fulfillmentRequests = JSON.parse(localStorage.getItem(FULFILLMENT_STORAGE_KEY));
+
+        // Bind server-side outbound orders if available from servlet
+        var SERVER_OUTBOUND_ORDERS = [];
+        try {
+            var rawJson = '<c:out value="${outboundOrdersJson}" escapeXml="false"/>';
+            if (rawJson && rawJson.trim() && rawJson.indexOf('outboundOrdersJson') === -1) {
+                SERVER_OUTBOUND_ORDERS = JSON.parse(rawJson);
+            }
+        } catch(e) {
+            console.warn('warehouse-outbound: No server outbound order data, using localStorage fallback');
+        }
+
+        var mappedServerOrders = SERVER_OUTBOUND_ORDERS.map(mapDbOrderToFrontend);
+        var serverCodes = mappedServerOrders.map(function(o) { return o.id; });
+        var filteredLocal = localOrders.filter(function(o) {
+            return serverCodes.indexOf(o.id) === -1;
+        });
+
+        pickOrders = mappedServerOrders.concat(filteredLocal);
     }
 
     initLocalStorageData();
@@ -1826,10 +1910,13 @@
     // Transition: Pending Pick -> Picking
     window.handleStartPicking = function(orderId, event) {
         if (event) event.stopPropagation();
-        var index = pickOrders.findIndex(function(o) { return o.id === orderId; });
-        if (index > -1) {
-            pickOrders[index].status = 'picking';
-            pickOrders[index].assignedTo = window.WMS_USER.fullName || 'Nhân viên kho';
+        var order = pickOrders.find(function(o) { return o.id === orderId; });
+        if (!order) return;
+        if (order.dbOutboundId) {
+            submitPostAction('updateStatus', { outboundId: order.dbOutboundId, status: 'PICKING' });
+        } else {
+            order.status = 'picking';
+            order.assignedTo = window.WMS_USER.fullName || 'Nhân viên kho';
             saveState();
         }
     };
@@ -1837,12 +1924,15 @@
     // Transition: Picking -> Packed
     window.handleConfirmPacking = function(orderId, event) {
         if (event) event.stopPropagation();
-        var index = pickOrders.findIndex(function(o) { return o.id === orderId; });
-        if (index > -1) {
-            pickOrders[index].status = 'packed';
+        var order = pickOrders.find(function(o) { return o.id === orderId; });
+        if (!order) return;
+        if (order.dbOutboundId) {
+            submitPostAction('updateStatus', { outboundId: order.dbOutboundId, status: 'PACKED' });
+        } else {
+            order.status = 'packed';
             
             // Mark all items as picked
-            pickOrders[index].items.forEach(function(item) {
+            order.items.forEach(function(item) {
                 item.picked = true;
             });
             saveState();
@@ -1962,33 +2052,37 @@
         var order = pickOrders.find(function(o) { return o.id === orderId; });
         if (!order) return;
 
-        // Perform stock availability verification
-        var validation = validateStockAvailability(order.items);
-        if (!validation.valid) {
-            alert('❌ Không thể xuất kho do thiếu hụt tồn vật lý:\n\n' + validation.errors.join('\n'));
-            confirmOverlay.classList.remove('active');
-            return;
+        if (order.dbOutboundId) {
+            submitPostAction('updateStatus', { outboundId: order.dbOutboundId, status: 'SHIPPED' });
+        } else {
+            // Perform stock availability verification
+            var validation = validateStockAvailability(order.items);
+            if (!validation.valid) {
+                alert('❌ Không thể xuất kho do thiếu hụt tồn vật lý:\n\n' + validation.errors.join('\n'));
+                confirmOverlay.classList.remove('active');
+                return;
+            }
+
+            // Apply dynamic stock updates and ledger entries
+            order.items.forEach(function(item) {
+                // 1. Ledger Entry
+                logOutboundInventoryLedger(item.skuCode, item.qty, order.id, order.customer);
+                
+                // 2. Decrement from physical wms_skus stock
+                decrementMasterSkuQty(item.skuCode, item.qty);
+                
+                // 3. Decrement asset balances from wh_pricing
+                decrementPricingQty(item.skuCode, item.qty);
+            });
+
+            // Update DO status to dispatched
+            order.status = 'dispatched';
+            order.assignedTo = order.assignedTo || window.WMS_USER.fullName || 'Nhân viên kho';
+
+            closeConfirmDispatch();
+            saveState();
+            alert('🎉 Đã xác nhận xuất kho thành công cho phiếu ' + orderId + '!');
         }
-
-        // Apply dynamic stock updates and ledger entries
-        order.items.forEach(function(item) {
-            // 1. Ledger Entry
-            logOutboundInventoryLedger(item.skuCode, item.qty, order.id, order.customer);
-            
-            // 2. Decrement from physical wms_skus stock
-            decrementMasterSkuQty(item.skuCode, item.qty);
-            
-            // 3. Decrement asset balances from wh_pricing
-            decrementPricingQty(item.skuCode, item.qty);
-        });
-
-        // Update DO status to dispatched
-        order.status = 'dispatched';
-        order.assignedTo = order.assignedTo || window.WMS_USER.fullName || 'Nhân viên kho';
-
-        closeConfirmDispatch();
-        saveState();
-        alert('🎉 Đã xác nhận xuất kho thành công cho phiếu ' + orderId + '!');
     };
 
     // ─── DRAFT OUTBOUND DO CREATOR MODAL ───

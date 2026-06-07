@@ -67,6 +67,45 @@ public abstract class BaseController extends HttpServlet {
         req.setAttribute(AppConstants.ATTR_SUCCESS, message);
     }
 
+    // ── Session-based flash messages (survive POST-Redirect-GET) ──
+
+    /**
+     * Store an error flash message in the session so it survives a redirect.
+     * Call consumeFlash() in doGet to move it to request scope.
+     */
+    protected void setFlashError(HttpServletRequest req, String message) {
+        HttpSession session = req.getSession(true);
+        session.setAttribute(AppConstants.ATTR_ERROR, message);
+    }
+
+    /**
+     * Store a success flash message in the session so it survives a redirect.
+     * Call consumeFlash() in doGet to move it to request scope.
+     */
+    protected void setFlashSuccess(HttpServletRequest req, String message) {
+        HttpSession session = req.getSession(true);
+        session.setAttribute(AppConstants.ATTR_SUCCESS, message);
+    }
+
+    /**
+     * Move any session flash messages into the request scope and remove them.
+     * Call this at the start of every doGet that may follow a redirect.
+     */
+    protected void consumeFlash(HttpServletRequest req) {
+        HttpSession session = req.getSession(false);
+        if (session == null) return;
+        String err = (String) session.getAttribute(AppConstants.ATTR_ERROR);
+        if (err != null) {
+            req.setAttribute(AppConstants.ATTR_ERROR, err);
+            session.removeAttribute(AppConstants.ATTR_ERROR);
+        }
+        String ok = (String) session.getAttribute(AppConstants.ATTR_SUCCESS);
+        if (ok != null) {
+            req.setAttribute(AppConstants.ATTR_SUCCESS, ok);
+            session.removeAttribute(AppConstants.ATTR_SUCCESS);
+        }
+    }
+
     // ── Session helpers (replaces React Context) ───────────────
 
     protected Object getSessionAttr(HttpServletRequest req, String key) {

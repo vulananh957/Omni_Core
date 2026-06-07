@@ -14,6 +14,8 @@ public class OutboundItem {
     private BigDecimal qty;
     private BigDecimal pickedQty;
     private String shelfLocation;
+    private String skuCode;
+    private String skuName;
 
     public OutboundItem() {
     }
@@ -76,6 +78,22 @@ public class OutboundItem {
 
     public void setShelfLocation(String shelfLocation) {
         this.shelfLocation = shelfLocation;
+    }
+
+    public String getSkuCode() {
+        return skuCode;
+    }
+
+    public void setSkuCode(String skuCode) {
+        this.skuCode = skuCode;
+    }
+
+    public String getSkuName() {
+        return skuName;
+    }
+
+    public void setSkuName(String skuName) {
+        this.skuName = skuName;
     }
 
     @Override

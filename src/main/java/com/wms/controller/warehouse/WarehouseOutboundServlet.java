@@ -40,6 +40,10 @@ public class WarehouseOutboundServlet extends BaseController {
             outboundOrders = outboundDAO.findAll();
         }
 
+        for (OutboundOrder order : outboundOrders) {
+            order.setItems(outboundDAO.findItemsByOutboundId(order.getOutboundId()));
+        }
+
         req.setAttribute("outboundOrders", outboundOrders);
         req.setAttribute("pageTitle",    "Điều Phối Phiếu Xuất Kho");
         req.setAttribute("pageSubtitle", "Nhận lệnh từ Sales Staff — kiểm tra tồn kho, pick, pack và xuất hàng");

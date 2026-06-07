@@ -109,6 +109,13 @@ public class SchemaInitListener implements ServletContextListener {
             st.executeUpdate("INSERT IGNORE INTO warehouses (warehouse_code, warehouse_name, address) "
                     + "VALUES ('WH-01','Kho Ha Noi','So 1 Duong ABC, Ha Noi')");
 
+            // Default categories
+            st.executeUpdate("INSERT IGNORE INTO categories (category_id, category_name) VALUES "
+                    + "(1, 'Vở & Sổ chép'),"
+                    + "(2, 'Phụ kiện cá nhân'),"
+                    + "(3, 'Dụng cụ viết & Vẽ'),"
+                    + "(4, 'Thiết bị văn phòng tiện ích')");
+
             // Default roles
             st.executeUpdate("INSERT IGNORE INTO roles (role_name, description) VALUES "
                     + "('ADMIN','Quan tri he thong'),"
@@ -247,7 +254,16 @@ public class SchemaInitListener implements ServletContextListener {
     private void ensureProductsTable() throws SQLException {
         try (Connection conn = DBConnection.getConnection()) {
             createTableIfNotExists(conn, "products",
-                "CREATE TABLE products (product_id INT AUTO_INCREMENT PRIMARY KEY, category_id INT, sku_code VARCHAR(50) NOT NULL UNIQUE, product_name VARCHAR(255) NOT NULL, base_price DECIMAL(15,2) NOT NULL DEFAULT 0, attributes_text VARCHAR(255), weight_kg DECIMAL(8,3), is_new_arrival TINYINT(1) NOT NULL DEFAULT 0, active TINYINT(1) NOT NULL DEFAULT 1, created_by INT, created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP, updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+                "CREATE TABLE products (product_id INT AUTO_INCREMENT PRIMARY KEY, category_id INT, sku_code VARCHAR(50) NOT NULL UNIQUE, product_name VARCHAR(255) NOT NULL, base_price DECIMAL(15,2) NOT NULL DEFAULT 0, attributes_text VARCHAR(255), weight_kg DECIMAL(8,3), is_new_arrival TINYINT(1) NOT NULL DEFAULT 0, active TINYINT(1) NOT NULL DEFAULT 1, created_by INT, created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP, updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP, barcode VARCHAR(50) DEFAULT NULL, unit VARCHAR(30) DEFAULT 'Cái', min_stock DECIMAL(12,3) DEFAULT 0, max_stock DECIMAL(12,3) DEFAULT 0, status VARCHAR(20) DEFAULT 'PENDING', approved_at DATETIME DEFAULT NULL, approved_by INT DEFAULT NULL) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+
+            DatabaseMetaData md = conn.getMetaData();
+            addColumnIfMissing(conn, md, "products", "barcode", "VARCHAR(50) DEFAULT NULL");
+            addColumnIfMissing(conn, md, "products", "unit", "VARCHAR(30) DEFAULT 'Cái'");
+            addColumnIfMissing(conn, md, "products", "min_stock", "DECIMAL(12,3) DEFAULT 0");
+            addColumnIfMissing(conn, md, "products", "max_stock", "DECIMAL(12,3) DEFAULT 0");
+            addColumnIfMissing(conn, md, "products", "status", "VARCHAR(20) DEFAULT 'PENDING'");
+            addColumnIfMissing(conn, md, "products", "approved_at", "DATETIME DEFAULT NULL");
+            addColumnIfMissing(conn, md, "products", "approved_by", "INT DEFAULT NULL");
         }
     }
 

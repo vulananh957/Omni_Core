@@ -220,8 +220,11 @@ public class OutboundDAO {
      */
     public List<OutboundItem> findItemsByOutboundId(int outboundId) {
         List<OutboundItem> list = new ArrayList<>();
-        String sql = "SELECT outbound_item_id, outbound_id, product_id, qty, picked_qty, shelf_location "
-                   + "FROM outbound_items WHERE outbound_id = ?";
+        String sql = "SELECT i.outbound_item_id, i.outbound_id, i.product_id, i.qty, i.picked_qty, i.shelf_location, "
+                   + "p.sku_code, p.product_name "
+                   + "FROM outbound_items i "
+                   + "LEFT JOIN products p ON i.product_id = p.product_id "
+                   + "WHERE i.outbound_id = ?";
 
         try (Connection conn = DBConnection.getConnection();
              PreparedStatement ps = conn.prepareStatement(sql)) {
@@ -236,6 +239,8 @@ public class OutboundDAO {
                     item.setQty(rs.getBigDecimal("qty"));
                     item.setPickedQty(rs.getBigDecimal("picked_qty"));
                     item.setShelfLocation(rs.getString("shelf_location"));
+                    item.setSkuCode(rs.getString("sku_code"));
+                    item.setSkuName(rs.getString("product_name"));
                     list.add(item);
                 }
             }

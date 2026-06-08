@@ -315,17 +315,17 @@
         var role = roleFilter ? roleFilter.value : '';
         var status = statusFilter ? statusFilter.value : '';
         
-        var url = new URL(window.location.href);
-        if (query) url.searchParams.set('search', query);
-        else url.searchParams.delete('search');
+        var baseUrl = '${pageContext.request.contextPath}/admin/users';
+        var params = [];
+        if (query) params.push('search=' + encodeURIComponent(query));
+        if (role) params.push('role=' + encodeURIComponent(role));
+        if (status) params.push('status=' + encodeURIComponent(status));
         
-        if (role) url.searchParams.set('role', role);
-        else url.searchParams.delete('role');
-        
-        if (status) url.searchParams.set('status', status);
-        else url.searchParams.delete('status');
-        
-        window.location.href = url.toString();
+        if (params.length > 0) {
+            window.location.href = baseUrl + '?' + params.join('&');
+        } else {
+            window.location.href = baseUrl;
+        }
     }
 
     if (searchInput) {

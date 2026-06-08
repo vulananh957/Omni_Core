@@ -1,6 +1,7 @@
 package com.wms.controller.warehouse;
 
 import com.wms.controller.BaseController;
+import com.wms.dao.ProductDAO;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
@@ -13,9 +14,15 @@ import java.io.IOException;
  */
 public class WarehouseReturnsServlet extends BaseController {
 
+    private final ProductDAO productDAO = new ProductDAO();
+
     @Override
     protected void doGet(HttpServletRequest req, HttpServletResponse resp)
             throws ServletException, IOException {
+
+        // Pull approved products for the SKU select dropdown
+        var products = productDAO.findApproved();
+        req.setAttribute("products", products);
 
         // Page metadata for the layout shell
         req.setAttribute("pageTitle",    "Trung Tâm Tiếp Nhận Hàng Hoàn QC");

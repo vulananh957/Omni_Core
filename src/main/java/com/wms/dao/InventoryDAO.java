@@ -2,6 +2,7 @@ package com.wms.dao;
 
 import com.wms.util.DBConnection;
 
+import java.math.BigDecimal;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.SQLException;
@@ -80,6 +81,102 @@ public class InventoryDAO {
                     LOGGER.log(Level.WARNING, "Failed to close PreparedStatement", e);
                 }
             }
+            if (conn != null) {
+                try {
+                    conn.setAutoCommit(true);
+                    conn.close();
+                } catch (SQLException e) {
+                    LOGGER.log(Level.WARNING, "Failed to close Connection", e);
+                }
+            }
+        }
+    }
+
+    /**
+     * Adds quantity to inventory (for inbound receives).
+     * Increases qty_on_hand and qty_available by the given amount.
+     * Creates the inventory ledger entry for INBOUND transaction.
+     *
+     * @param productId    The ID of the product.
+     * @param warehouseId The ID of the warehouse.
+     * @param quantity    The quantity to add (must be > 0).
+     * @return true if the inventory was updated successfully, false otherwise.
+     */
+    public boolean addInventory(int productId, int warehouseId, BigDecimal quantity) {
+        if (quantity == null || quantity.compareTo(BigDecimal.ZERO) <= 0) {
+            throw new IllegalArgumentException("Quantity to add must be greater than zero.");
+        }
+
+        Connection conn = null;
+        PreparedStatement psUpdate = null;
+        PreparedStatement psLedger = null;
+
+        try {
+            conn = DBConnection.getConnection();
+            conn.setAutoCommit(false);
+
+            // Upsert inventory row
+            String sqlUpsert =
+                "INSERT INTO inventory (product_id, warehouse_id, qty_on_hand, holding, qty_available) " +
+                "VALUES (?, ?, ?, 0, ?) " +
+                "ON DUPLICATE KEY UPDATE " +
+                "qty_on_hand = qty_on_hand + ?, qty_available = qty_available + ?";
+
+            psUpdate = conn.prepareStatement(sqlUpsert);
+            psUpdate.setInt(1, productId);
+            psUpdate.setInt(2, warehouseId);
+            psUpdate.setBigDecimal(3, quantity);
+            psUpdate.setBigDecimal(4, quantity);
+            psUpdate.setBigDecimal(5, quantity);
+            psUpdate.setBigDecimal(6, quantity);
+            psUpdate.executeUpdate();
+            psUpdate.close();
+
+            // Get the inventory_id for the ledger entry
+            String sqlGetInvId = "SELECT inventory_id FROM inventory WHERE product_id = ? AND warehouse_id = ?";
+            int inventoryId = -1;
+            try (PreparedStatement psGet = conn.prepareStatement(sqlGetInvId)) {
+                psGet.setInt(1, productId);
+                psGet.setInt(2, warehouseId);
+                try (java.sql.ResultSet rs = psGet.executeQuery()) {
+                    if (rs.next()) {
+                        inventoryId = rs.getInt("inventory_id");
+                    }
+                }
+            }
+
+            // Insert ledger entry
+            String sqlLedger =
+                "INSERT INTO inventory_ledger (inventory_id, product_id, warehouse_id, transaction_type, " +
+                "qty_change, avail_change, created_by, note) " +
+                "VALUES (?, ?, ?, 'INBOUND', ?, ?, ?, 'Nhập kho Inbound')";
+
+            psLedger = conn.prepareStatement(sqlLedger);
+            psLedger.setInt(1, inventoryId > 0 ? inventoryId : 0);
+            psLedger.setInt(2, productId);
+            psLedger.setInt(3, warehouseId);
+            psLedger.setBigDecimal(4, quantity);
+            psLedger.setBigDecimal(5, quantity);
+            psLedger.setInt(6, 1); // created_by: default system user
+            psLedger.executeUpdate();
+
+            conn.commit();
+            LOGGER.info("addInventory: added " + quantity + " units of product ID " + productId
+                    + " at warehouse ID " + warehouseId);
+            return true;
+
+        } catch (SQLException e) {
+            LOGGER.log(Level.SEVERE, "Database error during addInventory. Initiating rollback...", e);
+            if (conn != null) {
+                try {
+                    conn.rollback();
+                } catch (SQLException rollbackEx) {
+                    LOGGER.log(Level.SEVERE, "Failed to rollback transaction", rollbackEx);
+                }
+            }
+            return false;
+        } finally {
+            DBConnection.closeQuietly(psUpdate, psLedger);
             if (conn != null) {
                 try {
                     conn.setAutoCommit(true);

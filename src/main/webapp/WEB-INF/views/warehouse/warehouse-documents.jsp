@@ -503,6 +503,223 @@
         from { opacity: 0; transform: translateY(-5px); }
         to { opacity: 1; transform: translateY(0); }
     }
+
+    /* ─── Shipping Label ─── */
+    .shipping-label-container {
+        background: #fff;
+        border: 1px solid #E5EAF3;
+        border-radius: var(--radius-card);
+        padding: 24px;
+        margin-bottom: 20px;
+    }
+    .shipping-label-card {
+        border: 2px dashed #10375c;
+        border-radius: 8px;
+        padding: 24px;
+        max-width: 480px;
+        margin: 0 auto;
+        background: #fff;
+        font-family: 'Inter', sans-serif;
+    }
+    .shipping-label-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+        border-bottom: 2px solid #10375c;
+        padding-bottom: 12px;
+        margin-bottom: 16px;
+    }
+    .shipping-label-from {
+        font-size: 11px;
+        color: rgba(16,55,92,0.6);
+        line-height: 1.4;
+    }
+    .shipping-label-to {
+        font-size: 13px;
+        color: var(--navy);
+        text-align: right;
+    }
+    .shipping-label-to-name {
+        font-size: 16px;
+        font-weight: 800;
+        margin-bottom: 4px;
+    }
+    .shipping-label-to-addr {
+        font-size: 12px;
+        line-height: 1.5;
+        color: rgba(16,55,92,0.7);
+    }
+    .shipping-label-ref {
+        text-align: center;
+        padding: 12px 0;
+    }
+    .shipping-label-order-id {
+        font-size: 22px;
+        font-weight: 900;
+        color: var(--navy);
+        letter-spacing: 0.05em;
+    }
+    .shipping-label-barcode-placeholder {
+        font-family: monospace;
+        font-size: 10px;
+        color: rgba(16,55,92,0.4);
+        text-align: center;
+        padding: 8px;
+        background: rgba(16,55,92,0.04);
+        border-radius: 4px;
+        letter-spacing: 3px;
+        margin-top: 8px;
+    }
+    .shipping-label-footer {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        border-top: 1px solid #E5EAF3;
+        padding-top: 12px;
+        margin-top: 16px;
+        font-size: 11px;
+        color: rgba(16,55,92,0.5);
+    }
+
+    /* ─── Delivery Note ─── */
+    .delivery-note-container {
+        background: #fff;
+        border: 1px solid #E5EAF3;
+        border-radius: var(--radius-card);
+        padding: 24px;
+        margin-bottom: 20px;
+    }
+    .delivery-note-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+        margin-bottom: 20px;
+        padding-bottom: 16px;
+        border-bottom: 1px solid #E5EAF3;
+    }
+    .delivery-note-title {
+        font-size: 18px;
+        font-weight: 800;
+        color: var(--navy);
+    }
+    .delivery-note-meta {
+        text-align: right;
+        font-size: 12px;
+        color: rgba(16,55,92,0.6);
+        line-height: 1.6;
+    }
+    .delivery-note-meta strong {
+        color: var(--navy);
+    }
+    .delivery-note-parties {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 20px;
+        margin-bottom: 20px;
+    }
+    .delivery-note-party-box {
+        border: 1px solid #E5EAF3;
+        border-radius: 6px;
+        padding: 14px;
+    }
+    .delivery-note-party-label {
+        font-size: 10px;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        color: rgba(16,55,92,0.5);
+        margin-bottom: 6px;
+    }
+    .delivery-note-party-name {
+        font-size: 13px;
+        font-weight: 700;
+        color: var(--navy);
+        margin-bottom: 2px;
+    }
+    .delivery-note-party-detail {
+        font-size: 11px;
+        color: rgba(16,55,92,0.6);
+        line-height: 1.4;
+    }
+    .delivery-note-table {
+        width: 100%;
+        border-collapse: collapse;
+        border: 1px solid #E5EAF3;
+        border-radius: 6px;
+        overflow: hidden;
+        margin-bottom: 20px;
+    }
+    .delivery-note-table th {
+        background: var(--alice);
+        padding: 10px 14px;
+        font-size: 10px;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        color: rgba(16,55,92,0.5);
+        text-align: left;
+        border-bottom: 1px solid #E5EAF3;
+    }
+    .delivery-note-table td {
+        padding: 10px 14px;
+        border-bottom: 1px solid #E5EAF3;
+        font-size: 12px;
+        color: var(--navy);
+        vertical-align: middle;
+    }
+    .delivery-note-table tr:last-child td { border-bottom: none; }
+    .delivery-note-total {
+        text-align: right;
+        padding: 12px 14px;
+        background: rgba(16,55,92,0.03);
+        border-radius: 6px;
+        font-size: 13px;
+        font-weight: 700;
+        color: var(--navy);
+    }
+    .delivery-note-sig-grid {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 12px;
+        margin-top: 32px;
+    }
+    .delivery-note-sig-box {
+        text-align: center;
+    }
+    .delivery-note-sig-title {
+        font-size: 10px;
+        font-weight: 700;
+        text-transform: uppercase;
+        color: rgba(16,55,92,0.5);
+        margin-bottom: 40px;
+    }
+    .delivery-note-sig-name {
+        font-size: 10px;
+        color: rgba(16,55,92,0.4);
+        font-style: italic;
+    }
+
+    /* ─── Print Media for A5 Shipping/Delivery ─── */
+    @media print {
+        body * { visibility: hidden; }
+        .shipping-label-container *,
+        .delivery-note-container * { visibility: visible; }
+        .shipping-label-container {
+            position: absolute; left: 0; top: 0;
+            width: 148mm; height: 210mm;
+            border: none; border-radius: 0;
+            padding: 10mm;
+            page-break-inside: avoid;
+        }
+        .delivery-note-container {
+            position: absolute; left: 0; top: 0;
+            width: 148mm; height: 210mm;
+            border: none; border-radius: 0;
+            padding: 10mm;
+            page-break-inside: avoid;
+        }
+        @page { size: A5 portrait; margin: 5mm; }
+    }
 </style>
 
 <!-- ══ Alert Banner ══ -->
@@ -555,6 +772,21 @@
         Hoàn Hàng
         <span class="doc-tab-count" id="count-rma">0</span>
     </button>
+    <button class="doc-tab-btn" data-tab="Shipping Label" style="color: rgba(16,55,92,0.40);">
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+            <rect x="2" y="4" width="20" height="16" rx="2"/>
+            <path d="M6 8h.01M6 12h.01M6 16h.01M10 8h8M10 12h8M10 16h8"/>
+        </svg>
+        Shipping Label
+        <span class="doc-tab-count" id="count-shipping">0</span>
+    </button>
+    <button class="doc-tab-btn" data-tab="Delivery Note" style="color: rgba(16,55,92,0.40);">
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+            <path d="M9 17H7A5 5 0 0 1 7 7h2M15 7h2a5 5 0 1 1 0 10h-2M8 12h8"/>
+        </svg>
+        Delivery Note
+        <span class="doc-tab-count" id="count-delivery">0</span>
+    </button>
 </div>
 
 <!-- ══ Search & Toolbar ══ -->
@@ -568,8 +800,122 @@
     <div class="doc-count-summary" id="docCountSummary">0 / 0 phiếu</div>
 </div>
 
+<!-- ══ Shipping Label Section ══ -->
+<div class="shipping-label-container" id="shippingLabelSection" style="display:none;">
+    <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom: 20px;">
+        <h3 style="font-size:15px; font-weight:800; color:var(--navy); margin:0;">Shipping Label</h3>
+        <button onclick="window.printShippingLabel()" class="btn-doc-create" style="padding: 8px 14px; font-size:12px;">
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                <polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/>
+                <rect x="6" y="14" width="12" height="8"/>
+            </svg>
+            In / Print
+        </button>
+    </div>
+    <div class="shipping-label-card" id="shippingLabelCard">
+        <div class="shipping-label-header">
+            <div class="shipping-label-from">
+                <strong>TỪ / FROM:</strong><br/>
+                Công Ty TNHH ABC<br/>
+                123 Đường Nguyễn Huệ, Quận 1<br/>
+                TP. Hồ Chí Minh, Việt Nam<br/>
+                Tel: (028) 1234 5678
+            </div>
+            <div style="text-align:right;">
+                <div style="font-size:10px; color:rgba(16,55,92,0.5); text-transform:uppercase; letter-spacing:0.1em; margin-bottom:4px;">Mã vận đơn</div>
+                <div id="shippingLabelOrderId" style="font-size:16px; font-weight:900; color:var(--navy);">SOUT-2026XXXX-001</div>
+            </div>
+        </div>
+        <div class="shipping-label-header" style="border-bottom:none; padding-bottom:0; margin-bottom:0;">
+            <div style="flex:1;">
+                <div style="font-size:10px; color:rgba(16,55,92,0.5); text-transform:uppercase; letter-spacing:0.1em; margin-bottom:4px;">ĐẾN / TO:</div>
+                <div id="shippingLabelToName" class="shipping-label-to-name">Nguyễn Văn Khách Hàng</div>
+                <div id="shippingLabelToAddr" class="shipping-label-to-addr">Chưa có địa chỉ giao hàng</div>
+                <div id="shippingLabelToTel" style="font-size:11px; color:rgba(16,55,92,0.5); margin-top:4px;">Tel: —</div>
+            </div>
+        </div>
+        <div class="shipping-label-ref">
+            <div id="shippingLabelBarcodeRef" class="shipping-label-barcode-placeholder">|||| |||| |||| |||| ||||</div>
+        </div>
+        <div class="shipping-label-footer">
+            <span>Ngày gửi: <strong id="shippingLabelDate">—</strong></span>
+            <span>Cân nặng: <strong>—</strong></span>
+            <span>Số kiện: <strong>1</strong></span>
+        </div>
+    </div>
+</div>
+
+<!-- ══ Delivery Note Section ══ -->
+<div class="delivery-note-container" id="deliveryNoteSection" style="display:none;">
+    <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom: 20px;">
+        <h3 style="font-size:15px; font-weight:800; color:var(--navy); margin:0;">Delivery Note — Phiếu Giao Hàng</h3>
+        <button onclick="window.printDeliveryNote()" class="btn-doc-create" style="padding: 8px 14px; font-size:12px;">
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                <polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/>
+                <rect x="6" y="14" width="12" height="8"/>
+            </svg>
+            In / Print
+        </button>
+    </div>
+    <div id="deliveryNoteCard">
+        <div class="delivery-note-header">
+            <div>
+                <div class="delivery-note-title">PHIẾU GIAO HÀNG</div>
+                <div style="font-size:11px; color:rgba(16,55,92,0.5); margin-top:4px;">Delivery Note</div>
+            </div>
+            <div class="delivery-note-meta">
+                <div>Số phiếu: <strong id="dnOrderId">—</strong></div>
+                <div>Ngày: <strong id="dnDate">—</strong></div>
+                <div>Kho xuất: <strong id="dnWarehouse">—</strong></div>
+            </div>
+        </div>
+        <div class="delivery-note-parties">
+            <div class="delivery-note-party-box">
+                <div class="delivery-note-party-label">Người gửi</div>
+                <div class="delivery-note-party-name">Công Ty TNHH ABC</div>
+                <div class="delivery-note-party-detail">123 Nguyễn Huệ, Q.1, TP.HCM</div>
+            </div>
+            <div class="delivery-note-party-box">
+                <div class="delivery-note-party-label">Người nhận</div>
+                <div class="delivery-note-party-name" id="dnReceiverName">—</div>
+                <div class="delivery-note-party-detail" id="dnReceiverAddr">—</div>
+            </div>
+        </div>
+        <table class="delivery-note-table">
+            <thead>
+                <tr>
+                    <th style="width:40px;">STT</th>
+                    <th>Tên sản phẩm</th>
+                    <th style="width:80px; text-align:center;">Đơn vị</th>
+                    <th style="width:100px; text-align:right;">Số lượng</th>
+                </tr>
+            </thead>
+            <tbody id="dnItemsBody">
+                <tr><td colspan="4" style="text-align:center; color:rgba(16,55,92,0.4); padding:32px;">Chưa có dữ liệu sản phẩm</td></tr>
+            </tbody>
+        </table>
+        <div class="delivery-note-total">
+            Tổng cộng: <span id="dnTotalQty">0</span> sản phẩm
+        </div>
+        <div class="delivery-note-sig-grid">
+            <div class="delivery-note-sig-box">
+                <div class="delivery-note-sig-title">Người giao hàng</div>
+                <div class="delivery-note-sig-name">(Ký, ghi rõ họ tên)</div>
+            </div>
+            <div class="delivery-note-sig-box">
+                <div class="delivery-note-sig-title">Người nhận hàng</div>
+                <div class="delivery-note-sig-name">(Ký, ghi rõ họ tên)</div>
+            </div>
+            <div class="delivery-note-sig-box">
+                <div class="delivery-note-sig-title">Thủ kho xác nhận</div>
+                <div class="delivery-note-sig-name">(Ký, ghi rõ họ tên)</div>
+            </div>
+        </div>
+    </div>
+</div>
+
 <!-- ══ Table ══ -->
-<div class="doc-table-card">
+<div class="doc-table-card" id="documentsTableSection">
     <div class="doc-table-wrapper">
         <table class="doc-table">
             <thead>
@@ -865,6 +1211,31 @@
                 tabButtons.forEach(function(b) { b.classList.remove('active'); });
                 btn.classList.add('active');
                 activeTab = btn.getAttribute('data-tab');
+
+                // Show/hide Shipping Label and Delivery Note sections
+                var shippingSection = document.getElementById('shippingLabelSection');
+                var deliverySection = document.getElementById('deliveryNoteSection');
+                var tableSection = document.getElementById('documentsTableSection');
+
+                if (activeTab === 'Shipping Label') {
+                    if (shippingSection) shippingSection.style.display = 'block';
+                    if (deliverySection) deliverySection.style.display = 'none';
+                    if (tableSection) tableSection.style.display = 'none';
+                    // Populate from the first GI-type document if available
+                    var firstGI = docs.find(function(d) { return d.type === 'Phiếu Xuất Kho'; });
+                    if (firstGI) populateShippingLabel(firstGI);
+                } else if (activeTab === 'Delivery Note') {
+                    if (shippingSection) shippingSection.style.display = 'none';
+                    if (deliverySection) deliverySection.style.display = 'block';
+                    if (tableSection) tableSection.style.display = 'none';
+                    var firstGI = docs.find(function(d) { return d.type === 'Phiếu Xuất Kho'; });
+                    if (firstGI) populateDeliveryNote(firstGI);
+                } else {
+                    if (shippingSection) shippingSection.style.display = 'none';
+                    if (deliverySection) deliverySection.style.display = 'none';
+                    if (tableSection) tableSection.style.display = 'block';
+                }
+
                 renderDocs();
             });
         });
@@ -2086,7 +2457,52 @@
                       .replace(/'/g, "&#039;");
         }
 
-        // Start engine
+        // ─── Shipping Label functions ────────────────────────────
+        function populateShippingLabel(doc) {
+            document.getElementById('shippingLabelOrderId').textContent = doc.id || '—';
+            document.getElementById('shippingLabelToName').textContent = doc.receiverName || doc.receiver || '—';
+            document.getElementById('shippingLabelToAddr').textContent = doc.address || doc.receiverAddress || '—';
+            document.getElementById('shippingLabelToTel').textContent = 'Tel: ' + (doc.receiverTel || doc.tel || '—');
+            document.getElementById('shippingLabelDate').textContent = doc.date || '—';
+            document.getElementById('shippingLabelBarcodeRef').textContent = (doc.barcode || doc.id || '').replace(/./g, '| ');
+        }
+
+        window.printShippingLabel = function() {
+            window.print();
+        };
+
+        // ─── Delivery Note functions ─────────────────────────────
+        function populateDeliveryNote(doc) {
+            document.getElementById('dnOrderId').textContent = doc.id || '—';
+            document.getElementById('dnDate').textContent = doc.date || '—';
+            document.getElementById('dnWarehouse').textContent = doc.warehouse || '—';
+            document.getElementById('dnReceiverName').textContent = doc.receiverName || doc.receiver || '—';
+            document.getElementById('dnReceiverAddr').textContent = doc.address || doc.receiverAddress || '—';
+
+            var tbody = document.getElementById('dnItemsBody');
+            if (doc.items && doc.items > 0) {
+                var rows = '';
+                for (var i = 0; i < Math.min(doc.items, 10); i++) {
+                    rows += '<tr>' +
+                        '<td style="text-align:center;">' + (i + 1) + '</td>' +
+                        '<td>SP-' + String(i + 1).padStart(3, '0') + '</td>' +
+                        '<td style="text-align:center;">Cái</td>' +
+                        '<td style="text-align:right; font-weight:600;">' + doc.items + '</td>' +
+                    '</tr>';
+                }
+                tbody.innerHTML = rows;
+                document.getElementById('dnTotalQty').textContent = doc.items;
+            } else {
+                tbody.innerHTML = '<tr><td colspan="4" style="text-align:center; color:rgba(16,55,92,0.4); padding:32px;">Chưa có dữ liệu sản phẩm</td></tr>';
+                document.getElementById('dnTotalQty').textContent = '0';
+            }
+        }
+
+        window.printDeliveryNote = function() {
+            window.print();
+        };
+
+        // ─── Start engine ─────────────────────────────────────────
         renderDocs();
 
     })();

@@ -135,14 +135,18 @@ public class UserDAO {
             ps.setString(6, user.getRole() != null ? user.getRole() : "WAREHOUSE_STAFF");
             ps.setInt(7, user.isActive() ? 1 : 0);
             ps.setString(8, user.getOtpPreference() != null ? user.getOtpPreference() : "EMAIL");
-            ps.setInt(9, user.getWarehouseId() > 0 ? user.getWarehouseId() : 1);
+            if (user.getWarehouseId() > 0) {
+                ps.setInt(9, user.getWarehouseId());
+            } else {
+                ps.setNull(9, java.sql.Types.INTEGER);
+            }
 
             return ps.executeUpdate() > 0;
         }
     }
 
     public boolean update(User user) throws SQLException {
-        String sql = "UPDATE users SET full_name = ?, email = ?, phone = ?, role = ?, active = ? WHERE user_id = ?";
+        String sql = "UPDATE users SET full_name = ?, email = ?, phone = ?, role = ?, active = ?, warehouse_id = ? WHERE user_id = ?";
         try (Connection conn = DBConnection.getConnection();
              PreparedStatement ps = conn.prepareStatement(sql)) {
             ps.setString(1, user.getFullName());
@@ -150,7 +154,12 @@ public class UserDAO {
             ps.setString(3, user.getPhone());
             ps.setString(4, user.getRole() != null ? user.getRole() : "WAREHOUSE_STAFF");
             ps.setInt(5, user.isActive() ? 1 : 0);
-            ps.setInt(6, user.getUserId());
+            if (user.getWarehouseId() > 0) {
+                ps.setInt(6, user.getWarehouseId());
+            } else {
+                ps.setNull(6, java.sql.Types.INTEGER);
+            }
+            ps.setInt(7, user.getUserId());
 
             return ps.executeUpdate() > 0;
         }

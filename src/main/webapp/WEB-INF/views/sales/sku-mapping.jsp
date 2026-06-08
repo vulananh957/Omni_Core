@@ -1,4 +1,4 @@
-<%@ page language="java" contentType="text/html; charset=UTF-8" pageEncoding="UTF-8" isELIgnored="true" %>
+<%@ page language="java" contentType="text/html; charset=UTF-8" pageEncoding="UTF-8" isELIgnored="false" %>
 <%@ taglib prefix="c" uri="jakarta.tags.core" %>
 
 <%-- ══════════════════════════════════════════════════════════════════
@@ -562,10 +562,10 @@
     <select class="sm-select" id="smChannelFilter" onchange="onChannelFilterChange(this.value)" style="min-width:140px">
         <option value="">Tất cả kênh</option>
         <c:forEach var="ch" items="${channels}">
-            <option value="${ch.channelId}">${ch.channelName}</option>
+            <option value="${ch.channelId}">${ch.channelName} (${ch.platform})</option>
         </c:forEach>
     </select>
-    <button class="sm-btn-add-row" onclick="openCreateModal()" id="btnCreateMapping" style="display:none">
+    <button class="sm-btn-action" onclick="openCreateModal()" style="margin-left: auto">
         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
         Tạo ánh xạ mới
     </button>
@@ -1131,33 +1131,31 @@ function renderTableBody() {
         });
 
         if (filtered.length === 0) {
-            tbody.innerHTML = `<tr>
-                <td colspan="5" class="op-empty">
-                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><line x1="9" y1="9" x2="15" y2="15"></line><line x1="15" y1="9" x2="9" y2="15"></line></svg>
-                    ${unmappedList.length === 0 ? "Không có sản phẩm sàn nào. Vui lòng nhấn nút [ Kéo sản phẩm từ Sàn ] ở góc trên để tải." : "Không tìm thấy sản phẩm sàn nào khớp với từ khóa tìm kiếm."}
-                </td>
-            </tr>`;
+            tbody.innerHTML = '<tr>' +
+                '<td colspan="5" class="op-empty">' +
+                    '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><line x1="9" y1="9" x2="15" y2="15"></line><line x1="15" y1="9" x2="9" y2="15"></line></svg>' +
+                    (unmappedList.length === 0 ? "Không có sản phẩm sàn nào. Vui lòng nhấn nút [ Kéo sản phẩm từ Sàn ] ở góc trên để tải." : "Không tìm thấy sản phẩm sàn nào khớp với từ khóa tìm kiếm.") +
+                '</td>' +
+            '</tr>';
             return;
         }
 
         filtered.forEach(item => {
             const tr = document.createElement("tr");
-            tr.innerHTML = `
-                <td>
-                    <span class="sm-badge-channel" style="background:${item.channelColor || '#64748b'}">
-                        ${item.channel}
-                    </span>
-                </td>
-                <td><span style="font-weight:700;font-family:monospace">${item.channelSKU}</span></td>
-                <td><span style="font-weight:600">${item.channelItemName}</span></td>
-                <td><span style="color:rgba(16,55,92,.6);font-size:11.5px;display:block;white-space:nowrap;text-overflow:ellipsis;overflow:hidden;max-width:300px">${item.desc}</span></td>
-                <td style="text-align:center">
-                    <button class="sm-btn-action" onclick="openMappingModal('${item.id}')">
-                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"/></svg>
-                        Ánh Xạ
-                    </button>
-                </td>
-            `;
+            tr.innerHTML = '<td>' +
+                    '<span class="sm-badge-channel" style="background:' + (item.channelColor || '#64748b') + '">' +
+                        item.channel +
+                    '</span>' +
+                '</td>' +
+                '<td><span style="font-weight:700;font-family:monospace">' + item.channelSKU + '</span></td>' +
+                '<td><span style="font-weight:600">' + item.channelItemName + '</span></td>' +
+                '<td><span style="color:rgba(16,55,92,.6);font-size:11.5px;display:block;white-space:nowrap;text-overflow:ellipsis;overflow:hidden;max-width:300px">' + item.desc + '</span></td>' +
+                '<td style="text-align:center">' +
+                    '<button class="sm-btn-action" onclick="openMappingModal(\'' + item.id + '\')">' +
+                        '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"/></svg>' +
+                        'Ánh Xạ' +
+                    '</button>' +
+                '</td>';
             tbody.appendChild(tr);
         });
         
@@ -1173,15 +1171,15 @@ function renderTableBody() {
         });
         
         if (filtered.length === 0) {
-            tbody.innerHTML = `<tr>
-                <td colspan="8" class="op-empty">
-                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><line x1="9" y1="9" x2="15" y2="15"></line><line x1="15" y1="9" x2="9" y2="15"></line></svg>
-                    ${APPROVED_MASTER_SKUS.length === 0 
+            tbody.innerHTML = '<tr>' +
+                '<td colspan="8" class="op-empty">' +
+                    '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><line x1="9" y1="9" x2="15" y2="15"></line><line x1="15" y1="9" x2="9" y2="15"></line></svg>' +
+                    (APPROVED_MASTER_SKUS.length === 0 
                         ? 'Không tìm thấy Master SKU đã duyệt nào trong hệ thống. Vui lòng vào trang quản lý Master SKU để tạo và duyệt sản phẩm trước.' 
                         : 'Không có sản phẩm nào đã gán ánh xạ phù hợp.'
-                    }
-                </td>
-            </tr>`;
+                    ) +
+                '</td>' +
+            '</tr>';
             return;
         }
         
@@ -1191,32 +1189,30 @@ function renderTableBody() {
             
             const getChannelRelsHtml = (chan) => {
                 const matched = rels.filter(r => r.channel.toLowerCase().indexOf(chan.toLowerCase()) > -1);
-                if (matched.length === 0) return `<span style="color:rgba(16,55,92,.2)">—</span>`;
-                return `<div style="display:flex;flex-direction:column;align-items:center;gap:6px">
-                    ${matched.map(m => `
-                        <div class="sm-mapped-pill" title="Mã SKU Sàn: ${m.channelSKU} - Click để hủy liên kết">
-                            <span class="sm-mapped-sku">${m.channelSKU}</span>
-                            ${m.conversionRate > 1 ? `<span class="sm-conversion-tag">x${m.conversionRate}</span>` : ''}
-                            <span class="sm-unlink-btn" onclick="event.stopPropagation(); deleteMapping('${m.mappingId}')">
-                                <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
-                            </span>
-                        </div>
-                    `).join('')}
-                </div>`;
+                if (matched.length === 0) return '<span style="color:rgba(16,55,92,.2)">—</span>';
+                return '<div style="display:flex;flex-direction:column;align-items:center;gap:6px">' +
+                    matched.map(m => 
+                        '<div class="sm-mapped-pill" title="Mã SKU Sàn: ' + m.channelSKU + ' - Click để hủy liên kết">' +
+                            '<span class="sm-mapped-sku">' + m.channelSKU + '</span>' +
+                            (m.conversionRate > 1 ? '<span class="sm-conversion-tag">x' + m.conversionRate + '</span>' : '') +
+                            '<span class="sm-unlink-btn" onclick="event.stopPropagation(); deleteMapping(\'' + m.mappingId + '\')">' +
+                                '<svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>' +
+                            '</span>' +
+                        '</div>'
+                    ).join('') +
+                '</div>';
             };
             
             const qty = getSKUTotalStock(wms.sku);
             
-            tr.innerHTML = `
-                <td><span style="font-family:monospace;font-weight:700">${wms.sku}</span></td>
-                <td><strong style="color:var(--navy)">${wms.name}</strong></td>
-                <td><span style="color:rgba(16,55,92,.6)">${wms.category || 'Chưa phân loại'}</span></td>
-                <td style="text-align:center">${getChannelRelsHtml('shopee')}</td>
-                <td style="text-align:center">${getChannelRelsHtml('tiktok')}</td>
-                <td style="text-align:center">${getChannelRelsHtml('lazada')}</td>
-                <td style="text-align:center">${getChannelRelsHtml('website')}</td>
-                <td style="text-align:right"><strong style="font-size:13.5px">${qty.toLocaleString()}</strong></td>
-            `;
+            tr.innerHTML = '<td><span style="font-family:monospace;font-weight:700">' + wms.sku + '</span></td>' +
+                '<td><strong style="color:var(--navy)">' + wms.name + '</strong></td>' +
+                '<td><span style="color:rgba(16,55,92,.6)">' + (wms.category || 'Chưa phân loại') + '</span></td>' +
+                '<td style="text-align:center">' + getChannelRelsHtml('shopee') + '</td>' +
+                '<td style="text-align:center">' + getChannelRelsHtml('tiktok') + '</td>' +
+                '<td style="text-align:center">' + getChannelRelsHtml('lazada') + '</td>' +
+                '<td style="text-align:center">' + getChannelRelsHtml('website') + '</td>' +
+                '<td style="text-align:right"><strong style="font-size:13.5px">' + qty.toLocaleString() + '</strong></td>';
             tbody.appendChild(tr);
         });
     }
@@ -1294,28 +1290,26 @@ function renderModalRows() {
         
         let selectOptionsHtml = "";
         APPROVED_MASTER_SKUS.forEach(sku => {
-            selectOptionsHtml += `<option value="${sku.sku}" ${sku.sku === row.masterSKU ? 'selected' : ''}>${sku.name} (${sku.sku})</option>`;
+            selectOptionsHtml += '<option value="' + sku.sku + '" ' + (sku.sku === row.masterSKU ? 'selected' : '') + '>' + sku.name + ' (' + sku.sku + ')</option>';
         });
         
-        div.innerHTML = `
-            <div style="flex:1;min-width:0">
-                <span class="sm-field-label">Chọn sản phẩm gốc kho WMS</span>
-                <select class="sm-select" onchange="updateLinkedRow(${idx}, 'masterSKU', this.value)">
-                    ${selectOptionsHtml}
-                </select>
-            </div>
-            <div style="width:80px;flex-shrink:0">
-                <span class="sm-field-label" style="text-align:center">Tỉ lệ</span>
-                <input type="number" class="sm-input" min="1" value="${row.conversionRate}" onchange="updateLinkedRow(${idx}, 'conversionRate', this.value)"/>
-            </div>
-            ${modalLinkedRows.length > 1 ? `
-                <div style="padding-top:14px;flex-shrink:0">
-                    <button class="sm-btn-remove" onclick="removeLinkedRow(${idx})">
-                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path><line x1="10" y1="11" x2="10" y2="17"></line><line x1="14" y1="11" x2="14" y2="17"></line></svg>
-                    </button>
-                </div>
-            ` : ''}
-        `;
+        div.innerHTML = '<div style="flex:1;min-width:0">' +
+                '<span class="sm-field-label">Chọn sản phẩm gốc kho WMS</span>' +
+                '<select class="sm-select" onchange="updateLinkedRow(' + idx + ', \'masterSKU\', this.value)">' +
+                    selectOptionsHtml +
+                '</select>' +
+            '</div>' +
+            '<div style="width:80px;flex-shrink:0">' +
+                '<span class="sm-field-label" style="text-align:center">Tỉ lệ</span>' +
+                '<input type="number" class="sm-input" min="1" value="' + row.conversionRate + '" onchange="updateLinkedRow(' + idx + ', \'conversionRate\', this.value)"/>' +
+            '</div>' +
+            (modalLinkedRows.length > 1 ? 
+                '<div style="padding-top:14px;flex-shrink:0">' +
+                    '<button class="sm-btn-remove" onclick="removeLinkedRow(' + idx + ')">' +
+                        '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path><line x1="10" y1="11" x2="10" y2="17"></line><line x1="14" y1="11" x2="14" y2="17"></line></svg>' +
+                    '</button>' +
+                '</div>'
+             : '');
         container.appendChild(div);
     });
 }

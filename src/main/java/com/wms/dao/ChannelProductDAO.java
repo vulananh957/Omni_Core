@@ -28,11 +28,10 @@ public class ChannelProductDAO {
         List<ChannelProduct> list = new ArrayList<>();
         String sql = "SELECT cp.id, cp.channel_id, cp.product_id, cp.channel_sku_code, "
                    + "cp.channel_price, cp.channel_stock, cp.status, cp.listed_at, cp.updated_at, "
-                   + "c.channel_name, c.platform, p.sku_code, p.product_name, cat.category_name "
+                   + "c.channel_name, c.platform, p.sku_code, p.product_name "
                    + "FROM channel_products cp "
                    + "LEFT JOIN channels c ON cp.channel_id = c.channel_id "
                    + "LEFT JOIN products p ON cp.product_id = p.product_id "
-                   + "LEFT JOIN categories cat ON p.category_id = cat.category_id "
                    + "ORDER BY cp.updated_at DESC";
 
         try (Connection conn = DBConnection.getConnection();
@@ -53,11 +52,10 @@ public class ChannelProductDAO {
     public ChannelProduct findById(int id) {
         String sql = "SELECT cp.id, cp.channel_id, cp.product_id, cp.channel_sku_code, "
                    + "cp.channel_price, cp.channel_stock, cp.status, cp.listed_at, cp.updated_at, "
-                   + "c.channel_name, c.platform, p.sku_code, p.product_name, cat.category_name "
+                   + "c.channel_name, c.platform, p.sku_code, p.product_name "
                    + "FROM channel_products cp "
                    + "LEFT JOIN channels c ON cp.channel_id = c.channel_id "
                    + "LEFT JOIN products p ON cp.product_id = p.product_id "
-                   + "LEFT JOIN categories cat ON p.category_id = cat.category_id "
                    + "WHERE cp.id = ?";
 
         try (Connection conn = DBConnection.getConnection();
@@ -81,11 +79,10 @@ public class ChannelProductDAO {
         List<ChannelProduct> list = new ArrayList<>();
         String sql = "SELECT cp.id, cp.channel_id, cp.product_id, cp.channel_sku_code, "
                    + "cp.channel_price, cp.channel_stock, cp.status, cp.listed_at, cp.updated_at, "
-                   + "c.channel_name, c.platform, p.sku_code, p.product_name, cat.category_name "
+                   + "c.channel_name, c.platform, p.sku_code, p.product_name "
                    + "FROM channel_products cp "
                    + "LEFT JOIN channels c ON cp.channel_id = c.channel_id "
                    + "LEFT JOIN products p ON cp.product_id = p.product_id "
-                   + "LEFT JOIN categories cat ON p.category_id = cat.category_id "
                    + "WHERE cp.channel_id = ? "
                    + "ORDER BY cp.updated_at DESC";
 
@@ -110,11 +107,10 @@ public class ChannelProductDAO {
         List<ChannelProduct> list = new ArrayList<>();
         String sql = "SELECT cp.id, cp.channel_id, cp.product_id, cp.channel_sku_code, "
                    + "cp.channel_price, cp.channel_stock, cp.status, cp.listed_at, cp.updated_at, "
-                   + "c.channel_name, c.platform, p.sku_code, p.product_name, cat.category_name "
+                   + "c.channel_name, c.platform, p.sku_code, p.product_name "
                    + "FROM channel_products cp "
                    + "LEFT JOIN channels c ON cp.channel_id = c.channel_id "
                    + "LEFT JOIN products p ON cp.product_id = p.product_id "
-                   + "LEFT JOIN categories cat ON p.category_id = cat.category_id "
                    + "WHERE cp.product_id = ? "
                    + "ORDER BY cp.updated_at DESC";
 
@@ -139,11 +135,10 @@ public class ChannelProductDAO {
         List<ChannelProduct> list = new ArrayList<>();
         String sql = "SELECT cp.id, cp.channel_id, cp.product_id, cp.channel_sku_code, "
                    + "cp.channel_price, cp.channel_stock, cp.status, cp.listed_at, cp.updated_at, "
-                   + "c.channel_name, c.platform, p.sku_code, p.product_name, cat.category_name "
+                   + "c.channel_name, c.platform, p.sku_code, p.product_name "
                    + "FROM channel_products cp "
                    + "LEFT JOIN channels c ON cp.channel_id = c.channel_id "
                    + "LEFT JOIN products p ON cp.product_id = p.product_id "
-                   + "LEFT JOIN categories cat ON p.category_id = cat.category_id "
                    + "WHERE cp.status = ? "
                    + "ORDER BY cp.updated_at DESC";
 
@@ -290,7 +285,6 @@ public class ChannelProductDAO {
         cp.setChannelPlatform(rs.getString("platform"));
         cp.setSkuCode(rs.getString("sku_code"));
         cp.setProductName(rs.getString("product_name"));
-        cp.setCategoryName(rs.getString("category_name"));
 
         return cp;
     }

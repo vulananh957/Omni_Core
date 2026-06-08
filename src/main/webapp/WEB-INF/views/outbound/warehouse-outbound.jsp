@@ -1,7 +1,72 @@
 <%@ page language="java" contentType="text/html; charset=UTF-8" pageEncoding="UTF-8" %>
 <%@ taglib prefix="c" uri="jakarta.tags.core" %>
+<%@ taglib prefix="fmt" uri="jakarta.tags.fmt" %>
+<%@ page import="com.wms.model.OutboundOrder" %>
+<%@ page import="com.wms.model.OutboundItem" %>
+<%@ page import="java.util.List" %>
+<%@ page import="java.util.Map" %>
+<%@ page import="java.util.HashMap" %>
+<%
+    List<OutboundOrder> outboundOrders = (List<OutboundOrder>) request.getAttribute("outboundOrders");
+    if (outboundOrders == null) outboundOrders = java.util.Collections.emptyList();
+
+    Map<String, Integer> statusCounts = new HashMap<>();
+    statusCounts.put("ALL", outboundOrders.size());
+    statusCounts.put("PENDING", 0);
+    statusCounts.put("PICKING", 0);
+    statusCounts.put("PACKED", 0);
+    statusCounts.put("SHIPPED", 0);
+    statusCounts.put("CANCELLED", 0);
+    for (OutboundOrder o : outboundOrders) {
+        String s = o.getStatus();
+        if (s != null) {
+            statusCounts.put(s, statusCounts.getOrDefault(s, 0) + 1);
+        }
+    }
+
+    com.fasterxml.jackson.databind.ObjectMapper mapper = new com.fasterxml.jackson.databind.ObjectMapper();
+    request.setAttribute("outboundOrdersJson", mapper.valueToTree(outboundOrders).toString());
+    request.setAttribute("statusCountsJson", mapper.valueToTree(statusCounts).toString());
+%>
 
 <style>
+    /* ─── Toast Notifications ─── */
+    .wh-toast {
+        position: fixed;
+        top: 20px;
+        right: 20px;
+        z-index: 9999;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 12px 20px;
+        border-radius: var(--radius-card);
+        font-size: 13px;
+        font-weight: 600;
+        box-shadow: 0 8px 20px rgba(16, 55, 92, 0.15);
+        animation: toastSlideIn 0.3s ease forwards;
+        max-width: 400px;
+    }
+    .wh-toast svg { width: 18px; height: 18px; flex-shrink: 0; }
+    .wh-toast-success {
+        background: #ecfdf5;
+        border: 1px solid rgba(16, 185, 129, 0.4);
+        color: #065f46;
+    }
+    .wh-toast-error {
+        background: #fef2f2;
+        border: 1px solid rgba(239, 68, 68, 0.4);
+        color: #991b1b;
+    }
+    @keyframes toastSlideIn {
+        from { opacity: 0; transform: translateX(30px); }
+        to   { opacity: 1; transform: translateX(0); }
+    }
+    @keyframes toastFadeOut {
+        from { opacity: 1; }
+        to   { opacity: 0; }
+    }
+
     /* ─── Stats Grid & Cards ─── */
     .outbound-stats-grid-4 {
         display: grid;
@@ -897,6 +962,24 @@
     }
 </style>
 
+<!-- ══ TOAST NOTIFICATION ═══════════════════════════════════ -->
+<c:if test="${not empty successMessage}">
+<div class="wh-toast wh-toast-success" id="whToast">
+    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+    </svg>
+    <span>${successMessage}</span>
+</div>
+</c:if>
+<c:if test="${not empty errorMessage}">
+<div class="wh-toast wh-toast-error" id="whToast">
+    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+    </svg>
+    <span>${errorMessage}</span>
+</div>
+</c:if>
+
 <!-- ══ SUMMARY STATS CARDS ════════════════════════════════════ -->
 <div class="outbound-stats-grid-4">
     <!-- Pending Prepare -->
@@ -984,7 +1067,7 @@
         <input type="text" id="outboundSearch" placeholder="Tìm mã phiếu xuất, mã SO..." oninput="window.handleSearch()"/>
     </div>
     
-    <button id="btn-open-draft-creator" onclick="window.openDraftModal()" class="btn-action-primary">
+    <button id="btn-open-draft-creator" onclick="window.openCreateOutboundModal()" class="btn-action-primary">
         <svg style="width: 14px; height: 14px;" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
             <path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4" />
         </svg>
@@ -1344,6 +1427,50 @@
     </div>
 </div>
 
+<!-- 5. Create Outbound Modal -->
+<div class="overlay-backdrop" id="createOutboundOverlay">
+    <div class="modal-shell modal-size-md">
+        <div class="modal-header-section">
+            <div>
+                <h2 class="modal-hdr-title">Tạo Phiếu Xuất Kho</h2>
+                <p class="modal-hdr-desc">Lập phiếu xuất mới từ đơn hàng Sales</p>
+            </div>
+            <button onclick="window.closeCreateOutboundModal()" class="btn-modal-close-icon">&times;</button>
+        </div>
+        <form id="createOutboundForm" method="POST" action="${pageContext.request.contextPath}/warehouse/outbound">
+            <input type="hidden" name="action" value="create"/>
+            <div class="modal-body-section" style="display:flex; flex-direction:column; gap:14px;">
+                <div class="outbound-form-group">
+                    <label class="outbound-form-label">Mã Đơn Hàng (Order ID) *</label>
+                    <input type="number" name="orderId" id="create-order-id" min="1"
+                           class="outbound-form-input" style="font-weight:600;"
+                           placeholder="VD: 12345" required/>
+                </div>
+                <div class="outbound-form-group">
+                    <label class="outbound-form-label">Kho xuất *</label>
+                    <select name="warehouseId" id="create-warehouse-id" class="outbound-form-input"
+                            style="font-weight:600; cursor:pointer;" required>
+                        <option value="" disabled selected>-- Chọn kho --</option>
+                        <option value="1">Kho Hà Nội</option>
+                        <option value="2">Kho Đà Nẵng</option>
+                        <option value="3">Kho TP. Hồ Chí Minh</option>
+                    </select>
+                </div>
+                <div class="outbound-form-group">
+                    <label class="outbound-form-label">Ghi chú</label>
+                    <textarea name="notes" id="create-notes" rows="3"
+                              class="outbound-form-textarea"
+                              placeholder="Ghi chú cho phiếu xuất (không bắt buộc)"></textarea>
+                </div>
+            </div>
+            <div class="modal-footer-section">
+                <button type="button" onclick="window.closeCreateOutboundModal()" class="btn-action-secondary">Hủy</button>
+                <button type="submit" class="btn-action-primary" style="background: var(--orange);">Tạo phiếu xuất</button>
+            </div>
+        </form>
+    </div>
+</div>
+
 <!-- ══════════════════════════════════════════════════════════
      DYNAMIC JAVASCRIPT STATE CONTROLLER
      ══════════════════════════════════════════════════════════ -->
@@ -1414,6 +1541,70 @@
     var selectedDisposalSku = "";
     var disposalEvidence = "";
 
+    function submitPostAction(action, params) {
+        var form = document.createElement('form');
+        form.method = 'POST';
+        form.action = window.location.pathname;
+
+        var actionInput = document.createElement('input');
+        actionInput.type = 'hidden';
+        actionInput.name = 'action';
+        actionInput.value = action;
+        form.appendChild(actionInput);
+
+        for (var key in params) {
+            if (params.hasOwnProperty(key)) {
+                var input = document.createElement('input');
+                input.type = 'hidden';
+                input.name = key;
+                input.value = params[key];
+                form.appendChild(input);
+            }
+        }
+
+        document.body.appendChild(form);
+        form.submit();
+    }
+
+    function mapDbOrderToFrontend(dbOrder) {
+        var status = 'draft';
+        var statusLower = (dbOrder.status || '').toLowerCase();
+        if (statusLower === 'pending') status = 'pending_pick';
+        else if (statusLower === 'picking') status = 'picking';
+        else if (statusLower === 'packed') status = 'packed';
+        else if (statusLower === 'shipped') status = 'dispatched';
+        else if (statusLower === 'cancelled') status = 'cancelled';
+
+        var totalQty = 0;
+        var itemsMapped = (dbOrder.items || []).map(function(item) {
+            totalQty += item.qty || 0;
+            return {
+                skuCode: item.skuCode || ('PROD-' + item.productId),
+                skuName: item.skuName || 'Sản phẩm #' + item.productId,
+                qty: item.qty || 0,
+                location: item.shelfLocation || "—",
+                picked: item.pickedQty >= item.qty
+            };
+        });
+
+        return {
+            id: dbOrder.outboundCode || ('DB-' + dbOrder.outboundId),
+            dbOutboundId: dbOrder.outboundId,
+            issueDocumentId: dbOrder.outboundCode || ('DB-' + dbOrder.outboundId),
+            mappedOrderId: dbOrder.orderId,
+            soRef: 'SO-' + dbOrder.orderId,
+            channel: "Sales",
+            channelColor: "#3b82f6",
+            customer: "Khách hàng từ đơn #" + dbOrder.orderId,
+            address: dbOrder.notes || "Khu vực hàng thường",
+            status: status,
+            courier: "Giao hàng nhanh",
+            createdAt: dbOrder.createdAt ? dbOrder.createdAt.replace('T', ' ').substring(0, 16) : '',
+            note: dbOrder.notes,
+            items: itemsMapped
+        };
+    }
+
     // Bootstrap data initialization
     function initLocalStorageData() {
         var hasMockData = localStorage.getItem(DO_STORAGE_KEY) && 
@@ -1426,8 +1617,27 @@
             localStorage.setItem(FULFILLMENT_STORAGE_KEY, JSON.stringify([]));
         }
         
-        pickOrders = JSON.parse(localStorage.getItem(DO_STORAGE_KEY));
+        var localOrders = JSON.parse(localStorage.getItem(DO_STORAGE_KEY));
         fulfillmentRequests = JSON.parse(localStorage.getItem(FULFILLMENT_STORAGE_KEY));
+
+        // Bind server-side outbound orders if available from servlet
+        var SERVER_OUTBOUND_ORDERS = [];
+        try {
+            var rawJson = '<c:out value="${outboundOrdersJson}" escapeXml="false"/>';
+            if (rawJson && rawJson.trim() && rawJson.indexOf('outboundOrdersJson') === -1) {
+                SERVER_OUTBOUND_ORDERS = JSON.parse(rawJson);
+            }
+        } catch(e) {
+            console.warn('warehouse-outbound: No server outbound order data, using localStorage fallback');
+        }
+
+        var mappedServerOrders = SERVER_OUTBOUND_ORDERS.map(mapDbOrderToFrontend);
+        var serverCodes = mappedServerOrders.map(function(o) { return o.id; });
+        var filteredLocal = localOrders.filter(function(o) {
+            return serverCodes.indexOf(o.id) === -1;
+        });
+
+        pickOrders = mappedServerOrders.concat(filteredLocal);
     }
 
     initLocalStorageData();
@@ -1700,10 +1910,13 @@
     // Transition: Pending Pick -> Picking
     window.handleStartPicking = function(orderId, event) {
         if (event) event.stopPropagation();
-        var index = pickOrders.findIndex(function(o) { return o.id === orderId; });
-        if (index > -1) {
-            pickOrders[index].status = 'picking';
-            pickOrders[index].assignedTo = window.WMS_USER.fullName || 'Nhân viên kho';
+        var order = pickOrders.find(function(o) { return o.id === orderId; });
+        if (!order) return;
+        if (order.dbOutboundId) {
+            submitPostAction('updateStatus', { outboundId: order.dbOutboundId, status: 'PICKING' });
+        } else {
+            order.status = 'picking';
+            order.assignedTo = window.WMS_USER.fullName || 'Nhân viên kho';
             saveState();
         }
     };
@@ -1711,12 +1924,15 @@
     // Transition: Picking -> Packed
     window.handleConfirmPacking = function(orderId, event) {
         if (event) event.stopPropagation();
-        var index = pickOrders.findIndex(function(o) { return o.id === orderId; });
-        if (index > -1) {
-            pickOrders[index].status = 'packed';
+        var order = pickOrders.find(function(o) { return o.id === orderId; });
+        if (!order) return;
+        if (order.dbOutboundId) {
+            submitPostAction('updateStatus', { outboundId: order.dbOutboundId, status: 'PACKED' });
+        } else {
+            order.status = 'packed';
             
             // Mark all items as picked
-            pickOrders[index].items.forEach(function(item) {
+            order.items.forEach(function(item) {
                 item.picked = true;
             });
             saveState();
@@ -1836,33 +2052,37 @@
         var order = pickOrders.find(function(o) { return o.id === orderId; });
         if (!order) return;
 
-        // Perform stock availability verification
-        var validation = validateStockAvailability(order.items);
-        if (!validation.valid) {
-            alert('❌ Không thể xuất kho do thiếu hụt tồn vật lý:\n\n' + validation.errors.join('\n'));
-            confirmOverlay.classList.remove('active');
-            return;
+        if (order.dbOutboundId) {
+            submitPostAction('updateStatus', { outboundId: order.dbOutboundId, status: 'SHIPPED' });
+        } else {
+            // Perform stock availability verification
+            var validation = validateStockAvailability(order.items);
+            if (!validation.valid) {
+                alert('❌ Không thể xuất kho do thiếu hụt tồn vật lý:\n\n' + validation.errors.join('\n'));
+                confirmOverlay.classList.remove('active');
+                return;
+            }
+
+            // Apply dynamic stock updates and ledger entries
+            order.items.forEach(function(item) {
+                // 1. Ledger Entry
+                logOutboundInventoryLedger(item.skuCode, item.qty, order.id, order.customer);
+                
+                // 2. Decrement from physical wms_skus stock
+                decrementMasterSkuQty(item.skuCode, item.qty);
+                
+                // 3. Decrement asset balances from wh_pricing
+                decrementPricingQty(item.skuCode, item.qty);
+            });
+
+            // Update DO status to dispatched
+            order.status = 'dispatched';
+            order.assignedTo = order.assignedTo || window.WMS_USER.fullName || 'Nhân viên kho';
+
+            closeConfirmDispatch();
+            saveState();
+            alert('🎉 Đã xác nhận xuất kho thành công cho phiếu ' + orderId + '!');
         }
-
-        // Apply dynamic stock updates and ledger entries
-        order.items.forEach(function(item) {
-            // 1. Ledger Entry
-            logOutboundInventoryLedger(item.skuCode, item.qty, order.id, order.customer);
-            
-            // 2. Decrement from physical wms_skus stock
-            decrementMasterSkuQty(item.skuCode, item.qty);
-            
-            // 3. Decrement asset balances from wh_pricing
-            decrementPricingQty(item.skuCode, item.qty);
-        });
-
-        // Update DO status to dispatched
-        order.status = 'dispatched';
-        order.assignedTo = order.assignedTo || window.WMS_USER.fullName || 'Nhân viên kho';
-
-        closeConfirmDispatch();
-        saveState();
-        alert('🎉 Đã xác nhận xuất kho thành công cho phiếu ' + orderId + '!');
     };
 
     // ─── DRAFT OUTBOUND DO CREATOR MODAL ───
@@ -2320,7 +2540,7 @@
     }
 
     // Dismiss overlays when clicking backdrop
-    [confirmOverlay, draftOverlay, disposalOverlay, receiptDetailOverlay].forEach(function(ov) {
+    [confirmOverlay, draftOverlay, disposalOverlay, receiptDetailOverlay, createOverlay].forEach(function(ov) {
         if (ov) {
             ov.addEventListener('click', function(e) {
                 if (e.target === ov) {
@@ -2330,7 +2550,37 @@
         }
     });
 
-    // Bootstrapped execution
+    // ─── CREATE OUTBOUND MODAL ───
+    var createOverlay = document.getElementById('createOutboundOverlay');
+
+    window.openCreateOutboundModal = function() {
+        document.getElementById('create-order-id').value = '';
+        document.getElementById('create-warehouse-id').value = '';
+        document.getElementById('create-notes').value = '';
+        createOverlay.classList.add('active');
+    };
+
+    window.closeCreateOutboundModal = function() {
+        createOverlay.classList.remove('active');
+    };
+
+    // Auto-open create modal when triggered from server (e.g. GET ?create=1)
+    if (window.location.search.indexOf('create=1') > -1) {
+        setTimeout(function() { window.openCreateOutboundModal(); }, 300);
+    }
+
+    // ─── TOAST AUTO-DISMISS ───
+    var toast = document.getElementById('whToast');
+    if (toast) {
+        setTimeout(function() {
+            toast.style.animation = 'toastFadeOut 0.4s ease forwards';
+            setTimeout(function() {
+                if (toast.parentNode) toast.parentNode.removeChild(toast);
+            }, 400);
+        }, 4000);
+    }
+
+    // ─── BOOTSTRAP ───
     renderStatistics();
     renderOrders();
 })();

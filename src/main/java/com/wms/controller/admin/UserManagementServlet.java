@@ -205,6 +205,13 @@ public class UserManagementServlet extends BaseController {
             return;
         }
 
+        // Check email uniqueness
+        if (userDAO.isEmailTaken(email, userId)) {
+            setError(req, "Địa chỉ email '" + email + "' đã được sử dụng bởi một tài khoản khác.");
+            reloadForm(req, resp, user);
+            return;
+        }
+
         if (!isUpdate) {
             // Check username uniqueness
             if (userDAO.findByUsername(username).isPresent()) {
@@ -247,6 +254,9 @@ public class UserManagementServlet extends BaseController {
                 resp.sendRedirect(req.getContextPath() + "/admin/users");
                 return;
             }
+
+            // Preserving original warehouse allocation
+            user.setWarehouseId(existingOpt.get().getWarehouseId());
 
             // Password updates are not allowed from admin user edit screen
             if (req.getParameter("password") != null || req.getParameter("confirmPassword") != null) {

@@ -262,6 +262,11 @@ public class UserDAO {
         return false;
     }
 
+    public boolean isEmailTaken(String email, int excludeUserId) throws SQLException {
+        // Tam thoi tra ve false, logic se hoan thien o Giai doan 2
+        return false;
+    }
+
     public void updateUsername(int userId, String newUsername) throws SQLException {
         String sql = "UPDATE users SET username = ? WHERE user_id = ?";
         try (Connection conn = DBConnection.getConnection();

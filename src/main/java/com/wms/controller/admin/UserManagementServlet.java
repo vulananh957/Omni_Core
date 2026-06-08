@@ -77,7 +77,11 @@ public class UserManagementServlet extends BaseController {
 
     private void handleList(HttpServletRequest req, HttpServletResponse resp)
             throws SQLException, ServletException, IOException {
-        List<User> usersList = userDAO.findAll();
+        String search = req.getParameter("search");
+        String role = req.getParameter("role");
+        String status = req.getParameter("status");
+
+        List<User> usersList = userDAO.findFiltered(search, role, status);
         req.setAttribute("usersList", usersList);
 
         req.setAttribute("pageTitle", "Quản lý Tài khoản & Phân quyền");

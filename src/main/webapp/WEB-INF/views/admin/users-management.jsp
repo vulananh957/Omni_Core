@@ -30,24 +30,24 @@
                         <circle cx="11" cy="11" r="8"></circle>
                         <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
                     </svg>
-                    <input type="text" id="userSearch" placeholder="Tìm tên hoặc email..."
+                    <input type="text" id="userSearch" placeholder="Tìm tên hoặc email..." value="<c:out value='${param.search}'/>"
                            style="width: 100%; padding: 0.6rem 1rem 0.6rem 2.25rem; background: var(--alice); border: 1px solid var(--border); color: var(--navy); font-size: 13px; outline: none; border-radius: var(--radius-btn); transition: border-color 0.2s;" />
                 </div>
 
                 <!-- Role Filter Dropdown -->
                 <select id="roleFilter" style="padding: 0.6rem 1.25rem 0.6rem 0.75rem; background: var(--white); border: 1px solid var(--border); color: var(--navy); font-size: 13px; outline: none; border-radius: var(--radius-btn); min-width: 9rem; cursor: pointer;">
                     <option value="">Tất cả Vai trò</option>
-                    <option value="ADMIN">ADMIN</option>
-                    <option value="MANAGER">MANAGER</option>
-                    <option value="WAREHOUSE_STAFF">WAREHOUSE_STAFF</option>
-                    <option value="SALES_STAFF">SALES_STAFF</option>
+                    <option value="ADMIN" ${param.role == 'ADMIN' ? 'selected' : ''}>ADMIN</option>
+                    <option value="MANAGER" ${param.role == 'MANAGER' ? 'selected' : ''}>MANAGER</option>
+                    <option value="WAREHOUSE_STAFF" ${param.role == 'WAREHOUSE_STAFF' ? 'selected' : ''}>WAREHOUSE_STAFF</option>
+                    <option value="SALES_STAFF" ${param.role == 'SALES_STAFF' ? 'selected' : ''}>SALES_STAFF</option>
                 </select>
 
                 <!-- Status Filter Dropdown -->
                 <select id="statusFilter" style="padding: 0.6rem 1.25rem 0.6rem 0.75rem; background: var(--white); border: 1px solid var(--border); color: var(--navy); font-size: 13px; outline: none; border-radius: var(--radius-btn); min-width: 9rem; cursor: pointer;">
                     <option value="">Tất cả Trạng thái</option>
-                    <option value="active">Đang hoạt động</option>
-                    <option value="inactive">Đã khóa</option>
+                    <option value="active" ${param.status == 'active' ? 'selected' : ''}>Đang hoạt động</option>
+                    <option value="inactive" ${param.status == 'inactive' ? 'selected' : ''}>Đã khóa</option>
                 </select>
             </div>
 
@@ -309,8 +309,37 @@
         });
     }
 
-    if (searchInput) searchInput.addEventListener('input', applyFilters);
-    if (roleFilter) roleFilter.addEventListener('change', applyFilters);
-    if (statusFilter) statusFilter.addEventListener('change', applyFilters);
+    // Gui yeu cau loc ve server-side
+    function submitFilters() {
+        var query = searchInput ? searchInput.value.trim() : '';
+        var role = roleFilter ? roleFilter.value : '';
+        var status = statusFilter ? statusFilter.value : '';
+        
+        var url = new URL(window.location.href);
+        if (query) url.searchParams.set('search', query);
+        else url.searchParams.delete('search');
+        
+        if (role) url.searchParams.set('role', role);
+        else url.searchParams.delete('role');
+        
+        if (status) url.searchParams.set('status', status);
+        else url.searchParams.delete('status');
+        
+        window.location.href = url.toString();
+    }
+
+    if (searchInput) {
+        searchInput.addEventListener('input', applyFilters);
+        searchInput.addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                submitFilters();
+            }
+        });
+    }
+    if (roleFilter) roleFilter.addEventListener('change', submitFilters);
+    if (statusFilter) statusFilter.addEventListener('change', submitFilters);
+
+    // Run filters on initial page load
+    applyFilters();
 })();
 </script>

@@ -1248,7 +1248,7 @@ function closeAllDropdowns(except) {
 }
 function selectChannel(val) {
     selectedChannel = val;
-    document.getElementById("omChannelLabel").textContent = val === "all" ? "Tất cả" : val;
+    document.getElementById("omChannelLabel").textContent = val === "all" ? "Tất cả" : (val === "TikTok" ? "TikTok Shop" : val);
     document.getElementById("ddChannel").classList.remove("open");
     renderTable();
 }
@@ -1333,7 +1333,7 @@ function escJs(str) {
         <span id="cnt-pending" class="om-tab-badge">0</span>
     </button>
     <button id="tab-awaiting_pickup" class="om-tab" onclick="switchTab('awaiting_pickup')">
-        Chờ ĐVVC lấy hàng
+        Chuẩn bị hàng
         <span id="cnt-await" class="om-tab-badge">0</span>
     </button>
     <button id="tab-shipping" class="om-tab" onclick="switchTab('shipping')">
@@ -1349,7 +1349,7 @@ function escJs(str) {
         <span id="cnt-completed" class="om-tab-badge">0</span>
     </button>
     <button id="tab-returned" class="om-tab" onclick="switchTab('returned')">
-        Hoàn hàng (Return)
+        Trả hàng/Khiếu nại
         <span id="cnt-returned" class="om-tab-badge">0</span>
     </button>
 </div>
@@ -1375,7 +1375,7 @@ function escJs(str) {
         <div id="ddChannel" class="om-dropdown">
             <button onclick="selectChannel('all')" class="selected">Tất cả các kênh</button>
             <button onclick="selectChannel('Shopee')">Shopee</button>
-            <button onclick="selectChannel('TikTok')">TikTok</button>
+            <button onclick="selectChannel('TikTok')">TikTok Shop</button>
             <button onclick="selectChannel('Lazada')">Lazada</button>
             <button onclick="selectChannel('Website')">Website</button>
         </div>

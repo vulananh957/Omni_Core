@@ -29,7 +29,7 @@ public class OrderDAO {
      */
     public List<Order> getAllOrders() {
         List<Order> list = new ArrayList<>();
-        String sqlOrders = "SELECT o.order_id, o.order_code, o.customer_id, o.warehouse_id, w.warehouse_name, o.channel, o.status, o.total_amount, o.created_by, o.created_at, o.updated_at, "
+        String sqlOrders = "SELECT o.order_id, o.order_code, o.customer_id, o.warehouse_id, w.warehouse_name, o.channel, o.status, o.total_amount, o.note, o.created_by, o.created_at, o.updated_at, "
                            + "o.tracking_no, o.review_note, o.rma_reason, o.rma_physical_status, o.rma_platform_status, o.dispute_evidence_video, o.dispute_note, "
                            + "sd.recipient_name, sd.shipping_address, u.phone AS customer_phone, u.full_name AS customer_name "
                            + "FROM orders o "
@@ -58,7 +58,13 @@ public class OrderDAO {
                     
                     order.setWarehouseId(rsOrders.getInt("warehouse_id"));
                     order.setWarehouseName(rsOrders.getString("warehouse_name"));
-                    order.setChannel(rsOrders.getString("channel"));
+                    
+                    String rawChannel = rsOrders.getString("channel");
+                    String note = rsOrders.getString("note");
+                    String trackingNo = rsOrders.getString("tracking_no");
+                    order.setNote(note);
+                    order.setChannel(detectChannel(rawChannel, note, trackingNo));
+                    
                     order.setStatus(rsOrders.getString("status"));
                     order.setTotalAmount(rsOrders.getDouble("total_amount"));
                     
@@ -121,6 +127,30 @@ public class OrderDAO {
             LOGGER.log(Level.WARNING, "OrderDAO: Failed to retrieve orders", e);
         }
         return list;
+    }
+
+    /**
+     * Tự động nhận diện kênh bán hàng dựa vào tên kênh thô, ghi chú đơn hàng hoặc mã vận đơn.
+     */
+    private String detectChannel(String rawChannel, String note, String trackingNo) {
+        if (note != null) {
+            String noteLower = note.toLowerCase();
+            if (noteLower.contains("shopee")) return "Shopee";
+            if (noteLower.contains("lazada")) return "Lazada";
+            if (noteLower.contains("tiktok")) return "TikTok";
+            if (noteLower.contains("website") || noteLower.contains("web")) return "Website";
+        }
+        if (trackingNo != null) {
+            String trackingLower = trackingNo.toLowerCase();
+            if (trackingLower.startsWith("lze") || trackingLower.contains("lazada")) return "Lazada";
+            if (trackingLower.startsWith("tkt") || trackingLower.contains("tiktok")) return "TikTok";
+            if (trackingLower.startsWith("vtp") || trackingLower.contains("viettel")) return "Website";
+            if (trackingLower.startsWith("spx") || trackingLower.contains("shopee")) return "Shopee";
+        }
+        if ("ONLINE".equalsIgnoreCase(rawChannel)) {
+            return "Lazada"; // Mặc định là Lazada cho các đơn ONLINE khác nếu không phân tích được
+        }
+        return rawChannel;
     }
 
     public boolean updateOrderStatusAndWarehouse(String orderCode, String status, int warehouseId, String reviewNote) {

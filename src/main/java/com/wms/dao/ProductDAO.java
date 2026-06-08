@@ -30,7 +30,11 @@ public class ProductDAO {
      */
     public List<Product> findAll() {
         List<Product> list = new ArrayList<>();
-        String sql = "SELECT * FROM products ORDER BY product_id DESC";
+        String sql = "SELECT p.*, c.category_name, u.full_name AS creator_name "
+                   + "FROM products p "
+                   + "LEFT JOIN categories c ON p.category_id = c.category_id "
+                   + "LEFT JOIN users u ON p.created_by = u.user_id "
+                   + "ORDER BY p.product_id DESC";
         try (Connection conn = DBConnection.getConnection();
              PreparedStatement ps = conn.prepareStatement(sql);
              ResultSet rs = ps.executeQuery()) {
@@ -50,7 +54,11 @@ public class ProductDAO {
      * @return The Product object, or null if not found.
      */
     public Product findById(int productId) {
-        String sql = "SELECT * FROM products WHERE product_id = ?";
+        String sql = "SELECT p.*, c.category_name, u.full_name AS creator_name "
+                   + "FROM products p "
+                   + "LEFT JOIN categories c ON p.category_id = c.category_id "
+                   + "LEFT JOIN users u ON p.created_by = u.user_id "
+                   + "WHERE p.product_id = ?";
         try (Connection conn = DBConnection.getConnection();
              PreparedStatement ps = conn.prepareStatement(sql)) {
             ps.setInt(1, productId);
@@ -77,10 +85,18 @@ public class ProductDAO {
         PreparedStatement ps;
         try (Connection conn = DBConnection.getConnection()) {
             if (categoryId == null) {
-                sql = "SELECT * FROM products WHERE category_id IS NULL ORDER BY product_id DESC";
+                sql = "SELECT p.*, c.category_name, u.full_name AS creator_name "
+                    + "FROM products p "
+                    + "LEFT JOIN categories c ON p.category_id = c.category_id "
+                    + "LEFT JOIN users u ON p.created_by = u.user_id "
+                    + "WHERE p.category_id IS NULL ORDER BY p.product_id DESC";
                 ps = conn.prepareStatement(sql);
             } else {
-                sql = "SELECT * FROM products WHERE category_id = ? ORDER BY product_id DESC";
+                sql = "SELECT p.*, c.category_name, u.full_name AS creator_name "
+                    + "FROM products p "
+                    + "LEFT JOIN categories c ON p.category_id = c.category_id "
+                    + "LEFT JOIN users u ON p.created_by = u.user_id "
+                    + "WHERE p.category_id = ? ORDER BY p.product_id DESC";
                 ps = conn.prepareStatement(sql);
                 ps.setInt(1, categoryId);
             }
@@ -102,7 +118,11 @@ public class ProductDAO {
      */
     public List<Product> findPendingApproval() {
         List<Product> list = new ArrayList<>();
-        String sql = "SELECT * FROM products WHERE status = ? ORDER BY product_id DESC";
+        String sql = "SELECT p.*, c.category_name, u.full_name AS creator_name "
+                   + "FROM products p "
+                   + "LEFT JOIN categories c ON p.category_id = c.category_id "
+                   + "LEFT JOIN users u ON p.created_by = u.user_id "
+                   + "WHERE p.status = ? ORDER BY p.product_id DESC";
         try (Connection conn = DBConnection.getConnection();
              PreparedStatement ps = conn.prepareStatement(sql)) {
             ps.setString(1, Product.STATUS_PENDING);
@@ -124,7 +144,11 @@ public class ProductDAO {
      */
     public List<Product> findApproved() {
         List<Product> list = new ArrayList<>();
-        String sql = "SELECT * FROM products WHERE status = ? ORDER BY product_id DESC";
+        String sql = "SELECT p.*, c.category_name, u.full_name AS creator_name "
+                   + "FROM products p "
+                   + "LEFT JOIN categories c ON p.category_id = c.category_id "
+                   + "LEFT JOIN users u ON p.created_by = u.user_id "
+                   + "WHERE p.status = ? ORDER BY p.product_id DESC";
         try (Connection conn = DBConnection.getConnection();
              PreparedStatement ps = conn.prepareStatement(sql)) {
             ps.setString(1, Product.STATUS_APPROVED);
@@ -147,8 +171,8 @@ public class ProductDAO {
      */
     public boolean insert(Product product) {
         String sql = "INSERT INTO products (sku_code, product_name, category_id, barcode, unit, "
-                + "min_stock, max_stock, status, created_by) "
-                + "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)";
+                + "min_stock, max_stock, status, attributes_text, weight_kg, created_by) "
+                + "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
         try (Connection conn = DBConnection.getConnection();
              PreparedStatement ps = conn.prepareStatement(sql)) {
             ps.setString(1, product.getSkuCode());
@@ -163,7 +187,17 @@ public class ProductDAO {
             ps.setDouble(6, product.getMinStock() != null ? product.getMinStock() : 0.0);
             ps.setDouble(7, product.getMaxStock() != null ? product.getMaxStock() : 0.0);
             ps.setString(8, product.getStatus() != null ? product.getStatus() : Product.STATUS_PENDING);
-            ps.setNull(9, java.sql.Types.INTEGER);
+            ps.setString(9, product.getAttributesText());
+            if (product.getWeightKg() != null) {
+                ps.setDouble(10, product.getWeightKg());
+            } else {
+                ps.setNull(10, java.sql.Types.DECIMAL);
+            }
+            if (product.getCreatedBy() != null) {
+                ps.setInt(11, product.getCreatedBy());
+            } else {
+                ps.setNull(11, java.sql.Types.INTEGER);
+            }
 
             int rowsAffected = ps.executeUpdate();
             return rowsAffected > 0;
@@ -182,7 +216,8 @@ public class ProductDAO {
     public boolean update(Product product) {
         String sql = "UPDATE products SET "
                 + "sku_code = ?, product_name = ?, category_id = ?, barcode = ?, unit = ?, "
-                + "min_stock = ?, max_stock = ?, status = ?, updated_at = CURRENT_TIMESTAMP "
+                + "min_stock = ?, max_stock = ?, status = ?, attributes_text = ?, weight_kg = ?, "
+                + "updated_at = CURRENT_TIMESTAMP "
                 + "WHERE product_id = ?";
         try (Connection conn = DBConnection.getConnection();
              PreparedStatement ps = conn.prepareStatement(sql)) {
@@ -198,7 +233,13 @@ public class ProductDAO {
             ps.setDouble(6, product.getMinStock() != null ? product.getMinStock() : 0.0);
             ps.setDouble(7, product.getMaxStock() != null ? product.getMaxStock() : 0.0);
             ps.setString(8, product.getStatus());
-            ps.setInt(9, product.getProductId());
+            ps.setString(9, product.getAttributesText());
+            if (product.getWeightKg() != null) {
+                ps.setDouble(10, product.getWeightKg());
+            } else {
+                ps.setNull(10, java.sql.Types.DECIMAL);
+            }
+            ps.setInt(11, product.getProductId());
 
             return ps.executeUpdate() > 0;
         } catch (SQLException e) {
@@ -282,6 +323,36 @@ public class ProductDAO {
         if (updatedAt != null) {
             product.setUpdatedAt(updatedAt.toLocalDateTime());
         }
+
+        // Populate joined and transient fields
+        try {
+            product.setCategoryName(rs.getString("category_name"));
+        } catch (SQLException e) {
+            // column not present
+        }
+        try {
+            int createdBy = rs.getInt("created_by");
+            product.setCreatedBy(rs.wasNull() ? null : createdBy);
+        } catch (SQLException e) {
+            // column not present
+        }
+        try {
+            product.setCreatorName(rs.getString("creator_name"));
+        } catch (SQLException e) {
+            // column not present
+        }
+        try {
+            product.setAttributesText(rs.getString("attributes_text"));
+        } catch (SQLException e) {
+            // column not present
+        }
+        try {
+            double w = rs.getDouble("weight_kg");
+            product.setWeightKg(rs.wasNull() ? null : w);
+        } catch (SQLException e) {
+            // column not present
+        }
+
         return product;
     }
 }

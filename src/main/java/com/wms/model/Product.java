@@ -25,6 +25,11 @@ public class Product {
     private Integer approvedBy;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
+    private String categoryName;
+    private Integer createdBy;
+    private String creatorName;
+    private String attributesText;
+    private Double weightKg;
 
     // ── Constructors ──────────────────────────────────────────
 
@@ -155,6 +160,46 @@ public class Product {
 
     public void setUpdatedAt(LocalDateTime updatedAt) {
         this.updatedAt = updatedAt;
+    }
+
+    public String getCategoryName() {
+        return categoryName;
+    }
+
+    public void setCategoryName(String categoryName) {
+        this.categoryName = categoryName;
+    }
+
+    public Integer getCreatedBy() {
+        return createdBy;
+    }
+
+    public void setCreatedBy(Integer createdBy) {
+        this.createdBy = createdBy;
+    }
+
+    public String getCreatorName() {
+        return creatorName;
+    }
+
+    public void setCreatorName(String creatorName) {
+        this.creatorName = creatorName;
+    }
+
+    public String getAttributesText() {
+        return attributesText;
+    }
+
+    public void setAttributesText(String attributesText) {
+        this.attributesText = attributesText;
+    }
+
+    public Double getWeightKg() {
+        return weightKg;
+    }
+
+    public void setWeightKg(Double weightKg) {
+        this.weightKg = weightKg;
     }
 
     @Override

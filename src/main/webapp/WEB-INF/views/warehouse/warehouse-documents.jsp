@@ -504,8 +504,8 @@
         to { opacity: 1; transform: translateY(0); }
     }
 
-    /* ─── Shipping Label ─── */
-    .shipping-label-container {
+    /* Shipping Label CSS removed */
+    .shipping-label-container-unused {
         background: #fff;
         border: 1px solid #E5EAF3;
         border-radius: var(--radius-card);
@@ -581,8 +581,8 @@
         color: rgba(16,55,92,0.5);
     }
 
-    /* ─── Delivery Note ─── */
-    .delivery-note-container {
+    /* Delivery Note CSS removed */
+    .delivery-note-container-unused {
         background: #fff;
         border: 1px solid #E5EAF3;
         border-radius: var(--radius-card);
@@ -772,21 +772,7 @@
         Hoàn Hàng
         <span class="doc-tab-count" id="count-rma">0</span>
     </button>
-    <button class="doc-tab-btn" data-tab="Shipping Label" style="color: rgba(16,55,92,0.40);">
-        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-            <rect x="2" y="4" width="20" height="16" rx="2"/>
-            <path d="M6 8h.01M6 12h.01M6 16h.01M10 8h8M10 12h8M10 16h8"/>
-        </svg>
-        Shipping Label
-        <span class="doc-tab-count" id="count-shipping">0</span>
-    </button>
-    <button class="doc-tab-btn" data-tab="Delivery Note" style="color: rgba(16,55,92,0.40);">
-        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-            <path d="M9 17H7A5 5 0 0 1 7 7h2M15 7h2a5 5 0 1 1 0 10h-2M8 12h8"/>
-        </svg>
-        Delivery Note
-        <span class="doc-tab-count" id="count-delivery">0</span>
-    </button>
+
 </div>
 
 <!-- ══ Search & Toolbar ══ -->
@@ -800,8 +786,8 @@
     <div class="doc-count-summary" id="docCountSummary">0 / 0 phiếu</div>
 </div>
 
-<!-- ══ Shipping Label Section ══ -->
-<div class="shipping-label-container" id="shippingLabelSection" style="display:none;">
+<!-- Shipping Label section removed -->
+<div id="shippingLabelSection" style="display:none;">
     <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom: 20px;">
         <h3 style="font-size:15px; font-weight:800; color:var(--navy); margin:0;">Shipping Label</h3>
         <button onclick="window.printShippingLabel()" class="btn-doc-create" style="padding: 8px 14px; font-size:12px;">
@@ -845,8 +831,8 @@
     </div>
 </div>
 
-<!-- ══ Delivery Note Section ══ -->
-<div class="delivery-note-container" id="deliveryNoteSection" style="display:none;">
+<!-- Delivery Note section removed -->
+<div id="deliveryNoteSection" style="display:none;">
     <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom: 20px;">
         <h3 style="font-size:15px; font-weight:800; color:var(--navy); margin:0;">Delivery Note — Phiếu Giao Hàng</h3>
         <button onclick="window.printDeliveryNote()" class="btn-doc-create" style="padding: 8px 14px; font-size:12px;">

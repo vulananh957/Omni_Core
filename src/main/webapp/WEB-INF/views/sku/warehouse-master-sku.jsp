@@ -815,8 +815,8 @@
 <script>
 // Expose JSTL session user details to client-side
 window.WMS_USER = {
-    fullName: '<c:out value="${loggedInUser.fullName != null ? loggedInUser.fullName : 'Guest'}"/>',
-    role: '<c:out value="${loggedInUser.role != null ? loggedInUser.role : 'Guest'}"/>'
+    fullName: "${not empty loggedInUser.fullName ? loggedInUser.fullName : 'Guest'}",
+    role: "${not empty loggedInUser.role ? loggedInUser.role : 'Guest'}"
 };
 
 function submitPostAction(action, params) {

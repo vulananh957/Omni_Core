@@ -13,7 +13,8 @@ import java.util.Optional;
  * UserDAO — Data Access Object for the `users` table.
  *
  * Handles CRUD operations for user accounts. Schema initialisation (phone,
- * otp_preference, role_id columns) is performed once by {@link com.wms.listener.SchemaInitListener}.
+ * otp_preference, role_id columns) is performed once by
+ * {@link com.wms.listener.SchemaInitListener}.
  */
 public class UserDAO {
 
@@ -25,30 +26,32 @@ public class UserDAO {
 
     // ── Queries (no roles table JOIN — role is an ENUM column in schema) ──
 
-    private static final String SQL_FIND_BY_USERNAME =
-        "SELECT * FROM users "
-        + "WHERE (username = ? OR email = ? OR phone = ?) AND active = 1";
+    private static final String SQL_FIND_BY_USERNAME = "SELECT u.*, r.role_id FROM users u "
+            + "LEFT JOIN roles r ON u.role = r.role_name "
+            + "WHERE (u.username = ? OR u.email = ? OR u.phone = ?) AND u.active = 1";
 
-    private static final String SQL_FIND_BY_EMAIL =
-        "SELECT * FROM users "
-        + "WHERE email = ? AND active = 1";
+    private static final String SQL_FIND_BY_EMAIL = "SELECT u.*, r.role_id FROM users u "
+            + "LEFT JOIN roles r ON u.role = r.role_name "
+            + "WHERE u.email = ? AND u.active = 1";
 
-    private static final String SQL_FIND_BY_ID =
-        "SELECT * FROM users WHERE user_id = ?";
+    private static final String SQL_FIND_BY_ID = "SELECT u.*, r.role_id FROM users u "
+            + "LEFT JOIN roles r ON u.role = r.role_name "
+            + "WHERE u.user_id = ?";
 
-    private static final String SQL_FIND_ALL =
-        "SELECT * FROM users ORDER BY created_at DESC, user_id DESC";
+    private static final String SQL_FIND_ALL = "SELECT u.*, r.role_id FROM users u "
+            + "LEFT JOIN roles r ON u.role = r.role_name "
+            + "ORDER BY u.created_at DESC, u.user_id DESC";
 
-    private static final String SQL_FIND_BY_ROLES =
-        "SELECT * FROM users "
-        + "WHERE role IN (%s) "
-        + "ORDER BY created_at DESC, user_id DESC";
+    private static final String SQL_FIND_BY_ROLES = "SELECT u.*, r.role_id FROM users u "
+            + "LEFT JOIN roles r ON u.role = r.role_name "
+            + "WHERE u.role IN (%s) "
+            + "ORDER BY u.created_at DESC, u.user_id DESC";
 
     // ── Public methods ────────────────────────────────────────
 
     public Optional<User> findByUsername(String username) throws SQLException {
         try (Connection conn = DBConnection.getConnection();
-             PreparedStatement ps = conn.prepareStatement(SQL_FIND_BY_USERNAME)) {
+                PreparedStatement ps = conn.prepareStatement(SQL_FIND_BY_USERNAME)) {
             ps.setString(1, username);
             ps.setString(2, username);
             ps.setString(3, username);
@@ -63,7 +66,7 @@ public class UserDAO {
 
     public Optional<User> findByEmail(String email) throws SQLException {
         try (Connection conn = DBConnection.getConnection();
-             PreparedStatement ps = conn.prepareStatement(SQL_FIND_BY_EMAIL)) {
+                PreparedStatement ps = conn.prepareStatement(SQL_FIND_BY_EMAIL)) {
             ps.setString(1, email);
             try (ResultSet rs = ps.executeQuery()) {
                 if (rs.next()) {
@@ -76,7 +79,7 @@ public class UserDAO {
 
     public Optional<User> findById(int userId) throws SQLException {
         try (Connection conn = DBConnection.getConnection();
-             PreparedStatement ps = conn.prepareStatement(SQL_FIND_BY_ID)) {
+                PreparedStatement ps = conn.prepareStatement(SQL_FIND_BY_ID)) {
             ps.setInt(1, userId);
             try (ResultSet rs = ps.executeQuery()) {
                 if (rs.next()) {
@@ -90,13 +93,59 @@ public class UserDAO {
     public List<User> findAll() throws SQLException {
         List<User> users = new ArrayList<>();
         try (Connection conn = DBConnection.getConnection();
-             PreparedStatement ps = conn.prepareStatement(SQL_FIND_ALL);
-             ResultSet rs = ps.executeQuery()) {
+                PreparedStatement ps = conn.prepareStatement(SQL_FIND_ALL);
+                ResultSet rs = ps.executeQuery()) {
             while (rs.next()) {
                 users.add(mapRow(rs));
             }
         }
         return users;
+    }
+
+    public List<User> findFiltered(String search, String role, String status) throws SQLException {
+        List<User> users = new ArrayList<>();
+        StringBuilder sql = new StringBuilder(
+            "SELECT u.*, r.role_id FROM users u "
+            + "LEFT JOIN roles r ON u.role = r.role_name "
+            + "WHERE 1=1 "
+        );
+        List<Object> params = new ArrayList<>();
+
+        if (search != null && !search.trim().isEmpty()) {
+            sql.append("AND (u.full_name LIKE ? OR u.email LIKE ? OR u.username LIKE ?) ");
+            String likeParam = "%" + search.trim() + "%";
+            params.add(likeParam);
+            params.add(likeParam);
+            params.add(likeParam);
+        }
+
+        if (role != null && !role.trim().isEmpty()) {
+            sql.append("AND u.role = ? ");
+            params.add(role.trim());
+        }
+
+        if (status != null && !status.trim().isEmpty()) {
+            if ("active".equalsIgnoreCase(status)) {
+                sql.append("AND u.active = 1 ");
+            } else if ("inactive".equalsIgnoreCase(status)) {
+                sql.append("AND u.active = 0 ");
+            }
+        }
+
+        sql.append("ORDER BY u.created_at DESC, u.user_id DESC");
+
+        try (Connection conn = DBConnection.getConnection();
+             PreparedStatement ps = conn.prepareStatement(sql.toString())) {
+            for (int i = 0; i < params.size(); i++) {
+                ps.setObject(i + 1, params.get(i));
+            }
+            try (ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) {
+                    users.add(mapRow(rs));
+                }
+            }
+        }
+        return users; 
     }
 
     public List<User> findByRoles(String... roles) throws SQLException {
@@ -222,7 +271,7 @@ public class UserDAO {
             ps.executeUpdate();
         }
     }
-
+                
     // ── Row mapper ────────────────────────────────────────────
 
     private User mapRow(ResultSet rs) throws SQLException {

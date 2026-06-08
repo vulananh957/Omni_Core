@@ -263,7 +263,17 @@ public class UserDAO {
     }
 
     public boolean isEmailTaken(String email, int excludeUserId) throws SQLException {
-        // Tam thoi tra ve false, logic se hoan thien o Giai doan 2
+        String sql = "SELECT COUNT(*) FROM users WHERE email = ? AND user_id != ?";
+        try (Connection conn = DBConnection.getConnection();
+             PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setString(1, email);
+            ps.setInt(2, excludeUserId);
+            try (ResultSet rs = ps.executeQuery()) {
+                if (rs.next()) {
+                    return rs.getInt(1) > 0;
+                }
+            }
+        }
         return false;
     }
 

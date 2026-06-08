@@ -196,11 +196,12 @@ public class ChannelListServlet extends BaseController {
 
         String redirectUri;
         String ngrokUrl = getNgrokPublicUrl();
+        String contextPath = req.getContextPath();
         if (ngrokUrl != null) {
             if (ngrokUrl.endsWith("/")) {
                 ngrokUrl = ngrokUrl.substring(0, ngrokUrl.length() - 1);
             }
-            redirectUri = ngrokUrl + "/wms/lazada/callback";
+            redirectUri = ngrokUrl + contextPath + "/lazada/callback";
         } else {
             String scheme = req.getHeader("X-Forwarded-Proto");
             if (scheme == null || scheme.trim().isEmpty()) {
@@ -217,7 +218,7 @@ public class ChannelListServlet extends BaseController {
                     host = serverName + ":" + serverPort;
                 }
             }
-            redirectUri = scheme + "://" + host + "/wms/lazada/callback";
+            redirectUri = scheme + "://" + host + contextPath + "/lazada/callback";
         }
 
         String oauthUrl = "https://auth.lazada.com/oauth/authorize?response_type=code"

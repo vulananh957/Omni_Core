@@ -387,16 +387,26 @@
         border-radius: var(--radius-card);
     }
 
-    /* ─── Create Return Modal Form CSS ─── */
+    /* ─── Create Return Button ─── */
+    .ret-btn-create {
         display: flex; align-items: center; gap: 8px;
-        padding: 8px 16px;
-        background: var(--orange); color: #fff;
+        padding: 9px 18px;
+        background: linear-gradient(135deg, #f97316 0%, #ea580c 100%);
+        color: #fff;
         border: none; border-radius: calc(var(--radius-btn) - 2px);
-        font-size: 13px; font-weight: 600; cursor: pointer; white-space: nowrap;
-        transition: opacity .15s;
+        font-size: 13px; font-weight: 700; cursor: pointer; white-space: nowrap;
+        box-shadow: 0 4px 14px rgba(234,88,12,.35);
+        transition: all .18s ease;
+        letter-spacing: .01em;
     }
-    .ret-btn-create:hover { opacity: .88; }
-    .ret-btn-create svg { width: 14px; height: 14px; }
+    .ret-btn-create:hover {
+        background: linear-gradient(135deg, #ea580c 0%, #c2410c 100%);
+        box-shadow: 0 6px 20px rgba(234,88,12,.50);
+        transform: translateY(-1px);
+    }
+    .ret-btn-create:active { transform: translateY(0); box-shadow: 0 2px 8px rgba(234,88,12,.30); }
+    .ret-btn-create svg { width: 15px; height: 15px; transition: transform .18s; }
+    .ret-btn-create:hover svg { transform: rotate(90deg); }
 
     .ret-form-section-title {
         font-size: 12px; font-weight: 700; text-transform: uppercase;
@@ -707,6 +717,34 @@
 (function () {
     'use strict';
 
+    var dbReturns = [];
+    var isQCForDb = false;
+
+    function submitPostAction(action, params) {
+        var form = document.createElement('form');
+        form.method = 'POST';
+        form.action = window.location.pathname;
+
+        var actionInput = document.createElement('input');
+        actionInput.type = 'hidden';
+        actionInput.name = 'action';
+        actionInput.value = action;
+        form.appendChild(actionInput);
+
+        for (var key in params) {
+            if (params.hasOwnProperty(key)) {
+                var input = document.createElement('input');
+                input.type = 'hidden';
+                input.name = key;
+                input.value = params[key];
+                form.appendChild(input);
+            }
+        }
+
+        document.body.appendChild(form);
+        form.submit();
+    }
+
     // ─── Master Product List (Empty as requested by the user, but populated dynamically from servlet)
     var PRODUCTS = [
         <c:forEach items="${products}" var="p" varStatus="status">
@@ -718,14 +756,14 @@
     var returns = [
         <c:forEach items="${returns}" var="r" varStatus="status">
             {
-                id: "${r.id}",
-                soRef: "${r.soRef}",
+                id: "${r.returnId}",
+                soRef: "${r.orderCode}",
                 channel: "${r.channel}",
-                customer: "${r.customer}",
-                phone: "${r.phone}",
-                returnedAt: "${r.returnedAt}",
-                status: "${r.status}",
-                qcBy: "${r.qcBy}",
+                customer: "${r.customerName}",
+                phone: "${r.customerPhone}",
+                returnedAt: "${r.createdAt}",
+                status: "${r.status eq 'RECEIVED' or r.status eq 'INSPECTING' ? 'pending_qc' : r.status eq 'PASS' or r.status eq 'FAIL' ? 'qc_done' : r.status eq 'RESTOCKED' ? 'restocked' : 'scrapped'}",
+                qcBy: "",
                 items: [
                     <c:forEach items="${r.items}" var="item" varStatus="iStatus">
                         {
@@ -878,28 +916,22 @@
         if (!phone) { alert('Vui lòng nhập số điện thoại khách hàng!'); return; }
         if (tempItems.length === 0) { alert('Vui lòng thêm ít nhất một sản phẩm hoàn trả!'); return; }
 
-        var nextNum = String(returns.length + 1).padStart(3, '0');
-        var now = new Date();
-        var nowStr = now.getFullYear() + '-' +
-                     String(now.getMonth() + 1).padStart(2, '0') + '-' +
-                     String(now.getDate()).padStart(2, '0') + ' ' +
-                     String(now.getHours()).padStart(2, '0') + ':' +
-                     String(now.getMinutes()).padStart(2, '0');
+        var itemsPayload = tempItems.map(function(item) {
+            return {
+                skuCode: item.skuCode,
+                qty: item.qty,
+                returnReason: item.returnReason
+            };
+        });
 
-        var newRma = {
-            id: 'RMA-2026-' + nextNum,
+        submitPostAction('create', {
             soRef: soRef,
-            channel: channel,
             customer: customer,
             phone: phone,
-            returnedAt: nowStr,
-            status: 'pending_qc',
-            items: tempItems
-        };
+            itemsJson: JSON.stringify(itemsPayload)
+        });
 
-        returns.unshift(newRma);
         createReturnOverlay.style.display = 'none';
-        render();
     });
 
     // ─── Modal QC & Confirm QC ───
@@ -907,6 +939,27 @@
     document.getElementById('btnCancelQC').addEventListener('click', function () { qcOverlay.style.display = 'none'; });
     document.getElementById('btnConfirmQC').addEventListener('click', function () {
         if (!selectedQCId) return;
+
+        if (isQCForDb) {
+            var r = dbReturns.find(function (item) { return String(item.id) === String(selectedQCId); });
+            if (!r) return;
+
+            var itemsPayload = r.items.map(function(item) {
+                return {
+                    productId: item.productId,
+                    qcDecision: tempDecisions[item.skuCode] || 'pending',
+                    qcNote: tempNotes[item.skuCode] || ''
+                };
+            });
+
+            submitPostAction('qc', {
+                returnId: selectedQCId,
+                itemsJson: JSON.stringify(itemsPayload)
+            });
+            qcOverlay.style.display = 'none';
+            return;
+        }
+
         var rma = returns.find(function (r) { return r.id === selectedQCId; });
         if (!rma) return;
 

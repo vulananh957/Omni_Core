@@ -279,6 +279,15 @@
     </servlet-mapping>
 
     <servlet>
+        <servlet-name>OrderActionServlet</servlet-name>
+        <servlet-class>com.wms.controller.sales.OrderActionServlet</servlet-class>
+    </servlet>
+    <servlet-mapping>
+        <servlet-name>OrderActionServlet</servlet-name>
+        <url-pattern>/sales/order-action</url-pattern>
+    </servlet-mapping>
+
+    <servlet>
         <servlet-name>SalesSKUMappingServlet</servlet-name>
         <servlet-class>com.wms.controller.sales.SalesSKUMappingServlet</servlet-class>
     </servlet>

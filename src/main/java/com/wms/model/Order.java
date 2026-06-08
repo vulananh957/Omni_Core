@@ -21,6 +21,15 @@ public class Order {
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
     private List<OrderItem> items = new ArrayList<>();
+    
+    // Custom WMS fields
+    private String trackingNo;
+    private String reviewNote;
+    private String rmaReason;
+    private String rmaPhysicalStatus;
+    private String rmaPlatformStatus;
+    private String disputeEvidenceVideo;
+    private String disputeNote;
 
     // Constructors
     public Order() {}
@@ -146,6 +155,62 @@ public class Order {
 
     public void setItems(List<OrderItem> items) {
         this.items = items;
+    }
+
+    public String getTrackingNo() {
+        return trackingNo;
+    }
+
+    public void setTrackingNo(String trackingNo) {
+        this.trackingNo = trackingNo;
+    }
+
+    public String getReviewNote() {
+        return reviewNote;
+    }
+
+    public void setReviewNote(String reviewNote) {
+        this.reviewNote = reviewNote;
+    }
+
+    public String getRmaReason() {
+        return rmaReason;
+    }
+
+    public void setRmaReason(String rmaReason) {
+        this.rmaReason = rmaReason;
+    }
+
+    public String getRmaPhysicalStatus() {
+        return rmaPhysicalStatus;
+    }
+
+    public void setRmaPhysicalStatus(String rmaPhysicalStatus) {
+        this.rmaPhysicalStatus = rmaPhysicalStatus;
+    }
+
+    public String getRmaPlatformStatus() {
+        return rmaPlatformStatus;
+    }
+
+    public void setRmaPlatformStatus(String rmaPlatformStatus) {
+        this.rmaPlatformStatus = rmaPlatformStatus;
+    }
+
+    public String getDisputeEvidenceVideo() {
+        return disputeEvidenceVideo;
+    }
+
+    public void setDisputeEvidenceVideo(String disputeEvidenceVideo) {
+        this.disputeEvidenceVideo = disputeEvidenceVideo;
+    }
+
+    public String getDisputeNote() {
+        return disputeNote;
+    }
+
+    public void setDisputeNote(String disputeNote) {
+        this.disputeNote = disputeNote;
     }
 }
 

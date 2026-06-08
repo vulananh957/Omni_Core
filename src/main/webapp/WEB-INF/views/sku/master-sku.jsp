@@ -902,40 +902,136 @@
 
 <!-- ══ SCRIPT LOGIC ══════════════════════════════════════════ -->
 <script>
+// Expose JSTL session user details to client-side
+window.WMS_USER = {
+    fullName: "${not empty loggedInUser.fullName ? loggedInUser.fullName : 'Guest'}",
+    role: "${not empty loggedInUser.role ? loggedInUser.role : 'Guest'}"
+};
+
+function submitPostAction(action, params) {
+    var form = document.createElement('form');
+    form.method = 'POST';
+    form.action = window.location.pathname;
+
+    var actionInput = document.createElement('input');
+    actionInput.type = 'hidden';
+    actionInput.name = 'action';
+    actionInput.value = action;
+    form.appendChild(actionInput);
+
+    for (var key in params) {
+        if (params.hasOwnProperty(key)) {
+            var input = document.createElement('input');
+            input.type = 'hidden';
+            input.name = key;
+            input.value = params[key];
+            form.appendChild(input);
+        }
+    }
+
+    document.body.appendChild(form);
+    form.submit();
+}
+
 (function () {
 'use strict';
 
+// Bind server-side product data if available from servlet
+var SERVER_PRODUCTS = [];
+try {
+    var rawJson = '<c:out value="${productsJson}" escapeXml="false"/>';
+    if (rawJson && rawJson.trim() && rawJson.indexOf('productsJson') === -1) {
+        SERVER_PRODUCTS = JSON.parse(rawJson);
+    }
+} catch (e) {
+    console.warn('master-sku: No server product data, using localStorage fallback');
+}
+
 // Shared localStorage database
 var savedSKUs = localStorage.getItem('wms_skus');
-window.WMS_SKU_DATA = savedSKUs ? JSON.parse(savedSKUs) : [];
+var localSKUs = savedSKUs ? JSON.parse(savedSKUs) : [];
 
 /* ─── State ──────────────────────────────────────────────── */
-var skus = window.WMS_SKU_DATA;
+var skus = (SERVER_PRODUCTS.length > 0) ? SERVER_PRODUCTS.map(function(p) {
+    return {
+        id: p.id || ('p-' + p.productId),
+        sku: p.sku || p.skuCode || '',
+        name: p.name || p.productName || '',
+        category: p.category || p.categoryName || '',
+        dimensions: p.dimensions || p.attributesText || 'N/A',
+        weight: p.weight || (p.weightKg ? p.weightKg + ' kg' : 'N/A'),
+        qtyOnHand: typeof p.qtyOnHand !== 'undefined' ? p.qtyOnHand : 0,
+        minStock: p.minStock || 0,
+        maxStock: p.maxStock || 0,
+        status: p.status || 'pending',
+        approvalStatus: p.approvalStatus || (p.status === 'APPROVED' ? 'approved' : p.status === 'REJECTED' ? 'rejected' : 'pending'),
+        locationConfigs: p.locationConfigs || [],
+        createdBy: p.createdBy || p.creatorName || '',
+        createdAt: p.createdAt || '',
+        updatedBy: p.updatedBy || p.approverName || '',
+        lastUpdated: p.lastUpdated || p.updatedAt || '',
+        reviewNote: p.reviewNote || ''
+    };
+}) : localSKUs;
 
-var LOCATIONS = [
-    { id: "loc-hn",  name: "Kho Hà Nội",      code: "HN",  city: "Hà Nội" },
-    { id: "loc-dn",  name: "Kho Đà Nẵng",     code: "DN",  city: "Đà Nẵng" },
-    { id: "loc-hcm", name: "Kho TP. Hồ Chí Minh", code: "HCM", city: "TP.HCM" }
-];
 
-var ZONES = [
-    { id: "z-hn-regular",   locationId: "loc-hn",  code: "HN-A1", name: "Khu Hàng Thường",          allowForNew: true  },
-    { id: "z-hn-cold",      locationId: "loc-hn",  code: "HN-B1", name: "Khu Hàng Lạnh / Giá trị cao", allowForNew: true  },
-    { id: "z-hn-promo",     locationId: "loc-hn",  code: "HN-C1", name: "Khu Hàng Khuyến Mãi",      allowForNew: true  },
-    { id: "z-hn-damaged",   locationId: "loc-hn",  code: "HN-D1", name: "Khu Hàng Hỏng",            allowForNew: false },
-    { id: "z-hn-complaint", locationId: "loc-hn",  code: "HN-D2", name: "Khu Hàng Khiếu Nại",       allowForNew: false },
-    
-    { id: "z-dn-regular",   locationId: "loc-dn",  code: "DN-A1", name: "Khu Hàng Thường",          allowForNew: true  },
-    { id: "z-dn-cold",      locationId: "loc-dn",  code: "DN-B1", name: "Khu Hàng Lạnh / Giá trị cao", allowForNew: true  },
-    { id: "z-dn-damaged",   locationId: "loc-dn",  code: "DN-D1", name: "Khu Hàng Hỏng",            allowForNew: false },
-    { id: "z-dn-complaint", locationId: "loc-dn",  code: "DN-D2", name: "Khu Hàng Khiếu Nại",       allowForNew: false },
-    
-    { id: "z-hcm-regular",  locationId: "loc-hcm", code: "HCM-A1", name: "Khu Hàng Thường",         allowForNew: true  },
-    { id: "z-hcm-cold",     locationId: "loc-hcm", code: "HCM-B1", name: "Khu Hàng Lạnh / Giá trị cao", allowForNew: true },
-    { id: "z-hcm-promo",    locationId: "loc-hcm", code: "HCM-C1", name: "Khu Hàng Khuyến Mãi",     allowForNew: true  },
-    { id: "z-hcm-damaged",  locationId: "loc-hcm", code: "HCM-D1", name: "Khu Hàng Hỏng",           allowForNew: false },
-    { id: "z-hcm-complaint",locationId: "loc-hcm", code: "HCM-D2", name: "Khu Hàng Khiếu Nại",      allowForNew: false }
-];
+// Bind dynamic warehouses and zones from servlet
+var DB_WAREHOUSES = [];
+try {
+    var rawWhJson = '<c:out value="${warehousesJson}" escapeXml="false"/>';
+    if (rawWhJson && rawWhJson.trim() && rawWhJson.indexOf('warehousesJson') === -1) {
+        DB_WAREHOUSES = JSON.parse(rawWhJson);
+    }
+} catch (e) {
+    console.warn('master-sku: No server warehouse data');
+}
+
+var LOCATIONS = [];
+var ZONES = [];
+if (DB_WAREHOUSES.length > 0) {
+    DB_WAREHOUSES.forEach(function(wh) {
+        LOCATIONS.push({
+            id: wh.warehouseId.toString(),
+            name: wh.warehouseName,
+            code: wh.warehouseCode,
+            city: wh.address || ""
+        });
+        if (wh.zones) {
+            wh.zones.forEach(function(z) {
+                ZONES.push({
+                    id: z.zoneId.toString(),
+                    locationId: wh.warehouseId.toString(),
+                    code: z.zoneCode,
+                    name: z.zoneName,
+                    allowForNew: z.zoneType === 'NORMAL' || z.zoneType === 'RETURN'
+                });
+            });
+        }
+    });
+} else {
+    // Fallback to static
+    LOCATIONS = [
+        { id: "loc-hn",  name: "Kho Hà Nội",      code: "HN",  city: "Hà Nội" },
+        { id: "loc-dn",  name: "Kho Đà Nẵng",     code: "DN",  city: "Đà Nẵng" },
+        { id: "loc-hcm", name: "Kho TP. Hồ Chí Minh", code: "HCM", city: "TP.HCM" }
+    ];
+    ZONES = [
+        { id: "z-hn-regular",   locationId: "loc-hn",  code: "HN-A1", name: "Khu Hàng Thường",          allowForNew: true  },
+        { id: "z-hn-cold",      locationId: "loc-hn",  code: "HN-B1", name: "Khu Hàng Lạnh / Giá trị cao", allowForNew: true  },
+        { id: "z-hn-promo",     locationId: "loc-hn",  code: "HN-C1", name: "Khu Hàng Khuyến Mãi",      allowForNew: true  },
+        { id: "z-hn-damaged",   locationId: "loc-hn",  code: "HN-D1", name: "Khu Hàng Hỏng",            allowForNew: false },
+        { id: "z-hn-complaint", locationId: "loc-hn",  code: "HN-D2", name: "Khu Hàng Khiếu Nại",       allowForNew: false },
+        { id: "z-dn-regular",   locationId: "loc-dn",  code: "DN-A1", name: "Khu Hàng Thường",          allowForNew: true  },
+        { id: "z-dn-cold",      locationId: "loc-dn",  code: "DN-B1", name: "Khu Hàng Lạnh / Giá trị cao", allowForNew: true  },
+        { id: "z-dn-damaged",   locationId: "loc-dn",  code: "DN-D1", name: "Khu Hàng Hỏng",            allowForNew: false },
+        { id: "z-dn-complaint", locationId: "loc-dn",  code: "DN-D2", name: "Khu Hàng Khiếu Nại",       allowForNew: false },
+        { id: "z-hcm-regular",  locationId: "loc-hcm", code: "HCM-A1", name: "Khu Hàng Thường",         allowForNew: true  },
+        { id: "z-hcm-cold",     locationId: "loc-hcm", code: "HCM-B1", name: "Khu Hàng Lạnh / Giá trị cao", allowForNew: true },
+        { id: "z-hcm-promo",    locationId: "loc-hcm", code: "HCM-C1", name: "Khu Hàng Khuyến Mãi",     allowForNew: true  },
+        { id: "z-hcm-damaged",  locationId: "loc-hcm", code: "HCM-D1", name: "Khu Hàng Hỏng",           allowForNew: false },
+        { id: "z-hcm-complaint",locationId: "loc-hcm", code: "HCM-D2", name: "Khu Hàng Khiếu Nại",      allowForNew: false }
+    ];
+}
 
 var search = '';
 var selectedCategory = 'Tất cả';
@@ -1164,28 +1260,23 @@ if (btnApproveSubmit) {
         if (!currentApprovingItem) return;
         
         var id = currentApprovingItem.id;
-        var foundIndex = skus.findIndex(function (s) { return s.id === id; });
-        if (foundIndex > -1) {
-            var now = new Date();
-            var timeStr = now.getFullYear() + '-' + padZero(now.getMonth()+1) + '-' + padZero(now.getDate()) + ' ' + padZero(now.getHours()) + ':' + padZero(now.getMinutes());
-            
-            var formattedConfigs = matrixRows.map(function (row, idx) {
-                return {
-                    rowId: 'r-' + idx + '-' + Date.now(),
-                    locationId: row.locationId,
-                    zoneId: row.zoneId
-                };
-            });
-
-            skus[foundIndex].approvalStatus = 'approved';
-            skus[foundIndex].locationConfigs = formattedConfigs;
-            skus[foundIndex].lastUpdated = timeStr;
-            skus[foundIndex].updatedBy = 'Quản lý kinh doanh'; // Simulation of Manager checker role
+        var productId = id;
+        if (id.indexOf('p-') === 0) {
+            productId = id.substring(2);
         }
+        
+        var formattedConfigs = matrixRows.map(function (row) {
+            return {
+                locationId: row.locationId,
+                zoneId: row.zoneId
+            };
+        });
 
         closeApproveModal();
-        renderAll();
-        alert('Master SKU đã được phê duyệt thành công và đồng bộ cấu hình kho!');
+        submitPostAction('approve', {
+            productId: productId,
+            locationConfigsJson: JSON.stringify(formattedConfigs)
+        });
     });
 }
 
@@ -1214,20 +1305,16 @@ if (btnRejectSubmit) {
         }
 
         var id = rejectIdInput.value;
-        var foundIndex = skus.findIndex(function (s) { return s.id === id; });
-        if (foundIndex > -1) {
-            var now = new Date();
-            var timeStr = now.getFullYear() + '-' + padZero(now.getMonth()+1) + '-' + padZero(now.getDate()) + ' ' + padZero(now.getHours()) + ':' + padZero(now.getMinutes());
-
-            skus[foundIndex].approvalStatus = 'rejected';
-            skus[foundIndex].locationConfigs = []; // reset loc on reject
-            skus[foundIndex].lastUpdated = timeStr;
-            skus[foundIndex].updatedBy = 'Quản lý kinh doanh';
+        var productId = id;
+        if (id.indexOf('p-') === 0) {
+            productId = id.substring(2);
         }
 
         closeRejectModal();
-        renderAll();
-        alert('Từ chối duyệt SKU thành công!');
+        submitPostAction('reject', {
+            productId: productId,
+            rejectReason: reason
+        });
     });
 }
 

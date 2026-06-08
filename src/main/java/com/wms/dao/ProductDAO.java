@@ -30,10 +30,12 @@ public class ProductDAO {
      */
     public List<Product> findAll() {
         List<Product> list = new ArrayList<>();
-        String sql = "SELECT p.*, c.category_name, u.full_name AS creator_name "
+        String sql = "SELECT p.*, c.category_name, u.full_name AS creator_name, u2.full_name AS approver_name, "
+                   + "(SELECT COALESCE(SUM(qty_on_hand), 0) FROM inventory WHERE product_id = p.product_id) AS qty_on_hand "
                    + "FROM products p "
                    + "LEFT JOIN categories c ON p.category_id = c.category_id "
                    + "LEFT JOIN users u ON p.created_by = u.user_id "
+                   + "LEFT JOIN users u2 ON p.approved_by = u2.user_id "
                    + "ORDER BY p.product_id DESC";
         try (Connection conn = DBConnection.getConnection();
              PreparedStatement ps = conn.prepareStatement(sql);
@@ -54,10 +56,12 @@ public class ProductDAO {
      * @return The Product object, or null if not found.
      */
     public Product findById(int productId) {
-        String sql = "SELECT p.*, c.category_name, u.full_name AS creator_name "
+        String sql = "SELECT p.*, c.category_name, u.full_name AS creator_name, u2.full_name AS approver_name, "
+                   + "(SELECT COALESCE(SUM(qty_on_hand), 0) FROM inventory WHERE product_id = p.product_id) AS qty_on_hand "
                    + "FROM products p "
                    + "LEFT JOIN categories c ON p.category_id = c.category_id "
                    + "LEFT JOIN users u ON p.created_by = u.user_id "
+                   + "LEFT JOIN users u2 ON p.approved_by = u2.user_id "
                    + "WHERE p.product_id = ?";
         try (Connection conn = DBConnection.getConnection();
              PreparedStatement ps = conn.prepareStatement(sql)) {
@@ -85,17 +89,21 @@ public class ProductDAO {
         PreparedStatement ps;
         try (Connection conn = DBConnection.getConnection()) {
             if (categoryId == null) {
-                sql = "SELECT p.*, c.category_name, u.full_name AS creator_name "
+                sql = "SELECT p.*, c.category_name, u.full_name AS creator_name, u2.full_name AS approver_name, "
+                    + "(SELECT COALESCE(SUM(qty_on_hand), 0) FROM inventory WHERE product_id = p.product_id) AS qty_on_hand "
                     + "FROM products p "
                     + "LEFT JOIN categories c ON p.category_id = c.category_id "
                     + "LEFT JOIN users u ON p.created_by = u.user_id "
+                    + "LEFT JOIN users u2 ON p.approved_by = u2.user_id "
                     + "WHERE p.category_id IS NULL ORDER BY p.product_id DESC";
                 ps = conn.prepareStatement(sql);
             } else {
-                sql = "SELECT p.*, c.category_name, u.full_name AS creator_name "
+                sql = "SELECT p.*, c.category_name, u.full_name AS creator_name, u2.full_name AS approver_name, "
+                    + "(SELECT COALESCE(SUM(qty_on_hand), 0) FROM inventory WHERE product_id = p.product_id) AS qty_on_hand "
                     + "FROM products p "
                     + "LEFT JOIN categories c ON p.category_id = c.category_id "
                     + "LEFT JOIN users u ON p.created_by = u.user_id "
+                    + "LEFT JOIN users u2 ON p.approved_by = u2.user_id "
                     + "WHERE p.category_id = ? ORDER BY p.product_id DESC";
                 ps = conn.prepareStatement(sql);
                 ps.setInt(1, categoryId);
@@ -118,10 +126,12 @@ public class ProductDAO {
      */
     public List<Product> findPendingApproval() {
         List<Product> list = new ArrayList<>();
-        String sql = "SELECT p.*, c.category_name, u.full_name AS creator_name "
+        String sql = "SELECT p.*, c.category_name, u.full_name AS creator_name, u2.full_name AS approver_name, "
+                   + "(SELECT COALESCE(SUM(qty_on_hand), 0) FROM inventory WHERE product_id = p.product_id) AS qty_on_hand "
                    + "FROM products p "
                    + "LEFT JOIN categories c ON p.category_id = c.category_id "
                    + "LEFT JOIN users u ON p.created_by = u.user_id "
+                   + "LEFT JOIN users u2 ON p.approved_by = u2.user_id "
                    + "WHERE p.status = ? ORDER BY p.product_id DESC";
         try (Connection conn = DBConnection.getConnection();
              PreparedStatement ps = conn.prepareStatement(sql)) {
@@ -144,10 +154,12 @@ public class ProductDAO {
      */
     public List<Product> findApproved() {
         List<Product> list = new ArrayList<>();
-        String sql = "SELECT p.*, c.category_name, u.full_name AS creator_name "
+        String sql = "SELECT p.*, c.category_name, u.full_name AS creator_name, u2.full_name AS approver_name, "
+                   + "(SELECT COALESCE(SUM(qty_on_hand), 0) FROM inventory WHERE product_id = p.product_id) AS qty_on_hand "
                    + "FROM products p "
                    + "LEFT JOIN categories c ON p.category_id = c.category_id "
                    + "LEFT JOIN users u ON p.created_by = u.user_id "
+                   + "LEFT JOIN users u2 ON p.approved_by = u2.user_id "
                    + "WHERE p.status = ? ORDER BY p.product_id DESC";
         try (Connection conn = DBConnection.getConnection();
              PreparedStatement ps = conn.prepareStatement(sql)) {
@@ -275,20 +287,102 @@ public class ProductDAO {
      * Rejects a product — sets status to REJECTED.
      *
      * @param productId The product ID to reject.
+     * @param reviewNote The reason for rejection.
      * @return true if the update succeeded, false otherwise.
      */
-    public boolean reject(int productId) {
+    public boolean reject(int productId, String reviewNote) {
         String sql = "UPDATE products SET "
-                + "status = ?, updated_at = CURRENT_TIMESTAMP "
+                + "status = ?, review_note = ?, updated_at = CURRENT_TIMESTAMP "
                 + "WHERE product_id = ?";
         try (Connection conn = DBConnection.getConnection();
              PreparedStatement ps = conn.prepareStatement(sql)) {
             ps.setString(1, Product.STATUS_REJECTED);
-            ps.setInt(2, productId);
+            ps.setString(2, reviewNote);
+            ps.setInt(3, productId);
             return ps.executeUpdate() > 0;
         } catch (SQLException e) {
             LOGGER.log(Level.WARNING, "ProductDAO: Failed to reject product " + productId, e);
             return false;
+        }
+    }
+
+    public boolean reject(int productId) {
+        return reject(productId, null);
+    }
+
+    public List<Product.LocationConfig> findDefaultZonesByProductId(int productId) {
+        List<Product.LocationConfig> list = new ArrayList<>();
+        String sql = "SELECT warehouse_id, zone_id FROM product_default_zones WHERE product_id = ?";
+        try (Connection conn = DBConnection.getConnection();
+             PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setInt(1, productId);
+            try (ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) {
+                    String locId = String.valueOf(rs.getInt("warehouse_id"));
+                    String zoneId = String.valueOf(rs.getInt("zone_id"));
+                    list.add(new Product.LocationConfig(locId, zoneId));
+                }
+            }
+        } catch (SQLException e) {
+            LOGGER.log(Level.WARNING, "ProductDAO: Failed to find default zones for product " + productId, e);
+        }
+        return list;
+    }
+
+    public boolean approveProductWithZones(int productId, int approvedBy, List<Product.LocationConfig> configs) {
+        Connection conn = null;
+        PreparedStatement psApprove = null;
+        PreparedStatement psDelete = null;
+        PreparedStatement psInsert = null;
+        try {
+            conn = DBConnection.getConnection();
+            conn.setAutoCommit(false);
+
+            // 1. Approve product
+            String approveSql = "UPDATE products SET status = ?, approved_at = CURRENT_TIMESTAMP, approved_by = ?, updated_at = CURRENT_TIMESTAMP WHERE product_id = ?";
+            psApprove = conn.prepareStatement(approveSql);
+            psApprove.setString(1, Product.STATUS_APPROVED);
+            psApprove.setInt(2, approvedBy);
+            psApprove.setInt(3, productId);
+            psApprove.executeUpdate();
+
+            // 2. Clear old default zones
+            String deleteSql = "DELETE FROM product_default_zones WHERE product_id = ?";
+            psDelete = conn.prepareStatement(deleteSql);
+            psDelete.setInt(1, productId);
+            psDelete.executeUpdate();
+
+            // 3. Insert new default zones
+            if (configs != null && !configs.isEmpty()) {
+                String insertSql = "INSERT INTO product_default_zones (product_id, warehouse_id, zone_id) VALUES (?, ?, ?)";
+                psInsert = conn.prepareStatement(insertSql);
+                for (Product.LocationConfig cfg : configs) {
+                    psInsert.setInt(1, productId);
+                    psInsert.setInt(2, Integer.parseInt(cfg.getLocationId()));
+                    psInsert.setInt(3, Integer.parseInt(cfg.getZoneId()));
+                    psInsert.addBatch();
+                }
+                psInsert.executeBatch();
+            }
+
+            conn.commit();
+            return true;
+        } catch (SQLException | NumberFormatException e) {
+            LOGGER.log(Level.WARNING, "ProductDAO: Failed to approve product with zones for ID " + productId, e);
+            if (conn != null) {
+                try { conn.rollback(); } catch (SQLException ex) { LOGGER.log(Level.SEVERE, "Rollback failed", ex); }
+            }
+            return false;
+        } finally {
+            DBConnection.closeQuietly(psApprove, psDelete, psInsert);
+            if (conn != null) {
+                try {
+                    conn.setAutoCommit(true);
+                    conn.close();
+                } catch (SQLException e) {
+                    LOGGER.log(Level.WARNING, "Failed to close Connection", e);
+                }
+            }
         }
     }
 
@@ -352,6 +446,24 @@ public class ProductDAO {
         } catch (SQLException e) {
             // column not present
         }
+        try {
+            product.setReviewNote(rs.getString("review_note"));
+        } catch (SQLException e) {
+            // column not present
+        }
+        try {
+            product.setQtyOnHand(rs.getDouble("qty_on_hand"));
+        } catch (SQLException e) {
+            // column not present
+        }
+        try {
+            product.setApproverName(rs.getString("approver_name"));
+        } catch (SQLException e) {
+            // column not present
+        }
+
+        // Load default zones for SKU
+        product.setLocationConfigs(findDefaultZonesByProductId(product.getProductId()));
 
         return product;
     }

@@ -206,7 +206,7 @@
         flex-shrink: 0;
     }
     .ret-sheet-icon svg { width: 18px; height: 18px; }
-    .ret-sheet-info { flex: 1; min-w: 0; }
+    .ret-sheet-info { flex: 1; min-width: 0; }
     .ret-sheet-info-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
     .ret-sheet-id { font-size: 14px; font-weight: 700; color: var(--navy); }
     .ret-sheet-so-ref { font-size: 11px; color: rgba(16,55,92,0.40); }
@@ -712,6 +712,79 @@
     </div>
 </div>
 
+<script id="products-data" type="application/json">
+[
+    <c:forEach items="${products}" var="p" varStatus="status">
+        { "sku": "${p.skuCode}", "name": "${p.skuName}" }${!status.last ? ',' : ''}
+    </c:forEach>
+]
+</script>
+
+<script id="returns-data" type="application/json">
+[
+    <c:forEach items="${returns}" var="r" varStatus="status">
+        {
+            "id": "${r.returnId}",
+            "soRef": "${r.orderCode}",
+            "channel": "${r.channel}",
+            "customer": "${r.customerName}",
+            "phone": "${r.customerPhone}",
+            "returnedAt": "${r.createdAt}",
+            "status": "${r.status eq 'RECEIVED' or r.status eq 'INSPECTING' ? 'pending_qc' : r.status eq 'PASS' or r.status eq 'FAIL' ? 'qc_done' : r.status eq 'RESTOCKED' ? 'restocked' : 'scrapped'}",
+            "qcBy": "",
+            "items": [
+                <c:forEach items="${r.items}" var="item" varStatus="iStatus">
+                    {
+                        "skuCode": "${item.skuCode}",
+                        "skuName": "${item.skuName}",
+                        "qty": ${item.qty},
+                        "returnReason": "${item.returnReason}",
+                        "qcDecision": "${item.qcDecision}",
+                        "qcNote": "${item.qcNote}"
+                    }${!iStatus.last ? ',' : ''}
+                </c:forEach>
+            ]
+        }${!status.last ? ',' : ''}
+    </c:forEach>
+]
+</script>
+
+<script id="db-returns-data" type="application/json">
+[
+    <c:forEach items="${returns}" var="r" varStatus="s">
+        {
+            "id": "<c:out value='${r.returnId}'/>",
+            "soRef": "<c:out value='${r.orderCode}'/>",
+            "channel": "<c:out value='${r.channel}'/>",
+            "customer": "<c:out value='${r.customerName}'/>",
+            "phone": "<c:out value='${r.customerPhone}'/>",
+            "returnedAt": "<c:out value='${r.createdAt}'/>",
+            "status": "<c:out value='${r.status}'/>",
+            "items": [
+                <c:forEach items="${r.items}" var="item" varStatus="iStatus">
+                    {
+                        "skuCode": "<c:out value='${item.skuCode}'/>",
+                        "skuName": "<c:out value='${item.skuName}'/>",
+                        "qty": ${item.qty},
+                        "returnReason": "<c:out value='${item.returnReason}'/>",
+                        "qcDecision": "<c:out value='${item.qcDecision}'/>",
+                        "qcNote": "<c:out value='${item.qcNote}'/>"
+                    }${!iStatus.last ? ',' : ''}
+                </c:forEach>
+            ]
+        }${!s.last ? ',' : ''}
+    </c:forEach>
+]
+</script>
+
+<script id="db-products-data" type="application/json">
+[
+    <c:forEach items="${products}" var="p" varStatus="s">
+        { "sku": "<c:out value='${p.sku}'/>", "name": "<c:out value='${p.name}'/>" }${!s.last ? ',' : ''}
+    </c:forEach>
+]
+</script>
+
 <!-- ═══ JAVASCRIPT ═══ -->
 <script>
 (function () {
@@ -746,39 +819,10 @@
     }
 
     // ─── Master Product List (Empty as requested by the user, but populated dynamically from servlet)
-    var PRODUCTS = [
-        <c:forEach items="${products}" var="p" varStatus="status">
-            { sku: "${p.skuCode}", name: "${p.skuName}" }${!status.last ? ',' : ''}
-        </c:forEach>
-    ];
+    var PRODUCTS = JSON.parse(document.getElementById('products-data').textContent || '[]');
 
     // ─── Returns Data (Empty initial list, populated from servlet if available) ───
-    var returns = [
-        <c:forEach items="${returns}" var="r" varStatus="status">
-            {
-                id: "${r.returnId}",
-                soRef: "${r.orderCode}",
-                channel: "${r.channel}",
-                customer: "${r.customerName}",
-                phone: "${r.customerPhone}",
-                returnedAt: "${r.createdAt}",
-                status: "${r.status eq 'RECEIVED' or r.status eq 'INSPECTING' ? 'pending_qc' : r.status eq 'PASS' or r.status eq 'FAIL' ? 'qc_done' : r.status eq 'RESTOCKED' ? 'restocked' : 'scrapped'}",
-                qcBy: "",
-                items: [
-                    <c:forEach items="${r.items}" var="item" varStatus="iStatus">
-                        {
-                            skuCode: "${item.skuCode}",
-                            skuName: "${item.skuName}",
-                            qty: ${item.qty},
-                            returnReason: "${item.returnReason}",
-                            qcDecision: "${item.qcDecision}",
-                            qcNote: "${item.qcNote}"
-                        }${!iStatus.last ? ',' : ''}
-                    </c:forEach>
-                ]
-            }${!status.last ? ',' : ''}
-        </c:forEach>
-    ];
+    var returns = JSON.parse(document.getElementById('returns-data').textContent || '[]');
 
     var activeTab = 'all';
     var searchText = '';
@@ -1499,38 +1543,10 @@
     (function() {
         'use strict';
 
-        var dbReturns = [
-            <c:forEach items="${returns}" var="r" varStatus="s">
-                {
-                    id: "<c:out value='${r.id}'/>",
-                    soRef: "<c:out value='${r.soRef}'/>",
-                    channel: "<c:out value='${r.channel}'/>",
-                    customer: "<c:out value='${r.customer}'/>",
-                    phone: "<c:out value='${r.phone}'/>",
-                    returnedAt: "<c:out value='${r.returnedAt}'/>",
-                    status: "<c:out value='${r.status}'/>",
-                    items: [
-                        <c:forEach items="${r.items}" var="item" varStatus="iStatus">
-                            {
-                                skuCode: "<c:out value='${item.skuCode}'/>",
-                                skuName: "<c:out value='${item.skuName}'/>",
-                                qty: ${item.qty},
-                                returnReason: "<c:out value='${item.returnReason}'/>",
-                                qcDecision: "<c:out value='${item.qcDecision}'/>",
-                                qcNote: "<c:out value='${item.qcNote}'/>"
-                            }${!iStatus.last ? ',' : ''}
-                        </c:forEach>
-                    ]
-                }${!s.last ? ',' : ''}
-            </c:forEach>
-        ];
+        var dbReturns = JSON.parse(document.getElementById('db-returns-data').textContent || '[]');
 
         // Products from DB
-        var dbProducts = [
-            <c:forEach items="${products}" var="p" varStatus="s">
-                { sku: "<c:out value='${p.sku}'/>", name: "<c:out value='${p.name}'/>" }${!s.last ? ',' : ''}
-            </c:forEach>
-        ];
+        var dbProducts = JSON.parse(document.getElementById('db-products-data').textContent || '[]');
 
         var dbActiveTab = 'all';
         var dbExpanded = null;

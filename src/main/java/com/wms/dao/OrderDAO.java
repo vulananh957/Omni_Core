@@ -30,9 +30,12 @@ public class OrderDAO {
     public List<Order> getAllOrders() {
         List<Order> list = new ArrayList<>();
         String sqlOrders = "SELECT o.order_id, o.order_code, o.customer_id, o.warehouse_id, w.warehouse_name, o.channel, o.status, o.total_amount, o.created_by, o.created_at, o.updated_at, "
-                           + "o.tracking_no, o.review_note, o.rma_reason, o.rma_physical_status, o.rma_platform_status, o.dispute_evidence_video, o.dispute_note "
+                           + "o.tracking_no, o.review_note, o.rma_reason, o.rma_physical_status, o.rma_platform_status, o.dispute_evidence_video, o.dispute_note, "
+                           + "sd.recipient_name, sd.shipping_address, u.phone AS customer_phone, u.full_name AS customer_name "
                            + "FROM orders o "
                            + "LEFT JOIN warehouses w ON o.warehouse_id = w.warehouse_id "
+                           + "LEFT JOIN order_shipping_details sd ON o.order_id = sd.order_id "
+                           + "LEFT JOIN users u ON o.customer_id = u.user_id "
                            + "ORDER BY o.created_at DESC LIMIT 100";
         String sqlItems = "SELECT s.sku_code, s.product_name, oi.qty, oi.unit_price " +
                           "FROM order_items oi " +
@@ -80,6 +83,20 @@ public class OrderDAO {
                     order.setRmaPlatformStatus(rsOrders.getString("rma_platform_status"));
                     order.setDisputeEvidenceVideo(rsOrders.getString("dispute_evidence_video"));
                     order.setDisputeNote(rsOrders.getString("dispute_note"));
+
+                    // Customer & recipient details
+                    String recipientName = rsOrders.getString("recipient_name");
+                    String userFullName = rsOrders.getString("customer_name");
+                    String finalCustomerName = (recipientName != null && !recipientName.trim().isEmpty())
+                            ? recipientName
+                            : ((userFullName != null && !userFullName.trim().isEmpty()) ? userFullName : "Khách hàng #" + (order.getCustomerId() != null ? order.getCustomerId() : "N/A"));
+                    order.setCustomerName(finalCustomerName);
+
+                    String customerPhone = rsOrders.getString("customer_phone");
+                    order.setCustomerPhone(customerPhone != null ? customerPhone : "Chưa có SĐT");
+
+                    String shippingAddress = rsOrders.getString("shipping_address");
+                    order.setCustomerAddress(shippingAddress != null ? shippingAddress : "Chưa có địa chỉ");
 
                     // Query and set items
                     psItems.setInt(1, orderId);

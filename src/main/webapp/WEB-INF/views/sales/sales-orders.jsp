@@ -713,22 +713,32 @@ let allOrders = [
     <c:forEach var="item" items="${order.items}">
         <c:set var="totalQty" value="${totalQty + item.quantity}"/>
     </c:forEach>
+    <%
+       com.wms.model.Order ord = (com.wms.model.Order) pageContext.getAttribute("order");
+       String escCustName = ord.getCustomerName() != null ? ord.getCustomerName().replace("\\", "\\\\").replace("\"", "\\\"").replace("\n", "\\n").replace("\r", "") : "";
+       String escCustPhone = ord.getCustomerPhone() != null ? ord.getCustomerPhone().replace("\\", "\\\\").replace("\"", "\\\"") : "";
+       String escCustAddress = ord.getCustomerAddress() != null ? ord.getCustomerAddress().replace("\\", "\\\\").replace("\"", "\\\"").replace("\n", "\\n").replace("\r", "") : "";
+       String escReviewNote = ord.getReviewNote() != null ? ord.getReviewNote().replace("\\", "\\\\").replace("\"", "\\\"").replace("\n", "\\n").replace("\r", "") : "";
+       String escRmaReason = ord.getRmaReason() != null ? ord.getRmaReason().replace("\\", "\\\\").replace("\"", "\\\"").replace("\n", "\\n").replace("\r", "") : "";
+       String escDisputeNote = ord.getDisputeNote() != null ? ord.getDisputeNote().replace("\\", "\\\\").replace("\"", "\\\"").replace("\n", "\\n").replace("\r", "") : "";
+    %>
     {
         id: "${order.orderCode}",
         channel: "${order.channel == 'ONLINE' ? 'Lazada' : order.channel}",
-        customerName: "Khách hàng #${order.customerId != null ? order.customerId : 'N/A'}",
-        customerPhone: "090xxxxxxx",
+        customerName: "<%= escCustName %>",
+        customerPhone: "<%= escCustPhone %>",
+        customerAddress: "<%= escCustAddress %>",
         totalItems: ${totalQty},
         totalAmount: ${order.totalAmount},
         status: "${order.status == 'PENDING' ? 'pending_review' : (order.status == 'CONFIRMED' ? 'confirmed' : (order.status == 'PACKING' ? 'packing' : (order.status == 'PACKED' ? 'packed' : (order.status == 'SHIPPED' ? 'shipping' : (order.status == 'DELIVERED' ? 'delivered' : (order.status == 'COMPLETED' ? 'completed' : (order.status == 'RETURNED' ? 'returned' : (order.status == 'DISPUTED' ? 'disputed' : (order.status == 'DISPUTE_SUCCESS' ? 'dispute_success' : (order.status == 'CANCELLED' ? 'cancelled' : order.status.toLowerCase()))))))))))}",
         warehouse: "${order.warehouseName != null ? order.warehouseName : 'Chưa chỉ định kho'}",
         trackingNo: "${order.trackingNo != null ? order.trackingNo : ''}",
-        reviewNote: "${order.reviewNote != null ? order.reviewNote : ''}",
-        rmaReason: "${order.rmaReason != null ? order.rmaReason : ''}",
+        reviewNote: "<%= escReviewNote %>",
+        rmaReason: "<%= escRmaReason %>",
         rmaPhysicalStatus: "${order.rmaPhysicalStatus != null ? order.rmaPhysicalStatus : ''}",
         rmaPlatformStatus: "${order.rmaPlatformStatus != null ? order.rmaPlatformStatus : ''}",
         disputeEvidenceVideo: "${order.disputeEvidenceVideo != null ? order.disputeEvidenceVideo : ''}",
-        disputeNote: "${order.disputeNote != null ? order.disputeNote : ''}",
+        disputeNote: "<%= escDisputeNote %>",
         createdAt: "${order.createdAt}",
         items: [
             <c:forEach var="item" items="${order.items}" varStatus="itemStatus">
@@ -1465,8 +1475,8 @@ function escJs(str) {
                             </span>
                         </td>
                         <td>
-                            <div class="om-customer-name">Khách hàng #${order.customerId != null ? order.customerId : 'N/A'}</div>
-                            <div class="om-customer-phone">090xxxxxxx</div>
+                            <div class="om-customer-name">${order.customerName}</div>
+                            <div class="om-customer-phone">${order.customerPhone}</div>
                         </td>
                         <td class="om-qty">${tQty}</td>
                         <td class="om-amount">

@@ -118,7 +118,7 @@ public class CategoryDAO {
             if (category.getParentId() != null) {
                 Category parent = findById(category.getParentId());
                 if (parent != null) {
-                    levelDepth = 1;
+                    levelDepth = parent.getLevelDepth() + 1;
                 }
             }
             ps.setInt(4, levelDepth);
@@ -153,7 +153,10 @@ public class CategoryDAO {
 
             int levelDepth = 0;
             if (category.getParentId() != null) {
-                levelDepth = 1;
+                Category parent = findById(category.getParentId());
+                if (parent != null) {
+                    levelDepth = parent.getLevelDepth() + 1;
+                }
             }
             ps.setInt(4, levelDepth);
             ps.setInt(5, category.getCategoryId());
@@ -193,14 +196,7 @@ public class CategoryDAO {
         int parentId = rs.getInt("parent_id");
         category.setParentId(rs.wasNull() ? null : parentId);
         category.setDescription(rs.getString("description"));
-        Timestamp createdAt = rs.getTimestamp("created_at");
-        if (createdAt != null) {
-            category.setCreatedAt(createdAt.toLocalDateTime());
-        }
-        Timestamp updatedAt = rs.getTimestamp("updated_at");
-        if (updatedAt != null) {
-            category.setUpdatedAt(updatedAt.toLocalDateTime());
-        }
+        category.setLevelDepth(rs.getInt("level_depth"));
         return category;
     }
 }

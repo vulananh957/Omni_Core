@@ -1,38 +1,22 @@
-# Maven
+# Maven build output
 target/
-pom.xml.tag
-pom.xml.releaseBackup
-pom.xml.next
-pom.xml.versionsBackup
-release.properties
-dependency-reduced-pom.xml
-buildNumber.properties
-.mvn/timing.properties
-.mvn/wrapper/maven-wrapper.jar
 
-# Embedded Maven in project
-apache-maven-3.9.6/
+# Mac system files
+.DS_Store
+**/.DS_Store
 
-# IDEs and Editors
+# IDE files
 .idea/
 *.iml
-*.ipr
-*.iws
-.project
-.classpath
-.settings/
 .vscode/
-*.code-workspace
-.history/
-nb-configuration.xml
-nbactions.xml
-nb-configuration-local.xml
+.settings/
+.classpath
+.project
+.factorypath
 
-# OS generated files
-.DS_Store
-.DS_Store?
-._*
-.Spotlight-V100
-.Trashes
-ehthumbs.db
-Thumbs.db
+# Sensitive config (don't commit credentials)
+src/main/resources/db.properties
+src/main/resources/mail.properties
+
+# Log files
+*.log

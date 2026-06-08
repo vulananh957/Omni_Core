@@ -17,7 +17,7 @@ public class User {
     private String roleStr;        // Fallback string for backward compatibility
     private Role role;             // Role object for JOIN operations
     private int roleId;
-    private int warehouseId = 1;
+    private int warehouseId = 0;
     private boolean active = true;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;

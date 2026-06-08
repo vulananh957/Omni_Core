@@ -424,7 +424,7 @@
 }
 .cp-modal-header {
     padding: 1rem 1.5rem;
-    border-b: 1px solid #F0F3FA;
+    border-bottom: 1px solid #F0F3FA;
     background: rgba(240, 245, 255, 0.3);
     display: flex;
     align-items: center;
@@ -490,7 +490,7 @@
     overflow: hidden;
     position: relative;
 }
-.cp-upload-box img { width: 100%; height: 100%; object-cover: cover; }
+.cp-upload-box img { width: 100%; height: 100%; object-fit: cover; }
 .cp-upload-box-trash {
     position: absolute;
     inset: 0;
@@ -1575,17 +1575,17 @@ function renderChannelsTab() {
                     <!-- Header -->
                     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
                         <div style="display: flex; align-items: center; gap: 0.75rem;">
-                            ${platformBadge}
-                            <h4 style="color: var(--navy); font-size: 15px; font-weight: 700; margin: 0;">${escapeHtml(chan.channelName)}</h4>
+                            \${platformBadge}
+                            <h4 style="color: var(--navy); font-size: 15px; font-weight: 700; margin: 0;">\${escapeHtml(chan.channelName)}</h4>
                         </div>
-                        ${statusBadge}
+                        \${statusBadge}
                     </div>
 
                     <!-- Config Details -->
                     <div style="font-size: 12px; color: rgba(16,55,92,0.70); margin-bottom: 1.25rem; display: flex; flex-direction: column; gap: 0.5rem;">
                         <div style="display: flex; justify-content: space-between;">
                             <span>API Endpoint:</span>
-                            <span style="font-family: monospace; font-weight: 600; color: var(--navy); text-overflow: ellipsis; overflow: hidden; white-space: nowrap; max-width: 14rem;">${escapeHtml(chan.apiUrl)}</span>
+                            <span style="font-family: monospace; font-weight: 600; color: var(--navy); text-overflow: ellipsis; overflow: hidden; white-space: nowrap; max-width: 14rem;">\${escapeHtml(chan.apiUrl)}</span>
                         </div>
                         <div style="display: flex; justify-content: space-between; align-items: center;">
                             <span>Webhook Status:</span>
@@ -1600,9 +1600,9 @@ function renderChannelsTab() {
                 <div style="border-top: 1px dashed #E5EAF3; padding-top: 0.75rem; display: flex; flex-direction: column; gap: 0.5rem;">
                     <label style="font-size: 12px; font-weight: 600; color: rgba(16,55,92,0.7);">Số lượng tồn đệm (Buffer Stock):</label>
                     <div style="display: flex; gap: 0.5rem; align-items: center;">
-                        <input type="number" id="bufferStock_${chan.channelId}" value="${chan.bufferStock}" min="0" step="0.5"
+                        <input type="number" id="bufferStock_\${chan.channelId}" value="\${chan.bufferStock}" min="0" step="0.5"
                                style="flex: 1; padding: 0.5rem; background: var(--alice); border: 1px solid #E5EAF3; color: var(--navy); font-size: 13px; outline: none; border-radius: 4px;" />
-                        <button type="button" onclick="updateChannelBufferStock('${chan.channelId}')"
+                        <button type="button" onclick="updateChannelBufferStock('\${chan.channelId}')"
                                 style="padding: 0.5rem 1rem; background: var(--orange); color: white; border: none; font-size: 12px; font-weight: 700; border-radius: 4px; cursor: pointer; box-shadow: 0 4px 10px rgba(235,131,23,0.15);">
                             Cập nhật
                         </button>
@@ -1721,33 +1721,33 @@ function renderProductsTab() {
         const chName = chNames[p.channel] || p.channel;
 
         tr.innerHTML = `
-            <td><span class="cp-font-mono" style="color:rgba(16, 55, 92, 0.7)">${p.masterSKU}</span></td>
-            <td><span class="cp-font-mono" style="color:var(--navy);font-weight:700">${p.channelSKU}</span></td>
+            <td><span class="cp-font-mono" style="color:rgba(16, 55, 92, 0.7)">\${p.masterSKU}</span></td>
+            <td><span class="cp-font-mono" style="color:var(--navy);font-weight:700">\${p.channelSKU}</span></td>
             <td>
                 <div style="min-width: 220px; max-width: 320px;">
-                    <div style="font-weight: 700; color: var(--navy); font-size: 13px">${p.productName}</div>
-                    <div class="cp-p-desc">${p.description || ""}</div>
-                    ${p.channelItemId ? `<div class="cp-p-id">ID Sàn: ${p.channelItemId}</div>` : ""}
+                    <div style="font-weight: 700; color: var(--navy); font-size: 13px">\${p.productName}</div>
+                    <div class="cp-p-desc">\${p.description || ""}</div>
+                    \${p.channelItemId ? '<div class="cp-p-id">ID Sàn: ' + p.channelItemId + '</div>' : ""}
                 </div>
             </td>
             <td>
-                <span class="cp-badge-channel" style="background:${chCol}">${chName}</span>
+                <span class="cp-badge-channel" style="background:\${chCol}">\${chName}</span>
             </td>
-            <td style="text-align: right; font-weight: 700; font-size: 13px; white-space:nowrap">${Number(p.price).toLocaleString()}đ</td>
-            <td style="text-align: right; font-weight: 600; color: ${p.stock === 0 ? "#ef4444" : "#059669"}">${p.stock}</td>
+            <td style="text-align: right; font-weight: 700; font-size: 13px; white-space:nowrap">\${Number(p.price).toLocaleString()}đ</td>
+            <td style="text-align: right; font-weight: 600; color: \${p.stock === 0 ? "#ef4444" : "#059669"}">\${p.stock}</td>
             <td style="text-align: center;">
-                <input type="number" class="cp-input-text cp-input-buffer" min="0" value="${p.bufferStock || 0}" onchange="onBufferStockInput('${p.id}', this.value)" title="Cài đặt hàng đệm an toàn để tránh bán lố (Overselling)" />
+                <input type="number" class="cp-input-text cp-input-buffer" min="0" value="\${p.bufferStock || 0}" onchange="onBufferStockInput('\${p.id}', this.value)" title="Cài đặt hàng đệm an toàn để tránh bán lố (Overselling)" />
             </td>
             <td style="text-align: right; font-weight: 700; font-family: monospace; font-size: 13px">
-                ${Math.max(0, p.stock - (p.bufferStock || 0))}
+                \${Math.max(0, p.stock - (p.bufferStock || 0))}
             </td>
-            <td>${syncHtml}</td>
+            <td>\${syncHtml}</td>
             <td>
-                <span class="cp-status-pill ${statusClass}">${statusLabel}</span>
+                <span class="cp-status-pill \${statusClass}">\${statusLabel}</span>
             </td>
             <td>
                 <div style="display:flex; justify-content:center">
-                    <button class="cp-btn-edit" onclick="openEditModal('${p.id}')" title="Sửa sản phẩm">
+                    <button class="cp-btn-edit" onclick="openEditModal('\${p.id}')" title="Sửa sản phẩm">
                         <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>
                     </button>
                 </div>
@@ -1889,27 +1889,27 @@ function renderPricingTab() {
         const tr = document.createElement("tr");
         tr.innerHTML = `
             <td>
-                <div class="cp-font-mono" style="color:var(--navy);font-weight:700">${r.sku}</div>
-                <div style="font-size:11px;color:rgba(16,55,92,.45);margin-top:2px">${r.category || ""}</div>
+                <div class="cp-font-mono" style="color:var(--navy);font-weight:700">\${r.sku}</div>
+                <div style="font-size:11px;color:rgba(16,55,92,.45);margin-top:2px">\${r.category || ""}</div>
             </td>
             <td>
-                <div style="font-weight: 600; color: var(--navy)">${r.name}</div>
-                <div style="font-size:11px;color:rgba(16,55,92,.45);margin-top:2px">Chỉ áp dụng cho kênh ${channelLabels[pricingSelectedChannel]}</div>
+                <div style="font-weight: 600; color: var(--navy)">\${r.name}</div>
+                <div style="font-size:11px;color:rgba(16,55,92,.45);margin-top:2px">Chỉ áp dụng cho kênh \${channelLabels[pricingSelectedChannel]}</div>
             </td>
-            <td style="text-align: center">${badgeHtml}</td>
-            <td style="text-align: right; font-weight: 700">${Number(r.importPrice).toLocaleString()}đ</td>
+            <td style="text-align: center">\${badgeHtml}</td>
+            <td style="text-align: right; font-weight: 700">\${Number(r.importPrice).toLocaleString()}đ</td>
             <td style="text-align: right">
-                <input type="number" class="pr-price-input" min="0" value="${channelPrice.retailPrice}" oninput="onPricingPriceChange('${r.id}', 'retailPrice', this.value)" ${editable ? "" : "disabled"} />
-            </td>
-            <td style="text-align: right">
-                <input type="number" class="pr-price-input" min="0" value="${channelPrice.promoPrice}" oninput="onPricingPriceChange('${r.id}', 'promoPrice', this.value)" ${editable ? "" : "disabled"} />
+                <input type="number" class="pr-price-input" min="0" value="\${channelPrice.retailPrice}" oninput="onPricingPriceChange('\${r.id}', 'retailPrice', this.value)" \${editable ? "" : "disabled"} />
             </td>
             <td style="text-align: right">
-                <div style="font-weight: 700; color: var(--navy)">${Math.max(retailMargin, promoMargin).toLocaleString()}đ</div>
-                <div style="font-size:11px;color:rgba(16,55,92,.45);margin-top:1px">Promo: ${promoMargin.toLocaleString()}đ</div>
+                <input type="number" class="pr-price-input" min="0" value="\${channelPrice.promoPrice}" oninput="onPricingPriceChange('\${r.id}', 'promoPrice', this.value)" \${editable ? "" : "disabled"} />
             </td>
             <td style="text-align: right">
-                <button class="pr-save-btn" onclick="savePricingRecord('${r.id}')" ${editable ? "" : "disabled"}>
+                <div style="font-weight: 700; color: var(--navy)">\${Math.max(retailMargin, promoMargin).toLocaleString()}đ</div>
+                <div style="font-size:11px;color:rgba(16,55,92,.45);margin-top:1px">Promo: \${promoMargin.toLocaleString()}đ</div>
+            </td>
+            <td style="text-align: right">
+                <button class="pr-save-btn" onclick="savePricingRecord('\${r.id}')" \${editable ? "" : "disabled"}>
                     <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4" /></svg>
                     Lưu
                 </button>
@@ -2089,9 +2089,9 @@ function renderWizMasterList() {
         };
         row.innerHTML = `
             <div style="flex: 1">
-                <div style="font-weight:700;font-size:13px;color:var(--navy)">${sku.name}</div>
+                <div style="font-weight:700;font-size:13px;color:var(--navy)">\${sku.name}</div>
                 <div style="font-size:11px;color:rgba(16, 55, 92, 0.45);margin-top:2px;font-family:monospace">
-                    SKU: ${sku.sku} | Phân loại: ${sku.category || "Chưa phân loại"}
+                    SKU: \${sku.sku} | Phân loại: \${sku.category || "Chưa phân loại"}
                 </div>
             </div>
             <div style="display:flex;align-items:center;gap:0.75rem">
@@ -2140,7 +2140,7 @@ function renderWizStep2() {
     document.getElementById("wizStep3Content").style.display = "none";
 
     document.getElementById("wizStep2ProductLabel").innerHTML = `
-        <strong>${wizSelectedMasterSKU.name}</strong> (SKU: ${wizSelectedMasterSKU.sku})
+        <strong>\${wizSelectedMasterSKU.name}</strong> (SKU: \${wizSelectedMasterSKU.sku})
     `;
 
     // Highlight selected platform cards
@@ -2169,7 +2169,7 @@ function renderWizStep3() {
     document.getElementById("wizStep3Content").style.display = "block";
 
     document.getElementById("wizStep3ProductLabel").innerHTML = `
-        <strong>${wizSelectedMasterSKU.name}</strong> (SKU: ${wizSelectedMasterSKU.sku})
+        <strong>\${wizSelectedMasterSKU.name}</strong> (SKU: \${wizSelectedMasterSKU.sku})
     `;
 
     const container = document.getElementById("wizStep3ChannelsContainer");
@@ -2189,15 +2189,15 @@ function renderWizStep3() {
                     <div class="cp-form-group">
                         <label class="cp-form-label">Danh mục Shopee *</label>
                         <select class="cp-input-text" style="padding:0.5rem" onchange="wizChannelConfigs.shopee.category = this.value">
-                            <option ${wizChannelConfigs.shopee.category === 'Đồ dùng học tập > Vở & Sổ chép' ? 'selected' : ''}>Đồ dùng học tập &gt; Vở &amp; Sổ chép</option>
-                            <option ${wizChannelConfigs.shopee.category === 'Dụng cụ viết > Bút các loại' ? 'selected' : ''}>Dụng cụ viết &gt; Bút các loại</option>
-                            <option ${wizChannelConfigs.shopee.category === 'Phụ kiện cá nhân > Gương, lược' ? 'selected' : ''}>Phụ kiện cá nhân &gt; Gương, lược</option>
-                            <option ${wizChannelConfigs.shopee.category === 'Thiết bị văn phòng > Tiện ích' ? 'selected' : ''}>Thiết bị văn phòng &gt; Tiện ích</option>
+                            <option \${wizChannelConfigs.shopee.category === 'Đồ dùng học tập > Vở & Sổ chép' ? 'selected' : ''}>Đồ dùng học tập &gt; Vở &amp; Sổ chép</option>
+                            <option \${wizChannelConfigs.shopee.category === 'Dụng cụ viết > Bút các loại' ? 'selected' : ''}>Dụng cụ viết &gt; Bút các loại</option>
+                            <option \${wizChannelConfigs.shopee.category === 'Phụ kiện cá nhân > Gương, lược' ? 'selected' : ''}>Phụ kiện cá nhân &gt; Gương, lược</option>
+                            <option \${wizChannelConfigs.shopee.category === 'Thiết bị văn phòng > Tiện ích' ? 'selected' : ''}>Thiết bị văn phòng &gt; Tiện ích</option>
                         </select>
                     </div>
                     <div class="cp-form-group">
                         <label class="cp-form-label">Giá bán lẻ (Retail Price) *</label>
-                        <input type="number" class="cp-input-text" style="padding:0.5rem; text-align:right" value="${wizChannelConfigs.shopee.price}" oninput="wizChannelConfigs.shopee.price = Math.max(0, Number(this.value) || 0)" />
+                        <input type="number" class="cp-input-text" style="padding:0.5rem; text-align:right" value="\${wizChannelConfigs.shopee.price}" oninput="wizChannelConfigs.shopee.price = Math.max(0, Number(this.value) || 0)" />
                     </div>
                     <div class="cp-form-group">
                         <label class="cp-form-label">Thương hiệu (Brand) *</label>
@@ -2227,15 +2227,15 @@ function renderWizStep3() {
                     <div class="cp-form-group">
                         <label class="cp-form-label">Danh mục Lazada *</label>
                         <select class="cp-input-text" style="padding:0.5rem" onchange="wizChannelConfigs.lazada.category = this.value">
-                            <option ${wizChannelConfigs.lazada.category === 'Vở & Sổ chép > Học tập' ? 'selected' : ''}>Vở &amp; Sổ chép &gt; Học tập</option>
-                            <option ${wizChannelConfigs.lazada.category === 'Dụng cụ viết > Vẽ & Mỹ thuật' ? 'selected' : ''}>Dụng cụ viết &gt; Vẽ &amp; Mỹ thuật</option>
-                            <option ${wizChannelConfigs.lazada.category === 'Phụ kiện cá nhân > Tiện ích gia đình' ? 'selected' : ''}>Phụ kiện cá nhân &gt; Tiện ích gia đình</option>
-                            <option ${wizChannelConfigs.lazada.category === 'Dụng cụ học tập & Tiện ích' ? 'selected' : ''}>Dụng cụ học tập &amp; Tiện ích</option>
+                            <option \${wizChannelConfigs.lazada.category === 'Vở & Sổ chép > Học tập' ? 'selected' : ''}>Vở &amp; Sổ chép &gt; Học tập</option>
+                            <option \${wizChannelConfigs.lazada.category === 'Dụng cụ viết > Vẽ & Mỹ thuật' ? 'selected' : ''}>Dụng cụ viết &gt; Vẽ &amp; Mỹ thuật</option>
+                            <option \${wizChannelConfigs.lazada.category === 'Phụ kiện cá nhân > Tiện ích gia đình' ? 'selected' : ''}>Phụ kiện cá nhân &gt; Tiện ích gia đình</option>
+                            <option \${wizChannelConfigs.lazada.category === 'Dụng cụ học tập & Tiện ích' ? 'selected' : ''}>Dụng cụ học tập &amp; Tiện ích</option>
                         </select>
                     </div>
                     <div class="cp-form-group">
                         <label class="cp-form-label">Giá bán lẻ (Retail Price) *</label>
-                        <input type="number" class="cp-input-text" style="padding:0.5rem; text-align:right" value="${wizChannelConfigs.lazada.price}" oninput="wizChannelConfigs.lazada.price = Math.max(0, Number(this.value) || 0)" />
+                        <input type="number" class="cp-input-text" style="padding:0.5rem; text-align:right" value="\${wizChannelConfigs.lazada.price}" oninput="wizChannelConfigs.lazada.price = Math.max(0, Number(this.value) || 0)" />
                     </div>
                 </div>
                 <div style="margin-top: 0.5rem" id="uploaderWizLazada">
@@ -2261,15 +2261,15 @@ function renderWizStep3() {
                     <div class="cp-form-group">
                         <label class="cp-form-label">Danh mục TikTok Shop *</label>
                         <select class="cp-input-text" style="padding:0.5rem" onchange="wizChannelConfigs.tiktok.category = this.value">
-                            <option ${wizChannelConfigs.tiktok.category === 'Văn phòng phẩm & Đồ dùng học tập' ? 'selected' : ''}>Văn phòng phẩm &amp; Đồ dùng học tập</option>
-                            <option ${wizChannelConfigs.tiktok.category === 'Dụng cụ học sinh & Sáng tạo' ? 'selected' : ''}>Dụng cụ học sinh &amp; Sáng tạo</option>
-                            <option ${wizChannelConfigs.tiktok.category === 'Phụ kiện cá nhân & Tiện ích' ? 'selected' : ''}>Phụ kiện cá nhân &amp; Tiện ích</option>
-                            <option ${wizChannelConfigs.tiktok.category === 'Thiết bị văn phòng học tập' ? 'selected' : ''}>Thiết bị văn phòng học tập</option>
+                            <option \${wizChannelConfigs.tiktok.category === 'Văn phòng phẩm & Đồ dùng học tập' ? 'selected' : ''}>Văn phòng phẩm &amp; Đồ dùng học tập</option>
+                            <option \${wizChannelConfigs.tiktok.category === 'Dụng cụ học sinh & Sáng tạo' ? 'selected' : ''}>Dụng cụ học sinh &amp; Sáng tạo</option>
+                            <option \${wizChannelConfigs.tiktok.category === 'Phụ kiện cá nhân & Tiện ích' ? 'selected' : ''}>Phụ kiện cá nhân &amp; Tiện ích</option>
+                            <option \${wizChannelConfigs.tiktok.category === 'Thiết bị văn phòng học tập' ? 'selected' : ''}>Thiết bị văn phòng học tập</option>
                         </select>
                     </div>
                     <div class="cp-form-group">
                         <label class="cp-form-label">Giá bán lẻ (Retail Price) *</label>
-                        <input type="number" class="cp-input-text" style="padding:0.5rem; text-align:right" value="${wizChannelConfigs.tiktok.price}" oninput="wizChannelConfigs.tiktok.price = Math.max(0, Number(this.value) || 0)" />
+                        <input type="number" class="cp-input-text" style="padding:0.5rem; text-align:right" value="\${wizChannelConfigs.tiktok.price}" oninput="wizChannelConfigs.tiktok.price = Math.max(0, Number(this.value) || 0)" />
                     </div>
                 </div>
                 <div style="margin-top: 0.5rem" id="uploaderWizTiktok">
@@ -2292,11 +2292,11 @@ function renderWizUploader(channel) {
     currentImgs.forEach((img, idx) => {
         gridHtml += `
             <div class="cp-upload-box">
-                <img src="${img}" />
-                <div class="cp-upload-box-trash" onclick="removeWizImage('${channel}', ${idx})">
+                <img src="\${img}" />
+                <div class="cp-upload-box-trash" onclick="removeWizImage('\${channel}', \${idx})">
                     <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
                 </div>
-                ${idx === 0 ? `<span class="cp-upload-box-label">Ảnh bìa</span>` : ""}
+                \${idx === 0 ? '<span class="cp-upload-box-label">Ảnh bìa</span>' : ""}
             </div>
         `;
     });
@@ -2307,12 +2307,12 @@ function renderWizUploader(channel) {
                 <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" /></svg>
                 <span class="main">Thêm ảnh</span>
                 <span class="sub">(Tối đa 5)</span>
-                <input type="file" accept="image/*" multiple style="display:none" onchange="uploadWizImage('${channel}', this.files)" />
+                <input type="file" accept="image/*" multiple style="display:none" onchange="uploadWizImage('\${channel}', this.files)" />
             </label>
         `;
     }
     gridHtml += `</div>`;
-    parent.innerHTML = `<label class="cp-form-label">Hình ảnh sản phẩm trên sàn (${channel.toUpperCase()}) *</label>` + gridHtml;
+    parent.innerHTML = `<label class="cp-form-label">Hình ảnh sản phẩm trên sàn (\${channel.toUpperCase()}) *</label>` + gridHtml;
 }
 
 function uploadWizImage(channel, files) {
@@ -2416,8 +2416,8 @@ function finalizePublishData() {
         const config = wizChannelConfigs[ch];
         const uniqueSuffix = Math.floor(100 + Math.random() * 900);
         const skuNoDash = wizSelectedMasterSKU.sku.replace(/-/g, "");
-        const chSKU = `${ch.toUpperCase()}-${skuNoDash}-${uniqueSuffix}`;
-        const itemId = `${ch.toUpperCase().toUpperCase().slice(0, 3)}-ITEM-${Math.floor(100000 + Math.random() * 900000)}`;
+        const chSKU = `\${ch.toUpperCase()}-\${skuNoDash}-\${uniqueSuffix}`;
+        const itemId = `\${ch.toUpperCase().toUpperCase().slice(0, 3)}-ITEM-\${Math.floor(100000 + Math.random() * 900000)}`;
 
         const defaultCover = getDynamicCover(wizSelectedMasterSKU.name);
         const imagesList = wizChannelImages[ch] && wizChannelImages[ch].length > 0
@@ -2433,7 +2433,7 @@ function finalizePublishData() {
             channelName: ch.charAt(0).toUpperCase() + ch.slice(1),
             channelColor: ch === "shopee" ? "#EE4D2D" : ch === "lazada" ? "#0F146D" : "#69C9D0",
             productName: wizSelectedMasterSKU.name,
-            description: `${wizSelectedMasterSKU.name} - Đồng bộ bán trên sàn ${ch.toUpperCase()}. Danh mục: ${config.category}`,
+            description: `\${wizSelectedMasterSKU.name} - Đồng bộ bán trên sàn \${ch.toUpperCase()}. Danh mục: \${config.category}`,
             images: imagesList,
             price: Number(config.price) || 150000,
             status: "active",
@@ -2546,11 +2546,11 @@ function renderEditUploader() {
     editImagesList.forEach((img, idx) => {
         gridHtml += `
             <div class="cp-upload-box">
-                <img src="${img}" />
-                <div class="cp-upload-box-trash" onclick="removeEditImage(${idx})">
+                <img src="\${img}" />
+                <div class="cp-upload-box-trash" onclick="removeEditImage(\${idx})">
                     <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
                 </div>
-                ${idx === 0 ? `<span class="cp-upload-box-label">Ảnh bìa</span>` : ""}
+                \${idx === 0 ? '<span class="cp-upload-box-label">Ảnh bìa</span>' : ""}
             </div>
         `;
     });

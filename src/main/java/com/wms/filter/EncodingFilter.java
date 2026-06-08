@@ -1,6 +1,8 @@
 package com.wms.filter;
 
 import jakarta.servlet.*;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
 
 /**
@@ -15,6 +17,19 @@ public class EncodingFilter implements Filter {
     @Override
     public void doFilter(ServletRequest request, ServletResponse response, FilterChain chain)
             throws IOException, ServletException {
+        HttpServletRequest  req  = (HttpServletRequest)  request;
+        HttpServletResponse res  = (HttpServletResponse) response;
+
+        String path = req.getRequestURI();
+
+        if (path.startsWith("/assets/") || path.endsWith(".css") || path.endsWith(".js")
+                || path.endsWith(".woff2") || path.endsWith(".woff") || path.endsWith(".ttf")
+                || path.endsWith(".png") || path.endsWith(".jpg") || path.endsWith(".jpeg")
+                || path.endsWith(".gif") || path.endsWith(".svg") || path.endsWith(".ico")) {
+            chain.doFilter(request, response);
+            return;
+        }
+
         request.setCharacterEncoding("UTF-8");
         response.setCharacterEncoding("UTF-8");
         response.setContentType("text/html; charset=UTF-8");

@@ -27,6 +27,7 @@ public class CategoryServlet extends BaseController {
         req.setAttribute("pageTitle",    "Quản Lý Danh Mục Sản Phẩm");
         req.setAttribute("pageSubtitle", "Xây dựng sơ đồ cây phân cấp danh mục sản phẩm và ánh xạ danh mục đa sàn");
         req.setAttribute("currentPage",  "categories");
+        req.setAttribute("categories",   categoryDAO.findAll());
 
         req.setAttribute("contentPage", "/WEB-INF/views/category/categories.jsp");
 

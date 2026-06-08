@@ -27,10 +27,10 @@ public class SkuMappingDAO {
         List<SkuMapping> list = new ArrayList<>();
         String sql = "SELECT sm.mapping_id, sm.sku_id, sm.channel_id, sm.external_sku, "
                    + "sm.seller_sku, sm.sync_status, sm.last_sync_at, sm.created_at, sm.updated_at, "
-                   + "c.channel_name, c.platform, p.sku_code, p.product_name "
+                   + "c.channel_name, c.platform, s.sku_code, s.product_name "
                    + "FROM sku_mappings sm "
                    + "LEFT JOIN channels c ON sm.channel_id = c.channel_id "
-                   + "LEFT JOIN products p ON sm.sku_id = p.product_id "
+                   + "LEFT JOIN skus s ON sm.sku_id = s.sku_id "
                    + "ORDER BY sm.created_at DESC";
 
         try (Connection conn = DBConnection.getConnection();
@@ -51,10 +51,10 @@ public class SkuMappingDAO {
     public SkuMapping findById(int mappingId) {
         String sql = "SELECT sm.mapping_id, sm.sku_id, sm.channel_id, sm.external_sku, "
                    + "sm.seller_sku, sm.sync_status, sm.last_sync_at, sm.created_at, sm.updated_at, "
-                   + "c.channel_name, c.platform, p.sku_code, p.product_name "
+                   + "c.channel_name, c.platform, s.sku_code, s.product_name "
                    + "FROM sku_mappings sm "
                    + "LEFT JOIN channels c ON sm.channel_id = c.channel_id "
-                   + "LEFT JOIN products p ON sm.sku_id = p.product_id "
+                   + "LEFT JOIN skus s ON sm.sku_id = s.sku_id "
                    + "WHERE sm.mapping_id = ?";
 
         try (Connection conn = DBConnection.getConnection();
@@ -78,10 +78,10 @@ public class SkuMappingDAO {
         List<SkuMapping> list = new ArrayList<>();
         String sql = "SELECT sm.mapping_id, sm.sku_id, sm.channel_id, sm.external_sku, "
                    + "sm.seller_sku, sm.sync_status, sm.last_sync_at, sm.created_at, sm.updated_at, "
-                   + "c.channel_name, c.platform, p.sku_code, p.product_name "
+                   + "c.channel_name, c.platform, s.sku_code, s.product_name "
                    + "FROM sku_mappings sm "
                    + "LEFT JOIN channels c ON sm.channel_id = c.channel_id "
-                   + "LEFT JOIN products p ON sm.sku_id = p.product_id "
+                   + "LEFT JOIN skus s ON sm.sku_id = s.sku_id "
                    + "WHERE sm.channel_id = ? "
                    + "ORDER BY sm.created_at DESC";
 
@@ -106,10 +106,10 @@ public class SkuMappingDAO {
         List<SkuMapping> list = new ArrayList<>();
         String sql = "SELECT sm.mapping_id, sm.sku_id, sm.channel_id, sm.external_sku, "
                    + "sm.seller_sku, sm.sync_status, sm.last_sync_at, sm.created_at, sm.updated_at, "
-                   + "c.channel_name, c.platform, p.sku_code, p.product_name "
+                   + "c.channel_name, c.platform, s.sku_code, s.product_name "
                    + "FROM sku_mappings sm "
                    + "LEFT JOIN channels c ON sm.channel_id = c.channel_id "
-                   + "LEFT JOIN products p ON sm.sku_id = p.product_id "
+                   + "LEFT JOIN skus s ON sm.sku_id = s.sku_id "
                    + "WHERE sm.sku_id = ? "
                    + "ORDER BY sm.created_at DESC";
 
@@ -134,10 +134,10 @@ public class SkuMappingDAO {
         List<SkuMapping> list = new ArrayList<>();
         String sql = "SELECT sm.mapping_id, sm.sku_id, sm.channel_id, sm.external_sku, "
                    + "sm.seller_sku, sm.sync_status, sm.last_sync_at, sm.created_at, sm.updated_at, "
-                   + "c.channel_name, c.platform, p.sku_code, p.product_name "
+                   + "c.channel_name, c.platform, s.sku_code, s.product_name "
                    + "FROM sku_mappings sm "
                    + "LEFT JOIN channels c ON sm.channel_id = c.channel_id "
-                   + "LEFT JOIN products p ON sm.sku_id = p.product_id "
+                   + "LEFT JOIN skus s ON sm.sku_id = s.sku_id "
                    + "WHERE sm.sync_status = ? "
                    + "ORDER BY sm.created_at DESC";
 

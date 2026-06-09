@@ -1,9 +1,11 @@
 package com.wms.controller.warehouse;
 
 import com.wms.controller.BaseController;
-import com.wms.dao.ProductDAO;
 import com.wms.dao.TransferDAO;
-import com.wms.dao.WarehouseDAO;
+import com.wms.model.Product;
+import com.wms.model.Warehouse;
+import com.wms.service.warehouse.TransferService;
+
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
@@ -16,32 +18,28 @@ import java.io.IOException;
  */
 public class WarehouseTransferServlet extends BaseController {
 
-    private final TransferDAO  transferDAO  = new TransferDAO();
-    private final ProductDAO  productDAO   = new ProductDAO();
-    private final WarehouseDAO warehouseDAO = new WarehouseDAO();
+    private final TransferService transferService = new TransferService();
 
     @Override
     protected void doGet(HttpServletRequest req, HttpServletResponse resp)
             throws ServletException, IOException {
 
-        // Pull transfer records, products, and warehouses for the UI
-        var transfers = transferDAO.findAll();
-        var products = productDAO.findApproved();
-        var warehouses = warehouseDAO.findAll();
+        try {
+            req.setAttribute("transfers", transferService.findAll());
+            req.setAttribute("products", transferService.findApprovedProducts());
+            req.setAttribute("warehouses", transferService.findAllWarehouses());
+        } catch (Exception e) {
+            req.setAttribute("transfers", java.util.List.<TransferDAO.Transfer>of());
+            req.setAttribute("products", java.util.List.<Product>of());
+            req.setAttribute("warehouses", java.util.List.<Warehouse>of());
+        }
 
-        req.setAttribute("transfers", transfers);
-        req.setAttribute("products", products);
-        req.setAttribute("warehouses", warehouses);
-
-        // Page metadata for the layout shell
         req.setAttribute("pageTitle",    "Điều Chuyển Kho (Transfer Inventory)");
         req.setAttribute("pageSubtitle", "Điều phối hàng hóa nội bộ hoặc phân phối sang khu hàng hỏng/khiếu nại");
         req.setAttribute("currentPage",  "wh-transfer");
 
-        // Set the body content page fragment
         req.setAttribute("contentPage", "/WEB-INF/views/transfer/warehouse-transfer.jsp");
 
-        // Forward to the layout shell
         req.getRequestDispatcher("/WEB-INF/views/layout/warehouse-layout.jsp")
            .forward(req, resp);
     }

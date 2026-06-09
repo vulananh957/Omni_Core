@@ -1,27 +1,27 @@
 package com.wms.controller.dashboard;
 
 import com.wms.controller.BaseController;
-import com.wms.dao.UserDAO;
 import com.wms.model.User;
-import com.wms.util.AppConstants;
+import com.wms.service.user.UserService;
+
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.servlet.http.HttpSession;
-import org.mindrot.jbcrypt.BCrypt;
 
 import java.io.IOException;
 import java.sql.SQLException;
 import java.util.Optional;
 
+import com.wms.util.AppConstants;
+
 /**
  * BusinessProfileServlet — Handles Account Settings (Cài đặt tài khoản) for Business Manager.
- *
  * Maps to /business/profile.
  */
 public class BusinessProfileServlet extends BaseController {
 
-    private final UserDAO userDAO = new UserDAO();
+    private final UserService userService = new UserService();
 
     @Override
     protected void doGet(HttpServletRequest req, HttpServletResponse resp)
@@ -32,7 +32,7 @@ public class BusinessProfileServlet extends BaseController {
 
         if (sessionUser != null) {
             try {
-                Optional<User> freshUserOpt = userDAO.findById(sessionUser.getUserId());
+                Optional<User> freshUserOpt = userService.findById(sessionUser.getUserId());
                 if (freshUserOpt.isPresent()) {
                     User freshUser = freshUserOpt.get();
                     freshUser.setPasswordHash(null);
@@ -43,15 +43,12 @@ public class BusinessProfileServlet extends BaseController {
             }
         }
 
-        // Page metadata for the layout shell
         req.setAttribute("pageTitle",    "Cài Đặt Tài Khoản");
         req.setAttribute("pageSubtitle", "Quản lý thông tin cá nhân và bảo mật");
         req.setAttribute("currentPage",  "profile");
 
-        // Set the body content page fragment
         req.setAttribute("contentPage", "/WEB-INF/views/dashboard/profile-settings.jsp");
 
-        // Forward to the layout shell
         req.getRequestDispatcher("/WEB-INF/views/layout/dashboard-layout.jsp")
            .forward(req, resp);
     }
@@ -93,7 +90,7 @@ public class BusinessProfileServlet extends BaseController {
                 sessionUser.setPhone(phone != null ? phone.trim() : null);
 
                 try {
-                    userDAO.updateProfile(sessionUser);
+                    userService.updateProfile(sessionUser);
                 } catch (SQLException e) {
                     // DB not connected fallback
                 }
@@ -102,20 +99,15 @@ public class BusinessProfileServlet extends BaseController {
                 resp.getWriter().write("{\"success\":true,\"message\":\"Cập nhật thông tin thành công!\"}");
 
             } else if ("updatePassword".equals(action)) {
-                // Password change now requires OTP verification - redirect to OTP page
                 resp.getWriter().write("{\"success\":false,\"message\":\"Vui lòng xác minh OTP để đổi mật khẩu\"}");
 
             } else if ("initPasswordChange".equals(action)) {
                 String newPassword = req.getParameter("newPassword");
-
                 if (newPassword == null || newPassword.length() < 8) {
                     resp.getWriter().write("{\"success\":false,\"message\":\"Mật khẩu mới phải có ít nhất 8 ký tự\"}");
                     return;
                 }
-
-                // Store new password in session for OTP verification
                 session.setAttribute("pwdChangePendingNewPassword", newPassword);
-
                 resp.getWriter().write("{\"success\":true,\"message\":\"OK\"}");
             } else {
                 resp.getWriter().write("{\"success\":false,\"message\":\"Hành động không xác định\"}");

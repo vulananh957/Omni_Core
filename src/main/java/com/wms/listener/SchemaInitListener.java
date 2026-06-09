@@ -39,6 +39,7 @@ public class SchemaInitListener implements ServletContextListener {
             ensureCategoriesTable();
             ensureSkusTable();
             ensureProductsTable();
+            ensureProductDefaultZonesTable();
             ensureProductImagesTable();
             ensureChannelsTable();
             ensureChannelProductsTable();
@@ -254,7 +255,7 @@ public class SchemaInitListener implements ServletContextListener {
     private void ensureProductsTable() throws SQLException {
         try (Connection conn = DBConnection.getConnection()) {
             createTableIfNotExists(conn, "products",
-                "CREATE TABLE products (product_id INT AUTO_INCREMENT PRIMARY KEY, category_id INT, sku_code VARCHAR(50) NOT NULL UNIQUE, product_name VARCHAR(255) NOT NULL, base_price DECIMAL(15,2) NOT NULL DEFAULT 0, attributes_text VARCHAR(255), weight_kg DECIMAL(8,3), is_new_arrival TINYINT(1) NOT NULL DEFAULT 0, active TINYINT(1) NOT NULL DEFAULT 1, created_by INT, created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP, updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP, barcode VARCHAR(50) DEFAULT NULL, unit VARCHAR(30) DEFAULT 'Cái', min_stock DECIMAL(12,3) DEFAULT 0, max_stock DECIMAL(12,3) DEFAULT 0, status VARCHAR(20) DEFAULT 'PENDING', approved_at DATETIME DEFAULT NULL, approved_by INT DEFAULT NULL) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+                "CREATE TABLE products (product_id INT AUTO_INCREMENT PRIMARY KEY, category_id INT, sku_code VARCHAR(50) NOT NULL UNIQUE, product_name VARCHAR(255) NOT NULL, base_price DECIMAL(15,2) NOT NULL DEFAULT 0, attributes_text VARCHAR(255), weight_kg DECIMAL(8,3), is_new_arrival TINYINT(1) NOT NULL DEFAULT 0, active TINYINT(1) NOT NULL DEFAULT 1, created_by INT, created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP, updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP, barcode VARCHAR(50) DEFAULT NULL, unit VARCHAR(30) DEFAULT 'Cái', min_stock DECIMAL(12,3) DEFAULT 0, max_stock DECIMAL(12,3) DEFAULT 0, status VARCHAR(20) DEFAULT 'PENDING', approved_at DATETIME DEFAULT NULL, approved_by INT DEFAULT NULL, review_note VARCHAR(255) DEFAULT NULL) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
 
             DatabaseMetaData md = conn.getMetaData();
             addColumnIfMissing(conn, md, "products", "barcode", "VARCHAR(50) DEFAULT NULL");
@@ -264,6 +265,22 @@ public class SchemaInitListener implements ServletContextListener {
             addColumnIfMissing(conn, md, "products", "status", "VARCHAR(20) DEFAULT 'PENDING'");
             addColumnIfMissing(conn, md, "products", "approved_at", "DATETIME DEFAULT NULL");
             addColumnIfMissing(conn, md, "products", "approved_by", "INT DEFAULT NULL");
+            addColumnIfMissing(conn, md, "products", "review_note", "VARCHAR(255) DEFAULT NULL");
+        }
+    }
+
+    private void ensureProductDefaultZonesTable() throws SQLException {
+        try (Connection conn = DBConnection.getConnection()) {
+            createTableIfNotExists(conn, "product_default_zones",
+                "CREATE TABLE IF NOT EXISTS product_default_zones ("
+                + "product_id INT NOT NULL, "
+                + "warehouse_id INT NOT NULL, "
+                + "zone_id INT NOT NULL, "
+                + "PRIMARY KEY (product_id, warehouse_id), "
+                + "FOREIGN KEY (product_id) REFERENCES products(product_id) ON DELETE CASCADE, "
+                + "FOREIGN KEY (warehouse_id) REFERENCES warehouses(warehouse_id) ON DELETE CASCADE, "
+                + "FOREIGN KEY (zone_id) REFERENCES zones(zone_id) ON DELETE CASCADE"
+                + ") ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
         }
     }
 

@@ -1,6 +1,10 @@
 package com.wms.model;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.List;
 
 /**
  * Product — Domain model representing a master SKU product.
@@ -30,6 +34,39 @@ public class Product {
     private String creatorName;
     private String attributesText;
     private Double weightKg;
+    private String reviewNote;
+    private Double qtyOnHand = 0.0;
+    private String approverName;
+    private List<LocationConfig> locationConfigs = new ArrayList<>();
+
+    public static class LocationConfig {
+        private String locationId;
+        private String zoneId;
+
+        public LocationConfig() {}
+
+        public LocationConfig(String locationId, String zoneId) {
+            this.locationId = locationId;
+            this.zoneId = zoneId;
+        }
+
+        public String getLocationId() {
+            return locationId;
+        }
+
+        public void setLocationId(String locationId) {
+            this.locationId = locationId;
+        }
+
+        public String getZoneId() {
+            return zoneId;
+        }
+
+        public void setZoneId(String zoneId) {
+            this.zoneId = zoneId;
+        }
+    }
+
 
     // ── Constructors ──────────────────────────────────────────
 
@@ -62,6 +99,7 @@ public class Product {
         this.skuCode = skuCode;
     }
 
+    @JsonProperty("sku")
     public String getSku() {
         return skuCode;
     }
@@ -70,6 +108,7 @@ public class Product {
         return productName;
     }
 
+    @JsonProperty("name")
     public String getName() {
         return productName;
     }
@@ -130,8 +169,15 @@ public class Product {
         this.status = status;
     }
 
+    @JsonIgnore
     public LocalDateTime getApprovedAt() {
         return approvedAt;
+    }
+
+    @JsonProperty("approvedAt")
+    public String getApprovedAtAsString() {
+        if (approvedAt == null) return "";
+        return approvedAt.format(java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm"));
     }
 
     public void setApprovedAt(LocalDateTime approvedAt) {
@@ -146,16 +192,35 @@ public class Product {
         this.approvedBy = approvedBy;
     }
 
+    @JsonIgnore
     public LocalDateTime getCreatedAt() {
         return createdAt;
+    }
+
+    @JsonProperty("createdAt")
+    public String getCreatedAtAsString() {
+        if (createdAt == null) return "";
+        return createdAt.format(java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm"));
     }
 
     public void setCreatedAt(LocalDateTime createdAt) {
         this.createdAt = createdAt;
     }
 
+    @JsonIgnore
     public LocalDateTime getUpdatedAt() {
         return updatedAt;
+    }
+
+    @JsonProperty("lastUpdated")
+    public String getUpdatedAtAsString() {
+        if (updatedAt == null) return "";
+        return updatedAt.format(java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm"));
+    }
+
+    @JsonProperty("updatedAt")
+    public String getUpdatedAtAsString2() {
+        return getUpdatedAtAsString();
     }
 
     public void setUpdatedAt(LocalDateTime updatedAt) {
@@ -170,6 +235,7 @@ public class Product {
         this.categoryName = categoryName;
     }
 
+    @JsonIgnore
     public Integer getCreatedBy() {
         return createdBy;
     }
@@ -201,6 +267,77 @@ public class Product {
     public void setWeightKg(Double weightKg) {
         this.weightKg = weightKg;
     }
+
+    // New Fields Getters and Setters
+    public String getReviewNote() {
+        return reviewNote;
+    }
+
+    public void setReviewNote(String reviewNote) {
+        this.reviewNote = reviewNote;
+    }
+
+    public Double getQtyOnHand() {
+        return qtyOnHand;
+    }
+
+    public void setQtyOnHand(Double qtyOnHand) {
+        this.qtyOnHand = qtyOnHand;
+    }
+
+    public String getApproverName() {
+        return approverName;
+    }
+
+    public void setApproverName(String approverName) {
+        this.approverName = approverName;
+    }
+
+    public List<LocationConfig> getLocationConfigs() {
+        return locationConfigs;
+    }
+
+    public void setLocationConfigs(List<LocationConfig> locationConfigs) {
+        this.locationConfigs = locationConfigs;
+    }
+
+    // Helper Getters for Jackson to match JSP property expectations
+    @JsonProperty("id")
+    public String getIdAsString() {
+        return "p-" + productId;
+    }
+
+    @JsonProperty("category")
+    public String getCategory() {
+        return categoryName != null ? categoryName : "";
+    }
+
+    @JsonProperty("dimensions")
+    public String getDimensions() {
+        return attributesText != null ? attributesText : "N/A";
+    }
+
+    @JsonProperty("weight")
+    public String getWeight() {
+        return weightKg != null ? weightKg + " kg" : "N/A";
+    }
+
+    @JsonProperty("approvalStatus")
+    public String getApprovalStatus() {
+        if (status == null) return "pending";
+        return status.toLowerCase();
+    }
+
+    @JsonProperty("createdBy")
+    public String getCreatedByName() {
+        return creatorName != null ? creatorName : (createdBy != null ? String.valueOf(createdBy) : "");
+    }
+
+    @JsonProperty("updatedBy")
+    public String getUpdatedBy() {
+        return approverName != null ? approverName : "";
+    }
+
 
     @Override
     public String toString() {

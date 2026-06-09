@@ -285,6 +285,17 @@
         font-size: 12px; font-weight: 600;
         border: 1px solid #fde68a; border-radius: calc(var(--radius-btn) - 2px);
     }
+    .wt-page-btn {
+        display: inline-flex; align-items: center; justify-content: center;
+        padding: 5px 10px; min-width: 28px; height: 28px;
+        background: #fff; border: 1px solid var(--border);
+        border-radius: calc(var(--radius-btn) - 4px);
+        font-size: 12px; font-weight: 600; color: rgba(16,55,92,.60);
+        cursor: pointer; transition: all .12s;
+        box-sizing: border-box;
+    }
+    .wt-page-btn:hover { color: var(--navy); background: var(--alice); border-color: rgba(16,55,92,.30); }
+    .wt-page-btn.active { background: var(--navy); color: #fff; border-color: var(--navy); pointer-events: none; }
 </style>
 
 <!-- ═══ PAGE HEADER ═══ -->
@@ -305,7 +316,7 @@
             </svg>
         </div>
         <div>
-            <div class="wt-stat-val" id="wtStatTotal">0</div>
+            <div class="wt-stat-val" id="wtStatTotal">${statusCounts.all != null ? statusCounts.all : 0}</div>
             <div class="wt-stat-lbl">Tổng phiếu</div>
         </div>
     </div>
@@ -317,7 +328,7 @@
             </svg>
         </div>
         <div>
-            <div class="wt-stat-val" id="wtStatTransit" style="color:#b45309;">0</div>
+            <div class="wt-stat-val" id="wtStatTransit" style="color:#b45309;">${statusCounts.IN_TRANSIT != null ? statusCounts.IN_TRANSIT : 0}</div>
             <div class="wt-stat-lbl">Đang chuyển</div>
         </div>
     </div>
@@ -329,7 +340,7 @@
             </svg>
         </div>
         <div>
-            <div class="wt-stat-val" id="wtStatReceived" style="color:#059669;">0</div>
+            <div class="wt-stat-val" id="wtStatReceived" style="color:#059669;">${statusCounts.RECEIVED != null ? statusCounts.RECEIVED : 0}</div>
             <div class="wt-stat-lbl">Đã nhận</div>
         </div>
     </div>
@@ -342,7 +353,7 @@
             </svg>
         </div>
         <div>
-            <div class="wt-stat-val" id="wtStatDraft" style="color:rgba(16,55,92,.60);">0</div>
+            <div class="wt-stat-val" id="wtStatDraft" style="color:rgba(16,55,92,.60);">${statusCounts.DRAFT != null ? statusCounts.DRAFT : 0}</div>
             <div class="wt-stat-lbl">Bản nháp</div>
         </div>
     </div>
@@ -355,7 +366,7 @@
              fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
             <circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/>
         </svg>
-        <input class="wt-search-input" type="text" id="wtSearch"
+        <input class="wt-search-input" type="text" id="wtSearch" value="<c:out value='${search}'/>"
                placeholder="Tìm mã phiếu, kho nguồn, kho đích…"/>
     </div>
     <button class="wt-btn-create" id="wtBtnCreate">
@@ -369,20 +380,20 @@
 
 <!-- ═══ TABS ═══ -->
 <div class="wt-tabs" id="wtTabs">
-    <button class="wt-tab active" data-tab="all">
-        Tất cả <span class="wt-tab-badge" id="wtBadge-all">0</span>
+    <button class="wt-tab ${empty currentStatus || currentStatus == 'all' ? 'active' : ''}" data-tab="all">
+        Tất cả <span class="wt-tab-badge" id="wtBadge-all">${statusCounts.all != null ? statusCounts.all : 0}</span>
     </button>
-    <button class="wt-tab" data-tab="DRAFT">
-        Nháp <span class="wt-tab-badge" id="wtBadge-DRAFT">0</span>
+    <button class="wt-tab ${currentStatus == 'DRAFT' ? 'active' : ''}" data-tab="DRAFT">
+        Nháp <span class="wt-tab-badge" id="wtBadge-DRAFT">${statusCounts.DRAFT != null ? statusCounts.DRAFT : 0}</span>
     </button>
-    <button class="wt-tab" data-tab="IN_TRANSIT">
-        Đang chuyển <span class="wt-tab-badge" id="wtBadge-IN_TRANSIT">0</span>
+    <button class="wt-tab ${currentStatus == 'IN_TRANSIT' ? 'active' : ''}" data-tab="IN_TRANSIT">
+        Đang chuyển <span class="wt-tab-badge" id="wtBadge-IN_TRANSIT">${statusCounts.IN_TRANSIT != null ? statusCounts.IN_TRANSIT : 0}</span>
     </button>
-    <button class="wt-tab" data-tab="RECEIVED">
-        Đã nhận <span class="wt-tab-badge" id="wtBadge-RECEIVED">0</span>
+    <button class="wt-tab ${currentStatus == 'RECEIVED' ? 'active' : ''}" data-tab="RECEIVED">
+        Đã nhận <span class="wt-tab-badge" id="wtBadge-RECEIVED">${statusCounts.RECEIVED != null ? statusCounts.RECEIVED : 0}</span>
     </button>
-    <button class="wt-tab" data-tab="CANCELLED">
-        Đã hủy <span class="wt-tab-badge" id="wtBadge-CANCELLED">0</span>
+    <button class="wt-tab ${currentStatus == 'CANCELLED' ? 'active' : ''}" data-tab="CANCELLED">
+        Đã hủy <span class="wt-tab-badge" id="wtBadge-CANCELLED">${statusCounts.CANCELLED != null ? statusCounts.CANCELLED : 0}</span>
     </button>
 </div>
 
@@ -404,6 +415,25 @@
                 <tr><td colspan="6" class="wt-empty">Đang tải dữ liệu…</td></tr>
             </tbody>
         </table>
+    </div>
+    <!-- Pagination Footer -->
+    <div class="wt-pagination" style="display: flex; align-items: center; justify-content: space-between; padding: 12px 20px; border-top: 1px solid var(--border);">
+        <div style="font-size: 12px; color: rgba(16,55,92,.50);">
+            Hiển thị <b>${startRecord}</b> - <b>${endRecord}</b> trên tổng số <b>${totalTransfers}</b> kết quả
+        </div>
+        <c:if test="${totalPages > 1}">
+        <div style="display: flex; gap: 4px;">
+            <c:if test="${currentPageNum > 1}">
+                <a href="?status=${currentStatus}&search=${search}&page=${currentPageNum - 1}" class="wt-page-btn" style="text-decoration:none;">&laquo; Trước</a>
+            </c:if>
+            <c:forEach var="p" begin="1" end="${totalPages}">
+                <a href="?status=${currentStatus}&search=${search}&page=${p}" class="wt-page-btn ${p == currentPageNum ? 'active' : ''}" style="text-decoration:none;">${p}</a>
+            </c:forEach>
+            <c:if test="${currentPageNum < totalPages}">
+                <a href="?status=${currentStatus}&search=${search}&page=${currentPageNum + 1}" class="wt-page-btn" style="text-decoration:none;">Sau &raquo;</a>
+            </c:if>
+        </div>
+        </c:if>
     </div>
 </div>
 
@@ -565,8 +595,8 @@
 
     /* ─── State ─── */
     var localTransfers = [];   // local-created (draft/pending), not yet in DB
-    var activeTab  = 'all';
-    var searchTxt  = '';
+    var activeTab  = "${currentStatus != null ? currentStatus : 'all'}";
+    var searchTxt  = "${search != null ? search : ''}";
     var detailDoc  = null;
 
     /* ─── DOM refs ─── */
@@ -655,38 +685,12 @@
     function render() {
         var all = allTransfers();
 
-        // Counts
-        function cnt(key) {
-            if (key === 'all') return all.length;
-            return all.filter(function (t) { return t.status === key; }).length;
-        }
-        document.getElementById('wtStatTotal').textContent    = all.length;
-        document.getElementById('wtStatTransit').textContent  = cnt('IN_TRANSIT');
-        document.getElementById('wtStatReceived').textContent = cnt('RECEIVED');
-        document.getElementById('wtStatDraft').textContent    = cnt('DRAFT') + cnt('draft');
-
-        ['all','DRAFT','IN_TRANSIT','RECEIVED','CANCELLED'].forEach(function (k) {
-            var el = document.getElementById('wtBadge-' + k);
-            if (el) el.textContent = cnt(k);
-        });
-
-        // Filter
-        var q = searchTxt.toLowerCase();
-        var filtered = all.filter(function (t) {
-            var matchTab = activeTab === 'all' || t.status === activeTab;
-            var matchQ   = !q ||
-                (t.id   && t.id.toLowerCase().includes(q)) ||
-                (t.fromWH && t.fromWH.toLowerCase().includes(q)) ||
-                (t.toWH   && t.toWH.toLowerCase().includes(q));
-            return matchTab && matchQ;
-        });
-
-        if (filtered.length === 0) {
+        if (all.length === 0) {
             tbody.innerHTML = '<tr><td colspan="6" class="wt-empty">Không có phiếu chuyển kho nào phù hợp.</td></tr>';
             return;
         }
 
-        tbody.innerHTML = filtered.map(function (t) {
+        tbody.innerHTML = all.map(function (t) {
             var acts = '<button class="wt-btn-icon" data-action="view" data-id="' + esc(t.id) + '" title="Xem chi tiết">' + eyeSVG() + '</button>';
             if (t._src === 'local' && t.status === 'draft') {
                 acts += '<button class="wt-btn-sm navy" data-action="submit" data-id="' + esc(t.id) + '">Gửi duyệt</button>' +
@@ -733,14 +737,16 @@
     tabs.addEventListener('click', function (e) {
         var btn = e.target.closest('.wt-tab');
         if (!btn) return;
-        activeTab = btn.dataset.tab;
-        tabs.querySelectorAll('.wt-tab').forEach(function (t) { t.classList.remove('active'); });
-        btn.classList.add('active');
-        render();
+        var tab = btn.dataset.tab;
+        window.location.href = '?status=' + tab + '&search=' + encodeURIComponent(searchEl.value) + '&page=1';
     });
 
     /* ─── Search ─── */
-    searchEl.addEventListener('input', function () { searchTxt = this.value; render(); });
+    searchEl.addEventListener('keypress', function (e) {
+        if (e.key === 'Enter') {
+            window.location.href = '?status=' + activeTab + '&search=' + encodeURIComponent(this.value) + '&page=1';
+        }
+    });
 
     /* ─── Create modal ─── */
     document.getElementById('wtBtnCreate').addEventListener('click', function () {

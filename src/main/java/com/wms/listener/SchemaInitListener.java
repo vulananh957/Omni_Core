@@ -76,7 +76,7 @@ public class SchemaInitListener implements ServletContextListener {
 
     private void createTableIfNotExists(Connection conn, String tableName, String createSql) throws SQLException {
         DatabaseMetaData md = conn.getMetaData();
-        try (ResultSet rs = md.getTables(null, null, tableName, new String[]{"TABLE"})) {
+        try (ResultSet rs = md.getTables(conn.getCatalog(), null, tableName, new String[]{"TABLE"})) {
             if (!rs.next()) {
                 try (Statement st = conn.createStatement()) {
                     st.executeUpdate(createSql);
@@ -89,7 +89,7 @@ public class SchemaInitListener implements ServletContextListener {
     private void addColumnIfMissing(Connection conn, DatabaseMetaData md,
                                    String table, String column, String definition)
             throws SQLException {
-        try (ResultSet rs = md.getColumns(null, null, table, column)) {
+        try (ResultSet rs = md.getColumns(conn.getCatalog(), null, table, column)) {
             if (!rs.next()) {
                 try (Statement st = conn.createStatement()) {
                     st.executeUpdate("ALTER TABLE " + table + " ADD COLUMN " + column + " " + definition);
@@ -192,6 +192,26 @@ public class SchemaInitListener implements ServletContextListener {
                     if (id2 != -1) st.executeUpdate("UPDATE orders SET tracking_no = 'LZE-8762312', review_note = 'Đã xác nhận và chuyển kho Hà Nội chuẩn bị hàng.' WHERE order_id = " + id2);
                     if (id3 != -1) st.executeUpdate("UPDATE orders SET tracking_no = 'TKT-9281734', review_note = 'Đóng gói hoàn tất, chờ bưu tá lấy hàng.' WHERE order_id = " + id3);
                     if (id4 != -1) st.executeUpdate("UPDATE orders SET tracking_no = 'VTP-1928374', rma_reason = 'Sản phẩm bị bóp méo khi vận chuyển', rma_physical_status = 'Đã nhập Zone Khiếu Nại', rma_platform_status = 'Chờ xử lý' WHERE order_id = " + id4);
+                }
+            }
+
+            // Check if stock transfers exist
+            try (ResultSet rsTransfersCount = st.executeQuery("SELECT COUNT(*) FROM stock_transfers")) {
+                if (rsTransfersCount.next() && rsTransfersCount.getInt(1) == 0) {
+                    // Seed stock transfers
+                    st.executeUpdate("INSERT INTO stock_transfers (transfer_id, transfer_code, from_warehouse_id, to_warehouse_id, created_by, status, note, created_at) VALUES "
+                            + "(1, 'TR-20260609-001', 1, 1, 1, 'IN_TRANSIT', 'Điều chuyển sữa tươi bổ sung cho zone A', NOW() - INTERVAL 30 MINUTE),"
+                            + "(2, 'TR-20260609-002', 1, 1, 1, 'DRAFT', 'Lập nháp phiếu chuyển hàng tốt sang khu trưng bày', NOW() - INTERVAL 25 MINUTE),"
+                            + "(3, 'TR-20260609-003', 1, 1, 1, 'RECEIVED', 'Nhập kho hàng hoàn trả đã kiểm QC đạt', NOW() - INTERVAL 4 HOUR),"
+                            + "(4, 'TR-20260609-004', 1, 1, 1, 'CANCELLED', 'Hủy yêu cầu chuyển kho do sai sót SKU', NOW() - INTERVAL 1 DAY),"
+                            + "(5, 'TR-20260609-005', 1, 1, 1, 'IN_TRANSIT', 'Chuyển hàng sang kho phụ chuẩn bị sự kiện', NOW() - INTERVAL 10 MINUTE),"
+                            + "(6, 'TR-20260609-006', 1, 1, 1, 'DRAFT', 'Phiếu nháp điều chuyển định kỳ hàng tháng', NOW() - INTERVAL 5 MINUTE),"
+                            + "(7, 'TR-20260609-007', 1, 1, 1, 'RECEIVED', 'Hoàn tất chuyển hàng hóa sang zone bán lẻ', NOW() - INTERVAL 5 HOUR),"
+                            + "(8, 'TR-20260609-008', 1, 1, 1, 'IN_TRANSIT', 'Chuyển hàng dự phòng', NOW() - INTERVAL 15 MINUTE),"
+                            + "(9, 'TR-20260609-009', 1, 1, 1, 'DRAFT', 'Nháp chuyển đổi khu vực zone', NOW() - INTERVAL 2 MINUTE),"
+                            + "(10, 'TR-20260609-010', 1, 1, 1, 'RECEIVED', 'Nhập kho hàng mới từ khu kiểm tra', NOW() - INTERVAL 8 HOUR),"
+                            + "(11, 'TR-20260609-011', 1, 1, 1, 'CANCELLED', 'Hủy do nhập sai số lượng', NOW() - INTERVAL 2 DAY),"
+                            + "(12, 'TR-20260609-012', 1, 1, 1, 'RECEIVED', 'Điều phối sản phẩm khuyến mãi', NOW() - INTERVAL 12 HOUR)");
                 }
             }
 
@@ -381,6 +401,15 @@ public class SchemaInitListener implements ServletContextListener {
                 "CREATE TABLE inbound_items (inbound_item_id INT AUTO_INCREMENT PRIMARY KEY, inbound_id INT NOT NULL, product_id INT NOT NULL, expected_qty DECIMAL(12,3) NOT NULL DEFAULT 0, received_qty DECIMAL(12,3) NOT NULL DEFAULT 0) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
             createTableIfNotExists(conn, "receipt_notes",
                 "CREATE TABLE receipt_notes (receipt_id INT AUTO_INCREMENT PRIMARY KEY, inbound_id INT NOT NULL, warehouse_id INT NOT NULL, received_by INT, note TEXT, created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+            
+            // Dynamic column and type updates for inbound_orders
+            DatabaseMetaData md = conn.getMetaData();
+            addColumnIfMissing(conn, md, "inbound_orders", "created_by", "INT DEFAULT 1");
+            try (Statement st = conn.createStatement()) {
+                st.executeUpdate("ALTER TABLE inbound_orders MODIFY COLUMN status ENUM('PENDING','IN_PROGRESS','RECEIVED','CANCELLED') NOT NULL DEFAULT 'PENDING'");
+            } catch (SQLException e) {
+                LOGGER.log(Level.WARNING, "Failed to modify inbound_orders status enum, it might already be correct.", e);
+            }
         }
     }
 
@@ -398,6 +427,10 @@ public class SchemaInitListener implements ServletContextListener {
                 "CREATE TABLE picking_sheets (sheet_id INT AUTO_INCREMENT PRIMARY KEY, outbound_id INT NOT NULL, picker_id INT, status ENUM('PENDING','IN_PROGRESS','COMPLETED') DEFAULT 'PENDING', started_at DATETIME, completed_at DATETIME) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
             createTableIfNotExists(conn, "delivery_notes",
                 "CREATE TABLE delivery_notes (delivery_id INT AUTO_INCREMENT PRIMARY KEY, outbound_id INT NOT NULL, delivered_by INT, delivery_date DATETIME, recipient_name VARCHAR(100), recipient_note TEXT) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+
+            // Dynamic columns updates for outbound_orders
+            DatabaseMetaData md = conn.getMetaData();
+            addColumnIfMissing(conn, md, "outbound_orders", "outbound_code", "VARCHAR(50) DEFAULT NULL");
         }
     }
 
@@ -448,6 +481,10 @@ public class SchemaInitListener implements ServletContextListener {
                 "CREATE TABLE stocktakes (stocktake_id INT AUTO_INCREMENT PRIMARY KEY, stocktake_code VARCHAR(30) NOT NULL UNIQUE, warehouse_id INT NOT NULL, status ENUM('PLANNED','IN_PROGRESS','COMPLETED','CANCELLED') DEFAULT 'PLANNED', counted_by INT, approved_by INT, note TEXT, created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP, completed_at DATETIME) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
             createTableIfNotExists(conn, "stocktake_items",
                 "CREATE TABLE stocktake_items (item_id INT AUTO_INCREMENT PRIMARY KEY, stocktake_id INT NOT NULL, product_id INT NOT NULL, system_qty INT NOT NULL DEFAULT 0, counted_qty INT DEFAULT NULL, variance INT DEFAULT NULL, counted_by INT, counted_at DATETIME) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+
+            // Dynamic columns updates for physical_inventories
+            DatabaseMetaData md = conn.getMetaData();
+            addColumnIfMissing(conn, md, "physical_inventories", "note", "TEXT DEFAULT NULL");
         }
     }
 }

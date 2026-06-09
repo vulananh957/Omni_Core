@@ -19,25 +19,23 @@ public class TransferDAO {
 
     private static final Logger LOGGER = Logger.getLogger(TransferDAO.class.getName());
 
-    private static final String SQL_FIND_ALL =
-        "SELECT st.transfer_id, st.transfer_code, "
-      + "st.from_warehouse_id, fw.warehouse_name AS from_warehouse_name, "
-      + "st.to_warehouse_id,   tw.warehouse_name AS to_warehouse_name, "
-      + "st.created_by, st.approved_by, st.status, st.note, st.created_at, st.completed_at "
-      + "FROM stock_transfers st "
-      + "LEFT JOIN warehouses fw ON st.from_warehouse_id = fw.warehouse_id "
-      + "LEFT JOIN warehouses tw ON st.to_warehouse_id   = tw.warehouse_id "
-      + "ORDER BY st.created_at DESC LIMIT 200";
+    private static final String SQL_FIND_ALL = "SELECT st.transfer_id, st.transfer_code, "
+            + "st.from_warehouse_id, fw.warehouse_name AS from_warehouse_name, "
+            + "st.to_warehouse_id,   tw.warehouse_name AS to_warehouse_name, "
+            + "st.created_by, st.approved_by, st.status, st.note, st.created_at, st.completed_at "
+            + "FROM stock_transfers st "
+            + "LEFT JOIN warehouses fw ON st.from_warehouse_id = fw.warehouse_id "
+            + "LEFT JOIN warehouses tw ON st.to_warehouse_id   = tw.warehouse_id "
+            + "ORDER BY st.created_at DESC LIMIT 200";
 
-    private static final String SQL_FIND_BY_ID =
-        "SELECT st.transfer_id, st.transfer_code, "
-      + "st.from_warehouse_id, fw.warehouse_name AS from_warehouse_name, "
-      + "st.to_warehouse_id,   tw.warehouse_name AS to_warehouse_name, "
-      + "st.created_by, st.approved_by, st.status, st.note, st.created_at, st.completed_at "
-      + "FROM stock_transfers st "
-      + "LEFT JOIN warehouses fw ON st.from_warehouse_id = fw.warehouse_id "
-      + "LEFT JOIN warehouses tw ON st.to_warehouse_id   = tw.warehouse_id "
-      + "WHERE st.transfer_id = ?";
+    private static final String SQL_FIND_BY_ID = "SELECT st.transfer_id, st.transfer_code, "
+            + "st.from_warehouse_id, fw.warehouse_name AS from_warehouse_name, "
+            + "st.to_warehouse_id,   tw.warehouse_name AS to_warehouse_name, "
+            + "st.created_by, st.approved_by, st.status, st.note, st.created_at, st.completed_at "
+            + "FROM stock_transfers st "
+            + "LEFT JOIN warehouses fw ON st.from_warehouse_id = fw.warehouse_id "
+            + "LEFT JOIN warehouses tw ON st.to_warehouse_id   = tw.warehouse_id "
+            + "WHERE st.transfer_id = ?";
 
     /**
      * Returns all stock transfers.
@@ -47,8 +45,8 @@ public class TransferDAO {
         String sql = SQL_FIND_ALL;
 
         try (Connection conn = DBConnection.getConnection();
-             PreparedStatement ps = conn.prepareStatement(sql);
-             ResultSet rs = ps.executeQuery()) {
+                PreparedStatement ps = conn.prepareStatement(sql);
+                ResultSet rs = ps.executeQuery()) {
 
             while (rs.next()) {
                 Transfer t = new Transfer();
@@ -63,9 +61,11 @@ public class TransferDAO {
                 t.setStatus(rs.getString("status"));
                 t.setNote(rs.getString("note"));
                 java.sql.Timestamp ca = rs.getTimestamp("created_at");
-                if (ca != null) t.setCreatedAt(ca.toLocalDateTime());
+                if (ca != null)
+                    t.setCreatedAt(ca.toLocalDateTime());
                 java.sql.Timestamp cma = rs.getTimestamp("completed_at");
-                if (cma != null) t.setCompletedAt(cma.toLocalDateTime());
+                if (cma != null)
+                    t.setCompletedAt(cma.toLocalDateTime());
                 list.add(t);
             }
 
@@ -100,6 +100,8 @@ public class TransferDAO {
                     t.setNote(rs.getString("note"));
                     java.sql.Timestamp ca = rs.getTimestamp("created_at");
                     if (ca != null) t.setCreatedAt(ca.toLocalDateTime());
+                    java.sql.Timestamp cma = rs.getTimestamp("completed_at");
+                    if (cma != null) t.setCompletedAt(cma.toLocalDateTime());
                     return t;
                 }
             }
@@ -111,8 +113,178 @@ public class TransferDAO {
     }
 
     /**
-     * Returns all transfer items for a given transfer.
+     * Maps user-facing status filter to database enum.
      */
+    public String mapStatus(String status) {
+        if (status == null) return null;
+        switch (status.toUpperCase()) {
+            case "PENDING":
+            case "DRAFT":
+                return "DRAFT";
+            case "IN_TRANSIT":
+            case "IN TRANSIT":
+                return "IN_TRANSIT";
+            case "COMPLETED":
+            case "RECEIVED":
+                return "RECEIVED";
+            case "CANCELLED":
+                return "CANCELLED";
+            default:
+                return null;
+        }
+    }
+
+    /**
+     * Returns a paginated list of stock transfers, optionally filtered by status and search query.
+     */
+    public List<Transfer> findTransfers(String status, String search, int offset, int limit) {
+        List<Transfer> list = new ArrayList<>();
+        String dbStatus = mapStatus(status);
+
+        StringBuilder sql = new StringBuilder(
+            "SELECT st.transfer_id, st.transfer_code, "
+            + "st.from_warehouse_id, fw.warehouse_name AS from_warehouse_name, "
+            + "st.to_warehouse_id,   tw.warehouse_name AS to_warehouse_name, "
+            + "st.created_by, st.approved_by, st.status, st.note, st.created_at, st.completed_at "
+            + "FROM stock_transfers st "
+            + "LEFT JOIN warehouses fw ON st.from_warehouse_id = fw.warehouse_id "
+            + "LEFT JOIN warehouses tw ON st.to_warehouse_id   = tw.warehouse_id "
+        );
+
+        boolean hasConditions = false;
+        if (dbStatus != null || (search != null && !search.trim().isEmpty())) {
+            sql.append("WHERE 1=1 ");
+            if (dbStatus != null) {
+                sql.append("AND st.status = ? ");
+            }
+            if (search != null && !search.trim().isEmpty()) {
+                sql.append("AND (st.transfer_code LIKE ? OR fw.warehouse_name LIKE ? OR tw.warehouse_name LIKE ?) ");
+            }
+        }
+
+        sql.append("ORDER BY st.created_at DESC LIMIT ? OFFSET ?");
+
+        try (Connection conn = DBConnection.getConnection();
+             PreparedStatement ps = conn.prepareStatement(sql.toString())) {
+
+            int paramIdx = 1;
+            if (dbStatus != null) {
+                ps.setString(paramIdx++, dbStatus);
+            }
+            if (search != null && !search.trim().isEmpty()) {
+                String searchParam = "%" + search.trim() + "%";
+                ps.setString(paramIdx++, searchParam);
+                ps.setString(paramIdx++, searchParam);
+                ps.setString(paramIdx++, searchParam);
+            }
+            ps.setInt(paramIdx++, limit);
+            ps.setInt(paramIdx++, offset);
+
+            try (ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) {
+                    Transfer t = new Transfer();
+                    t.setTransferId(rs.getInt("transfer_id"));
+                    t.setTransferCode(rs.getString("transfer_code"));
+                    t.setFromWarehouseId(rs.getInt("from_warehouse_id"));
+                    t.setFromWarehouseName(rs.getString("from_warehouse_name"));
+                    t.setToWarehouseId(rs.getInt("to_warehouse_id"));
+                    t.setToWarehouseName(rs.getString("to_warehouse_name"));
+                    t.setCreatedBy(rs.getInt("created_by"));
+                    t.setApprovedBy(rs.getObject("approved_by") != null ? rs.getInt("approved_by") : null);
+                    t.setStatus(rs.getString("status"));
+                    t.setNote(rs.getString("note"));
+                    java.sql.Timestamp ca = rs.getTimestamp("created_at");
+                    if (ca != null)
+                        t.setCreatedAt(ca.toLocalDateTime());
+                    java.sql.Timestamp cma = rs.getTimestamp("completed_at");
+                    if (cma != null)
+                        t.setCompletedAt(cma.toLocalDateTime());
+                    list.add(t);
+                }
+            }
+        } catch (SQLException e) {
+            LOGGER.log(Level.WARNING, "TransferDAO.findTransfers failed", e);
+        }
+        return list;
+    }
+
+    /**
+     * Counts the total number of stock transfers matching status and search query.
+     */
+    public int countTransfers(String status, String search) {
+        String dbStatus = mapStatus(status);
+        StringBuilder sql = new StringBuilder(
+            "SELECT COUNT(*) FROM stock_transfers st "
+            + "LEFT JOIN warehouses fw ON st.from_warehouse_id = fw.warehouse_id "
+            + "LEFT JOIN warehouses tw ON st.to_warehouse_id   = tw.warehouse_id "
+        );
+
+        if (dbStatus != null || (search != null && !search.trim().isEmpty())) {
+            sql.append("WHERE 1=1 ");
+            if (dbStatus != null) {
+                sql.append("AND st.status = ? ");
+            }
+            if (search != null && !search.trim().isEmpty()) {
+                sql.append("AND (st.transfer_code LIKE ? OR fw.warehouse_name LIKE ? OR tw.warehouse_name LIKE ?) ");
+            }
+        }
+
+        try (Connection conn = DBConnection.getConnection();
+             PreparedStatement ps = conn.prepareStatement(sql.toString())) {
+
+            int paramIdx = 1;
+            if (dbStatus != null) {
+                ps.setString(paramIdx++, dbStatus);
+            }
+            if (search != null && !search.trim().isEmpty()) {
+                String searchParam = "%" + search.trim() + "%";
+                ps.setString(paramIdx++, searchParam);
+                ps.setString(paramIdx++, searchParam);
+                ps.setString(paramIdx++, searchParam);
+            }
+
+            try (ResultSet rs = ps.executeQuery()) {
+                if (rs.next()) {
+                    return rs.getInt(1);
+                }
+            }
+        } catch (SQLException e) {
+            LOGGER.log(Level.WARNING, "TransferDAO.countTransfers failed", e);
+        }
+        return 0;
+    }
+
+    /**
+     * Returns counts grouped by status.
+     */
+    public java.util.Map<String, Integer> getStatusCounts() {
+        java.util.Map<String, Integer> counts = new java.util.HashMap<>();
+        counts.put("all", 0);
+        counts.put("DRAFT", 0);
+        counts.put("IN_TRANSIT", 0);
+        counts.put("RECEIVED", 0);
+        counts.put("CANCELLED", 0);
+
+        String sql = "SELECT status, COUNT(*) FROM stock_transfers GROUP BY status";
+        try (Connection conn = DBConnection.getConnection();
+             PreparedStatement ps = conn.prepareStatement(sql);
+             ResultSet rs = ps.executeQuery()) {
+            int total = 0;
+            while (rs.next()) {
+                String status = rs.getString("status");
+                int count = rs.getInt(2);
+                if (status != null) {
+                    counts.put(status, count);
+                    total += count;
+                }
+            }
+            counts.put("all", total);
+        } catch (SQLException e) {
+            LOGGER.log(Level.WARNING, "TransferDAO.getStatusCounts failed", e);
+        }
+        return counts;
+    }
+
     public List<TransferItem> findItemsByTransferId(int transferId) {
         List<TransferItem> list = new ArrayList<>();
         String sql =

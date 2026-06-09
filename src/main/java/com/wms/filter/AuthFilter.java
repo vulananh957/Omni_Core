@@ -1,6 +1,8 @@
 package com.wms.filter;
 
 import com.wms.util.AppConstants;
+import com.wms.dao.UserDAO;
+import com.wms.model.User;
 
 import jakarta.servlet.*;
 import jakarta.servlet.http.HttpServletRequest;
@@ -10,6 +12,7 @@ import java.io.IOException;
 import java.util.Arrays;
 import java.util.HashSet;
 import java.util.Set;
+import java.util.Optional;
 
 /**
  * AuthFilter — Session-based authentication guard.
@@ -59,7 +62,32 @@ public class AuthFilter implements Filter {
                 && (session.getAttribute(AppConstants.SESSION_USER) != null);
 
         if (loggedIn) {
-            chain.doFilter(request, response);
+            User userInSession = (User) session.getAttribute(AppConstants.SESSION_USER);
+            try {
+                UserDAO userDAO = new UserDAO();
+                Optional<User> uOpt = userDAO.findById(userInSession.getUserId());
+                
+                if (uOpt.isPresent() && uOpt.get().isActive()) {
+                    User currentUser = uOpt.get();
+                    // Sync changed role to current session immediately
+                    if (!currentUser.getRole().equals(userInSession.getRole())) {
+                        session.setAttribute(AppConstants.SESSION_USER, currentUser);
+                        session.setAttribute(AppConstants.SESSION_ROLE, currentUser.getRole());
+                    }
+                    if (currentUser.getWarehouseId() != userInSession.getWarehouseId()) {
+                        session.setAttribute(AppConstants.SESSION_USER, currentUser);
+                        session.setAttribute(AppConstants.SESSION_WAREHOUSE, currentUser.getWarehouseId());
+                    }
+                    chain.doFilter(request, response);
+                } else {
+                    // Account was deactivated or deleted: force logout
+                    session.invalidate();
+                    res.sendRedirect(contextPath + "/login?status=locked");
+                }
+            } catch (Exception e) {
+                // In case of transient DB issues, fall back to allow session
+                chain.doFilter(request, response);
+            }
         } else {
             res.sendRedirect(contextPath + "/login");
         }

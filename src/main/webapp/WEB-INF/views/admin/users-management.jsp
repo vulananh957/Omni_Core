@@ -54,12 +54,9 @@
                         <select id="roleFilter"
                             style="padding: 0.6rem 1.25rem 0.6rem 0.75rem; background: var(--white); border: 1px solid var(--border); color: var(--navy); font-size: 13px; outline: none; border-radius: var(--radius-btn); min-width: 9rem; cursor: pointer;">
                             <option value="">Tất cả Vai trò</option>
-                            <option value="ADMIN" ${param.role=='ADMIN' ? 'selected' : '' }>ADMIN</option>
-                            <option value="MANAGER" ${param.role=='MANAGER' ? 'selected' : '' }>MANAGER</option>
-                            <option value="WAREHOUSE_STAFF" ${param.role=='WAREHOUSE_STAFF' ? 'selected' : '' }>
-                                WAREHOUSE_STAFF</option>
-                            <option value="SALES_STAFF" ${param.role=='SALES_STAFF' ? 'selected' : '' }>SALES_STAFF
-                            </option>
+                            <c:forEach var="r" items="${rolesList}">
+                                <option value="${r.roleName}" ${param.role == r.roleName ? 'selected' : ''}><c:out value="${r.roleName}"/></option>
+                            </c:forEach>
                         </select>
 
                         <!-- Status Filter Dropdown -->

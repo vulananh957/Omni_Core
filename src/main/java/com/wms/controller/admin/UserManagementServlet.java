@@ -84,6 +84,9 @@ public class UserManagementServlet extends BaseController {
         List<User> usersList = userDAO.findFiltered(search, role, status);
         req.setAttribute("usersList", usersList);
 
+        List<Role> rolesList = roleDAO.findAll();
+        req.setAttribute("rolesList", rolesList);
+
         req.setAttribute("pageTitle", "Quản lý Tài khoản & Phân quyền");
         req.setAttribute("pageSubtitle", "Danh sách người dùng, thay đổi phân quyền và trạng thái hoạt động");
         req.setAttribute("currentPage", "admin-users");
@@ -147,7 +150,12 @@ public class UserManagementServlet extends BaseController {
         String idStr = req.getParameter("id");
         String activeStr = req.getParameter("active");
 
-        if (idStr != null && activeStr != null) {
+        if (idStr == null || idStr.trim().isEmpty() || activeStr == null) {
+            resp.sendRedirect(req.getContextPath() + "/admin/users");
+            return;
+        }
+
+        try {
             int userId = Integer.parseInt(idStr);
             boolean active = Boolean.parseBoolean(activeStr);
             
@@ -159,6 +167,10 @@ public class UserManagementServlet extends BaseController {
             }
             
             userDAO.toggleStatus(userId, active);
+        } catch (NumberFormatException e) {
+            LOGGER.log(Level.WARNING, "Invalid userId format in handleToggleStatus: " + idStr, e);
+            resp.sendRedirect(req.getContextPath() + "/admin/users");
+            return;
         }
 
         resp.sendRedirect(req.getContextPath() + "/admin/users?status=toggle_success");
@@ -177,9 +189,21 @@ public class UserManagementServlet extends BaseController {
         String roleIdStr = req.getParameter("roleId");
         String activeStr = req.getParameter("active");
 
-        boolean isUpdate = userIdStr != null && !userIdStr.trim().isEmpty() && Integer.parseInt(userIdStr) > 0;
-        int userId = isUpdate ? Integer.parseInt(userIdStr) : 0;
-        int roleId = Integer.parseInt(roleIdStr);
+        int userId = 0;
+        try {
+            if (userIdStr != null && !userIdStr.trim().isEmpty()) {
+                userId = Integer.parseInt(userIdStr);
+            }
+        } catch (NumberFormatException ignored) {}
+        boolean isUpdate = userId > 0;
+
+        int roleId = 0;
+        try {
+            if (roleIdStr != null && !roleIdStr.trim().isEmpty()) {
+                roleId = Integer.parseInt(roleIdStr);
+            }
+        } catch (NumberFormatException ignored) {}
+        
         boolean active = "true".equals(activeStr) || "1".equals(activeStr);
 
         // Fetch corresponding role name to maintain backward compatibility (roleStr)
@@ -199,8 +223,8 @@ public class UserManagementServlet extends BaseController {
 
         // ── Validation ────────────────────────────────────────
 
-        if (isNullOrEmpty(username) || isNullOrEmpty(fullName) || isNullOrEmpty(email)) {
-            setError(req, "Các trường Tên đăng nhập, Họ tên và Email không được bỏ trống.");
+        if (isNullOrEmpty(username) || isNullOrEmpty(fullName) || isNullOrEmpty(email) || roleId <= 0) {
+            setError(req, "Các trường Tên đăng nhập, Họ tên, Email và Vai trò không được bỏ trống.");
             reloadForm(req, resp, user);
             return;
         }

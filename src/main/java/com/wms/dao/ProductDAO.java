@@ -293,6 +293,24 @@ public class ProductDAO {
     }
 
     /**
+     * Deletes a product by its primary key.
+     *
+     * @param productId The ID of the product to delete.
+     * @return true if successful, false otherwise.
+     */
+    public boolean delete(int productId) {
+        String sql = "DELETE FROM products WHERE product_id = ?";
+        try (Connection conn = DBConnection.getConnection();
+             PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setInt(1, productId);
+            return ps.executeUpdate() > 0;
+        } catch (SQLException e) {
+            LOGGER.log(Level.WARNING, "ProductDAO: Failed to delete product " + productId, e);
+            return false;
+        }
+    }
+
+    /**
      * Maps a ResultSet row to a Product object.
      */
     private Product mapResultSetToProduct(ResultSet rs) throws SQLException {

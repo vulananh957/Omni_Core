@@ -376,8 +376,19 @@
     }
     .btn-act-circle.del {
         background: rgba(239, 68, 68, 0.05);
-        color: #fca5a5;
-        cursor: not-allowed;
+        color: #ef4444;
+    }
+    .btn-act-circle.del:hover {
+        background: rgba(239, 68, 68, 0.1);
+        color: #dc2626;
+    }
+    .btn-act-circle.info {
+        background: rgba(34, 197, 94, 0.05);
+        color: #22c55e;
+    }
+    .btn-act-circle.info:hover {
+        background: rgba(34, 197, 94, 0.1);
+        color: #16a34a;
     }
     .btn-act-circle svg {
         width: 12px;
@@ -811,6 +822,82 @@
     </div>
 </div>
 
+<!-- ══ VIEW DETAIL MODAL ══════════════════════════════════════ -->
+<div class="modal-overlay" id="viewModalOverlay">
+    <div class="modal-box">
+        <div class="modal-hdr">
+            <div>
+                <h2 class="modal-title">Chi tiết SKU sản phẩm</h2>
+                <p class="modal-subtitle" id="view-sku-code-label">SKU-XXXX</p>
+            </div>
+            <button class="modal-close" id="viewModalClose">&times;</button>
+        </div>
+        <div class="modal-body" style="max-height: 60vh; overflow-y: auto;">
+            <div class="form-group">
+                <label class="form-label">Tên sản phẩm</label>
+                <div class="form-input" id="view-name" style="background: rgba(16, 55, 92, 0.02); pointer-events: none; height: auto; min-height: 38px; display: flex; align-items: center; border: 1px solid var(--border); border-radius: 6px; padding: 0 12px; font-weight: 500; color: var(--navy);"></div>
+            </div>
+            <div class="form-group">
+                <label class="form-label">Danh mục</label>
+                <div class="form-input" id="view-category" style="background: rgba(16, 55, 92, 0.02); pointer-events: none; height: auto; min-height: 38px; display: flex; align-items: center; border: 1px solid var(--border); border-radius: 6px; padding: 0 12px; font-weight: 500; color: var(--navy);"></div>
+            </div>
+            <div class="form-grid">
+                <div class="form-group">
+                    <label class="form-label">Kích thước (D×R×C) cm</label>
+                    <div class="form-input" id="view-dimensions" style="background: rgba(16, 55, 92, 0.02); pointer-events: none; height: auto; min-height: 38px; display: flex; align-items: center; border: 1px solid var(--border); border-radius: 6px; padding: 0 12px; font-weight: 500; color: var(--navy);"></div>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Khối lượng (kg)</label>
+                    <div class="form-input" id="view-weight" style="background: rgba(16, 55, 92, 0.02); pointer-events: none; height: auto; min-height: 38px; display: flex; align-items: center; border: 1px solid var(--border); border-radius: 6px; padding: 0 12px; font-weight: 500; color: var(--navy);"></div>
+                </div>
+            </div>
+            <div class="form-grid">
+                <div class="form-group">
+                    <label class="form-label">Tồn tối thiểu (MIN)</label>
+                    <div class="form-input" id="view-min" style="background: rgba(16, 55, 92, 0.02); pointer-events: none; height: auto; min-height: 38px; display: flex; align-items: center; border: 1px solid var(--border); border-radius: 6px; padding: 0 12px; font-weight: 500; color: var(--navy);"></div>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Tồn tối đa (MAX)</label>
+                    <div class="form-input" id="view-max" style="background: rgba(16, 55, 92, 0.02); pointer-events: none; height: auto; min-height: 38px; display: flex; align-items: center; border: 1px solid var(--border); border-radius: 6px; padding: 0 12px; font-weight: 500; color: var(--navy);"></div>
+                </div>
+            </div>
+            <div class="form-grid">
+                <div class="form-group">
+                    <label class="form-label">Trạng thái phê duyệt</label>
+                    <div class="form-input" id="view-approval-status" style="background: rgba(16, 55, 92, 0.02); pointer-events: none; height: auto; min-height: 38px; display: flex; align-items: center; border: 1px solid var(--border); border-radius: 6px; padding: 0 12px; font-weight: 500; color: var(--navy);"></div>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Đơn vị tính</label>
+                    <div class="form-input" id="view-unit" style="background: rgba(16, 55, 92, 0.02); pointer-events: none; height: auto; min-height: 38px; display: flex; align-items: center; border: 1px solid var(--border); border-radius: 6px; padding: 0 12px; font-weight: 500; color: var(--navy);">Cái</div>
+                </div>
+            </div>
+            <div class="form-grid">
+                <div class="form-group">
+                    <label class="form-label">Người tạo</label>
+                    <div class="form-input" id="view-created-by" style="background: rgba(16, 55, 92, 0.02); pointer-events: none; height: auto; min-height: 38px; display: flex; align-items: center; border: 1px solid var(--border); border-radius: 6px; padding: 0 12px; font-weight: 500; color: var(--navy);"></div>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Thời gian tạo</label>
+                    <div class="form-input" id="view-created-at" style="background: rgba(16, 55, 92, 0.02); pointer-events: none; height: auto; min-height: 38px; display: flex; align-items: center; border: 1px solid var(--border); border-radius: 6px; padding: 0 12px; font-weight: 500; color: var(--navy);"></div>
+                </div>
+            </div>
+            <div class="form-grid">
+                <div class="form-group">
+                    <label class="form-label">Người cập nhật</label>
+                    <div class="form-input" id="view-updated-by" style="background: rgba(16, 55, 92, 0.02); pointer-events: none; height: auto; min-height: 38px; display: flex; align-items: center; border: 1px solid var(--border); border-radius: 6px; padding: 0 12px; font-weight: 500; color: var(--navy);"></div>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Thời gian cập nhật</label>
+                    <div class="form-input" id="view-updated-at" style="background: rgba(16, 55, 92, 0.02); pointer-events: none; height: auto; min-height: 38px; display: flex; align-items: center; border: 1px solid var(--border); border-radius: 6px; padding: 0 12px; font-weight: 500; color: var(--navy);"></div>
+                </div>
+            </div>
+        </div>
+        <div class="modal-ftr">
+            <button class="btn-toolbar" id="viewModalCloseBtn" style="background: var(--navy); color: white;">Đóng</button>
+        </div>
+    </div>
+</div>
+
 <!-- ══ SKU JAVASCRIPT STATE & LOGIC ══════════════════════════ -->
 <script>
 // Expose JSTL session user details to client-side
@@ -1004,8 +1091,21 @@ if (btnCreateTrigger) {
     }
 });
 
+/* View Modal Elements */
+var viewOverlay     = document.getElementById('viewModalOverlay');
+var btnViewClose    = document.getElementById('viewModalClose');
+var btnViewCloseBtn = document.getElementById('viewModalCloseBtn');
+
+[btnViewClose, btnViewCloseBtn].forEach(function (btn) {
+    if (btn) {
+        btn.addEventListener('click', function () {
+            viewOverlay.classList.remove('active');
+        });
+    }
+});
+
 // Close modals when clicking on background overlays
-[createOverlay, editOverlay].forEach(function (overlay) {
+[createOverlay, editOverlay, viewOverlay].forEach(function (overlay) {
     if (overlay) {
         overlay.addEventListener('click', function (e) {
             if (e.target === overlay) {
@@ -1103,6 +1203,47 @@ window.triggerEditSKU = function (id) {
     editMaxInput.value = item.maxStock;
 
     editOverlay.classList.add('active');
+};
+
+/* View details action trigger */
+window.triggerViewSKU = function (id) {
+    var item = skus.find(function (s) { return s.id === id; });
+    if (!item) return;
+
+    document.getElementById('view-sku-code-label').textContent = item.sku;
+    document.getElementById('view-name').textContent = item.name;
+    document.getElementById('view-category').textContent = item.category;
+    document.getElementById('view-dimensions').textContent = item.dimensions || 'N/A';
+    document.getElementById('view-weight').textContent = item.weight || 'N/A';
+    document.getElementById('view-min').textContent = item.minStock;
+    document.getElementById('view-max').textContent = item.maxStock;
+    
+    var statusText = item.approvalStatus === 'approved' ? 'Đã duyệt' : item.approvalStatus === 'pending' ? 'Chờ duyệt' : 'Từ chối';
+    document.getElementById('view-approval-status').textContent = statusText;
+    document.getElementById('view-created-by').textContent = item.createdBy || 'N/A';
+    document.getElementById('view-created-at').textContent = item.createdAt || 'N/A';
+    document.getElementById('view-updated-by').textContent = item.updatedBy || item.createdBy || 'N/A';
+    document.getElementById('view-updated-at').textContent = item.lastUpdated || item.createdAt || 'N/A';
+
+    viewOverlay.classList.add('active');
+};
+
+/* Delete action trigger */
+window.triggerDeleteSKU = function (id) {
+    var item = skus.find(function (s) { return s.id === id; });
+    if (!item) return;
+
+    if (item.approvalStatus !== 'pending') {
+        alert('Chỉ cho phép xóa sản phẩm ở trạng thái Chờ duyệt.');
+        return;
+    }
+
+    if (confirm('Bạn có chắc chắn muốn xóa SKU "' + item.sku + '"?')) {
+        if (id.indexOf('p-') === 0) {
+            var productId = id.substring(2);
+            submitPostAction('delete', { productId: productId });
+        }
+    }
 };
 
 /* CSV Export */
@@ -1254,9 +1395,23 @@ function renderAll() {
 
         var canEdit = item.approvalStatus === 'pending';
         var editBtnHtml = canEdit ? 
-            '<button class="btn-act-circle edit" onclick="triggerEditSKU(\'' + item.id + '\')">' +
+            '<button class="btn-act-circle edit" onclick="triggerEditSKU(\'' + item.id + '\')" title="Sửa">' +
                 '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 1 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>' +
             '</button>' : '';
+
+        var viewBtnHtml = 
+            '<button class="btn-act-circle info" onclick="triggerViewSKU(\'' + item.id + '\')" title="Xem chi tiết">' +
+                '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg>' +
+            '</button>';
+
+        var canDelete = item.approvalStatus === 'pending';
+        var deleteBtnHtml = canDelete ? 
+            '<button class="btn-act-circle del" onclick="triggerDeleteSKU(\'' + item.id + '\')" title="Xóa">' +
+                '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>' +
+            '</button>' : 
+            '<button class="btn-act-circle del" style="cursor: not-allowed; opacity: 0.4;" onclick="alert(\'Chỉ cho phép xóa sản phẩm ở trạng thái Chờ duyệt.\')" title="Không thể xóa">' +
+                '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>' +
+            '</button>';
 
         var rowClass = (startIdx + idx) % 2 === 0 ? '' : 'style="background:rgba(240, 244, 250, 0.3)"';
 
@@ -1281,10 +1436,9 @@ function renderAll() {
             '</td>' +
             '<td>' +
                 '<div style="display:flex;align-items:center;justify-content:flex-end;gap:8px">' +
+                    viewBtnHtml +
                     editBtnHtml +
-                    '<button class="btn-act-circle del" onclick="alert(\'Xóa cứng Master SKU không được phép. Liên hệ Quản lý để chuyển trạng thái sang Tạm ngưng.\')">' +
-                        '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>' +
-                    '</button>' +
+                    deleteBtnHtml +
                 '</div>' +
             '</td>' +
         '</tr>';

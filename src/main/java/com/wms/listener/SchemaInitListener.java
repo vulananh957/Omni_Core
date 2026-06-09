@@ -410,9 +410,13 @@ public class SchemaInitListener implements ServletContextListener {
             createTableIfNotExists(conn, "qc_inspections",
                 "CREATE TABLE qc_inspections (qc_id INT AUTO_INCREMENT PRIMARY KEY, rma_item_id INT NOT NULL, inspected_by INT NOT NULL, good_quantity DECIMAL(12,3) NOT NULL DEFAULT 0, good_zone_id INT, damaged_quantity DECIMAL(12,3) NOT NULL DEFAULT 0, damaged_zone_id INT, notes TEXT, inspected_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
             createTableIfNotExists(conn, "return_orders",
-                "CREATE TABLE return_orders (return_id INT AUTO_INCREMENT PRIMARY KEY, order_id INT, outbound_id INT, customer_name VARCHAR(100), reason VARCHAR(255), status ENUM('RECEIVED','INSPECTING','PASS','FAIL','RESTOCKED','SCRAPPED') DEFAULT 'RECEIVED', warehouse_id INT NOT NULL, created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP, updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+                "CREATE TABLE return_orders (return_id INT AUTO_INCREMENT PRIMARY KEY, order_id INT, outbound_id INT, customer_name VARCHAR(100), customer_phone VARCHAR(20), reason VARCHAR(255), status ENUM('RECEIVED','INSPECTING','PASS','FAIL','RESTOCKED','SCRAPPED') DEFAULT 'RECEIVED', warehouse_id INT NOT NULL, created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP, updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+            DatabaseMetaData md = conn.getMetaData();
+            addColumnIfMissing(conn, md, "return_orders", "customer_phone", "VARCHAR(20) DEFAULT NULL");
             createTableIfNotExists(conn, "qc_records",
                 "CREATE TABLE qc_records (qc_id INT AUTO_INCREMENT PRIMARY KEY, return_id INT NOT NULL, product_id INT, decision ENUM('PASS','FAIL') NOT NULL, qc_notes TEXT, qc_by INT, qc_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+            createTableIfNotExists(conn, "return_items",
+                "CREATE TABLE return_items (return_item_id INT AUTO_INCREMENT PRIMARY KEY, return_id INT NOT NULL, product_id INT NOT NULL, quantity DECIMAL(12,3) NOT NULL DEFAULT 1, return_reason VARCHAR(255), FOREIGN KEY (return_id) REFERENCES return_orders(return_id) ON DELETE CASCADE, FOREIGN KEY (product_id) REFERENCES products(product_id) ON DELETE CASCADE) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
         }
     }
 

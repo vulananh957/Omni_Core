@@ -169,6 +169,14 @@ public class User {
         this.otpPreference = otpPreference;
     }
 
+    public String getFormattedCreatedAt() {
+        if (createdAt == null) {
+            return "";
+        }
+        java.time.format.DateTimeFormatter formatter = java.time.format.DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm");
+        return createdAt.format(formatter);
+    }
+
     @Override
     public String toString() {
         return "User{" +

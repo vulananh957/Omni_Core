@@ -4,7 +4,8 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.wms.dao.ChannelDAO;
 import com.wms.model.Channel;
-import com.wms.service.AuthService;
+import com.wms.service.auth.AuthService;
+import com.wms.service.sales.ChannelService;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServlet;
 import jakarta.servlet.http.HttpServletRequest;
@@ -27,7 +28,7 @@ public class LazadaAuthCallbackServlet extends HttpServlet {
     private static final Logger LOGGER = Logger.getLogger(LazadaAuthCallbackServlet.class.getName());
 
     private final AuthService authService = new AuthService();
-    private final ChannelDAO channelDAO = new ChannelDAO();
+    private final ChannelService channelService = new ChannelService();
     private final ObjectMapper objectMapper = new ObjectMapper();
 
     @Override
@@ -63,7 +64,15 @@ public class LazadaAuthCallbackServlet extends HttpServlet {
             return;
         }
 
-        Channel channel = channelDAO.findById(channelId);
+        Channel channel;
+        try {
+            channel = channelService.findById(channelId);
+        } catch (Exception e) {
+            LOGGER.warning("Lazada auth callback: channel not found for id: " + channelId);
+            response.sendRedirect(request.getContextPath() + "/admin/channels?status=error&message=channel_not_found");
+            return;
+        }
+
         if (channel == null) {
             LOGGER.warning("Lazada auth callback: channel not found for id: " + channelId);
             response.sendRedirect(request.getContextPath() + "/admin/channels?status=error&message=channel_not_found");
@@ -93,7 +102,7 @@ public class LazadaAuthCallbackServlet extends HttpServlet {
                 return;
             }
 
-            boolean dbUpdated = channelDAO.updateLazadaTokens(channelId, accessToken, refreshToken);
+            boolean dbUpdated = channelService.updateLazadaTokens(channelId, accessToken, refreshToken);
 
             if (dbUpdated) {
                 LOGGER.info("Tokens successfully saved for channel '" + channel.getChannelName() + "' (ID: " + channelId + ")");

@@ -31,6 +31,11 @@ public class Order {
     private String disputeEvidenceVideo;
     private String disputeNote;
 
+    // Customer Info fields
+    private String customerName;
+    private String customerPhone;
+    private String customerAddress;
+
     // Constructors
     public Order() {}
 
@@ -211,6 +216,30 @@ public class Order {
 
     public void setDisputeNote(String disputeNote) {
         this.disputeNote = disputeNote;
+    }
+
+    public String getCustomerName() {
+        return customerName;
+    }
+
+    public void setCustomerName(String customerName) {
+        this.customerName = customerName;
+    }
+
+    public String getCustomerPhone() {
+        return customerPhone;
+    }
+
+    public void setCustomerPhone(String customerPhone) {
+        this.customerPhone = customerPhone;
+    }
+
+    public String getCustomerAddress() {
+        return customerAddress;
+    }
+
+    public void setCustomerAddress(String customerAddress) {
+        this.customerAddress = customerAddress;
     }
 }
 

@@ -1,4 +1,4 @@
-package com.wms.service;
+package com.wms.service.auth;
 
 import com.wms.dao.UserDAO;
 import com.wms.model.Channel;

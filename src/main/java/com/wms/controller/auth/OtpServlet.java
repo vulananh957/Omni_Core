@@ -2,7 +2,7 @@ package com.wms.controller.auth;
 
 import com.wms.controller.BaseController;
 import com.wms.model.User;
-import com.wms.service.EmailService;
+import com.wms.service.auth.EmailService;
 import com.wms.util.AppConstants;
 
 import jakarta.servlet.ServletException;

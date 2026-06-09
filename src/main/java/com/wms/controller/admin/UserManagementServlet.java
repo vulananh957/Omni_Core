@@ -1,12 +1,9 @@
 package com.wms.controller.admin;
 
 import com.wms.controller.BaseController;
-import com.wms.dao.RoleDAO;
-import com.wms.dao.UserDAO;
 import com.wms.model.Role;
 import com.wms.model.User;
-import com.wms.service.AuthService;
-import com.wms.service.EmailService;
+import com.wms.service.user.UserService;
 
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -14,8 +11,6 @@ import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
 import java.sql.SQLException;
 import java.util.List;
-import java.util.Optional;
-import java.security.SecureRandom;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -27,9 +22,7 @@ public class UserManagementServlet extends BaseController {
 
     private static final Logger LOGGER = Logger.getLogger(UserManagementServlet.class.getName());
 
-    private final UserDAO userDAO = new UserDAO();
-    private final RoleDAO roleDAO = new RoleDAO();
-    private final EmailService emailService = new EmailService();
+    private final UserService userService = new UserService();
 
     @Override
     protected void doGet(HttpServletRequest req, HttpServletResponse resp)
@@ -81,11 +74,8 @@ public class UserManagementServlet extends BaseController {
         String role = req.getParameter("role");
         String status = req.getParameter("status");
 
-        List<User> usersList = userDAO.findFiltered(search, role, status);
+        List<User> usersList = userService.findAllFiltered(search, role, status);
         req.setAttribute("usersList", usersList);
-
-        List<Role> rolesList = roleDAO.findAll();
-        req.setAttribute("rolesList", rolesList);
 
         req.setAttribute("pageTitle", "Quản lý Tài khoản & Phân quyền");
         req.setAttribute("pageSubtitle", "Danh sách người dùng, thay đổi phân quyền và trạng thái hoạt động");
@@ -97,7 +87,7 @@ public class UserManagementServlet extends BaseController {
 
     private void handleCreateForm(HttpServletRequest req, HttpServletResponse resp)
             throws SQLException, ServletException, IOException {
-        List<Role> roles = roleDAO.findAll();
+        List<Role> roles = userService.findAllRoles();
         req.setAttribute("roles", roles);
         req.setAttribute("actionUrl", req.getContextPath() + "/admin/users/create");
 
@@ -124,7 +114,7 @@ public class UserManagementServlet extends BaseController {
             return;
         }
 
-        Optional<User> userOpt = userDAO.findById(userId);
+        var userOpt = userService.findById(userId);
 
         if (userOpt.isEmpty()) {
             req.setAttribute("errorMessage", "Không tìm thấy người dùng có ID " + userId);
@@ -132,7 +122,7 @@ public class UserManagementServlet extends BaseController {
             return;
         }
 
-        List<Role> roles = roleDAO.findAll();
+        List<Role> roles = userService.findAllRoles();
         req.setAttribute("user", userOpt.get());
         req.setAttribute("roles", roles);
         req.setAttribute("actionUrl", req.getContextPath() + "/admin/users/create");
@@ -150,27 +140,18 @@ public class UserManagementServlet extends BaseController {
         String idStr = req.getParameter("id");
         String activeStr = req.getParameter("active");
 
-        if (idStr == null || idStr.trim().isEmpty() || activeStr == null) {
-            resp.sendRedirect(req.getContextPath() + "/admin/users");
-            return;
-        }
-
-        try {
+        if (idStr != null && activeStr != null) {
             int userId = Integer.parseInt(idStr);
             boolean active = Boolean.parseBoolean(activeStr);
-            
-            // Prevent self-deactivation / locking own account
             User loggedInUser = (User) req.getSession().getAttribute("loggedInUser");
-            if (loggedInUser != null && loggedInUser.getUserId() == userId && !active) {
+            Integer loggedInId = (loggedInUser != null) ? loggedInUser.getUserId() : null;
+
+            if (!userService.canToggleStatus(userId, !active, loggedInId)) {
                 resp.sendRedirect(req.getContextPath() + "/admin/users?status=self_toggle_error");
                 return;
             }
-            
-            userDAO.toggleStatus(userId, active);
-        } catch (NumberFormatException e) {
-            LOGGER.log(Level.WARNING, "Invalid userId format in handleToggleStatus: " + idStr, e);
-            resp.sendRedirect(req.getContextPath() + "/admin/users");
-            return;
+
+            userService.toggleStatus(userId, active);
         }
 
         resp.sendRedirect(req.getContextPath() + "/admin/users?status=toggle_success");
@@ -189,114 +170,39 @@ public class UserManagementServlet extends BaseController {
         String roleIdStr = req.getParameter("roleId");
         String activeStr = req.getParameter("active");
 
-        int userId = 0;
-        try {
-            if (userIdStr != null && !userIdStr.trim().isEmpty()) {
-                userId = Integer.parseInt(userIdStr);
-            }
-        } catch (NumberFormatException ignored) {}
-        boolean isUpdate = userId > 0;
-
-        int roleId = 0;
-        try {
-            if (roleIdStr != null && !roleIdStr.trim().isEmpty()) {
-                roleId = Integer.parseInt(roleIdStr);
-            }
-        } catch (NumberFormatException ignored) {}
-        
+        boolean isUpdate = userIdStr != null && !userIdStr.trim().isEmpty() && Integer.parseInt(userIdStr) > 0;
+        int userId = isUpdate ? Integer.parseInt(userIdStr) : 0;
+        int roleId = Integer.parseInt(roleIdStr);
         boolean active = "true".equals(activeStr) || "1".equals(activeStr);
 
-        // Fetch corresponding role name to maintain backward compatibility (roleStr)
-        Role roleObj = roleDAO.findById(roleId);
-        String roleName = (roleObj != null) ? roleObj.getRoleName() : "WAREHOUSE_STAFF";
-
-        // Create transient User to preserve form values if error occurs
-        User user = new User();
-        user.setUserId(userId);
-        user.setUsername(username);
-        user.setFullName(fullName);
-        user.setEmail(email);
-        user.setPhone(phone);
-        user.setRoleId(roleId);
-        user.setRole(roleName);
-        user.setActive(active);
-
-        // ── Validation ────────────────────────────────────────
-
-        if (isNullOrEmpty(username) || isNullOrEmpty(fullName) || isNullOrEmpty(email) || roleId <= 0) {
-            setError(req, "Các trường Tên đăng nhập, Họ tên, Email và Vai trò không được bỏ trống.");
-            reloadForm(req, resp, user);
-            return;
-        }
-
-        // Check email uniqueness
-        if (userDAO.isEmailTaken(email, userId)) {
-            setError(req, "Địa chỉ email '" + email + "' đã được sử dụng bởi một tài khoản khác.");
-            reloadForm(req, resp, user);
-            return;
-        }
-
         if (!isUpdate) {
-            // Check username uniqueness
-            if (userDAO.findByUsername(username).isPresent()) {
-                setError(req, "Tên đăng nhập '" + username + "' đã tồn tại trong hệ thống.");
-                reloadForm(req, resp, user);
-                return;
-            }
+            String randomPassword = userService.generateRandomPassword();
+            UserService.Result result = userService.createUser(
+                username, fullName, email, phone, roleId, active, randomPassword);
 
-            // Generate secure random password automatically
-            String randomPassword = generateRandomPassword();
-
-            // HASH PASSWORD before saving!
-            String passwordHash = AuthService.hashPassword(randomPassword);
-            user.setPasswordHash(passwordHash);
-
-            boolean success = userDAO.insert(user);
-            if (success) {
-                boolean emailSent = emailService.sendNewUserCredentials(user, randomPassword);
-                if (!emailSent) {
-                    LOGGER.log(Level.WARNING, "UserManagementServlet: Failed to send new user email to " + email);
-                }
-
-                String phoneTarget = (phone != null && !phone.isEmpty()) ? phone : "[Chua dang ky]";
-                LOGGER.info("UserManagementServlet: Account created for " + username
-                        + " at phone " + phoneTarget + " (SMS notification simulated in dev)");
-
-                // Save raw temporary credentials in HTTP session as a transient flash state
-                req.getSession().setAttribute("newGeneratedPassword", randomPassword);
-                req.getSession().setAttribute("newCreatedUser", user);
+            if (result.isSuccess()) {
+                req.getSession().setAttribute("newGeneratedPassword", result.getRawPassword());
+                req.getSession().setAttribute("newCreatedUser", result.getUser());
                 resp.sendRedirect(req.getContextPath() + "/admin/users?status=success");
             } else {
-                setError(req, "Không thể lưu thông tin tài khoản mới.");
-                reloadForm(req, resp, user);
+                setError(req, result.getMessage());
+                reloadForm(req, resp, buildTransientUser(userId, username, fullName, email, phone, roleId, active));
             }
-
         } else {
-            // Processing user update
-            Optional<User> existingOpt = userDAO.findById(userId);
-            if (existingOpt.isEmpty()) {
-                resp.sendRedirect(req.getContextPath() + "/admin/users");
-                return;
+            Integer existingWarehouseId = null;
+            var existingOpt = userService.findById(userId);
+            if (existingOpt.isPresent()) {
+                existingWarehouseId = existingOpt.get().getWarehouseId();
             }
 
-            // Preserving original warehouse allocation
-            user.setWarehouseId(existingOpt.get().getWarehouseId());
+            UserService.Result result = userService.updateUser(
+                userId, username, fullName, email, phone, roleId, active, existingWarehouseId);
 
-            // Password updates are not allowed from admin user edit screen
-            if (req.getParameter("password") != null || req.getParameter("confirmPassword") != null) {
-                setError(req, "Admin không có quyền đổi mật khẩu người dùng từ màn hình này.");
-                reloadForm(req, resp, user);
-                return;
-            }
-
-            // Save standard profile fields
-            boolean success = userDAO.update(user);
-
-            if (success) {
+            if (result.isSuccess()) {
                 resp.sendRedirect(req.getContextPath() + "/admin/users?status=success");
             } else {
-                setError(req, "Không thể cập nhật thông tin tài khoản.");
-                reloadForm(req, resp, user);
+                setError(req, result.getMessage());
+                reloadForm(req, resp, buildTransientUser(userId, username, fullName, email, phone, roleId, active));
             }
         }
     }
@@ -304,7 +210,7 @@ public class UserManagementServlet extends BaseController {
     private void reloadForm(HttpServletRequest req, HttpServletResponse resp, User user)
             throws SQLException, ServletException, IOException {
         req.setAttribute("user", user);
-        req.setAttribute("roles", roleDAO.findAll());
+        req.setAttribute("roles", userService.findAllRoles());
         req.setAttribute("actionUrl", req.getContextPath() + "/admin/users/create");
 
         req.setAttribute("pageTitle", user.getUserId() > 0 ? "Cập nhật Người Dùng" : "Thêm Người Dùng Mới");
@@ -315,59 +221,23 @@ public class UserManagementServlet extends BaseController {
         req.getRequestDispatcher("/WEB-INF/views/layout/admin-layout.jsp").forward(req, resp);
     }
 
-    /**
-     * Password complexity checks:
-     * - Min 8 characters
-     * - Contains uppercase, lowercase, and digit
-     * - Contains at least one special char (!@#$%)
-     */
-    private boolean isValidPassword(String password) {
-        if (password == null || password.length() < 8) {
-            return false;
-        }
-        boolean hasUpper = password.matches(".*[A-Z].*");
-        boolean hasLower = password.matches(".*[a-z].*");
-        boolean hasDigit = password.matches(".*[0-9].*");
-        boolean hasSpecial = password.matches(".*[!@#$%].*");
-        return hasUpper && hasLower && hasDigit && hasSpecial;
-    }
+    private User buildTransientUser(int userId, String username, String fullName,
+                                    String email, String phone, int roleId, boolean active) {
+        String roleName = "WAREHOUSE_STAFF";
+        try {
+            var role = userService.findRoleById(roleId);
+            if (role != null) roleName = role.getRoleName();
+        } catch (SQLException ignored) {}
 
-    /**
-     * Generates a cryptographically strong 10-character password conforming to complexity requirements:
-     * - Minimum 8 characters (10 characters generated)
-     * - Contains at least 1 uppercase letter
-     * - Contains at least 1 lowercase letter
-     * - Contains at least 1 numeric digit (0-9)
-     * - Contains at least 1 special character from [!@#$%]
-     */
-    private String generateRandomPassword() {
-        String upper = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
-        String lower = "abcdefghijklmnopqrstuvwxyz";
-        String digits = "0123456789";
-        String special = "!@#$%";
-        SecureRandom random = new SecureRandom();
-        
-        StringBuilder sb = new StringBuilder();
-        // Force inclusion of at least one character from each class
-        sb.append(upper.charAt(random.nextInt(upper.length())));
-        sb.append(lower.charAt(random.nextInt(lower.length())));
-        sb.append(digits.charAt(random.nextInt(digits.length())));
-        sb.append(special.charAt(random.nextInt(special.length())));
-        
-        // Fill the remaining 6 characters from a combined pool
-        String pool = upper + lower + digits + special;
-        for (int i = 0; i < 6; i++) {
-            sb.append(pool.charAt(random.nextInt(pool.length())));
-        }
-        
-        // Shuffle the buffer cryptographically to eliminate deterministic order
-        char[] chars = sb.toString().toCharArray();
-        for (int i = chars.length - 1; i > 0; i--) {
-            int j = random.nextInt(i + 1);
-            char temp = chars[i];
-            chars[i] = chars[j];
-            chars[j] = temp;
-        }
-        return new String(chars);
+        User user = new User();
+        user.setUserId(userId);
+        user.setUsername(username);
+        user.setFullName(fullName);
+        user.setEmail(email);
+        user.setPhone(phone);
+        user.setRoleId(roleId);
+        user.setRole(roleName);
+        user.setActive(active);
+        return user;
     }
 }

@@ -57,6 +57,8 @@ public class WarehouseMasterSKUServlet extends BaseController {
             handleCreate(req, resp);
         } else if ("edit".equals(action)) {
             handleEdit(req, resp);
+        } else if ("delete".equals(action)) {
+            handleDelete(req, resp);
         } else {
             setFlashError(req, "Hành động không hợp lệ: " + action);
             redirect(resp, CONTEXT_PATH);
@@ -154,6 +156,13 @@ public class WarehouseMasterSKUServlet extends BaseController {
             return;
         }
 
+        // Enforce restriction: Only edit when PENDING
+        if (!Product.STATUS_PENDING.equals(existing.getStatus())) {
+            setFlashError(req, "Chỉ cho phép chỉnh sửa sản phẩm ở trạng thái Chờ duyệt.");
+            redirect(resp, CONTEXT_PATH);
+            return;
+        }
+
         // Apply editable fields
         if (!isNullOrEmpty(productName)) {
             existing.setProductName(productName.trim());
@@ -176,6 +185,50 @@ public class WarehouseMasterSKUServlet extends BaseController {
             setFlashSuccess(req, "Đã cập nhật SKU " + existing.getSkuCode() + " thành công!");
         } else {
             setFlashError(req, "Không thể cập nhật SKU. Vui lòng thử lại.");
+        }
+
+        redirect(resp, CONTEXT_PATH);
+    }
+
+    // ── Delete a pending product SKU ─────────────────────────────────────────
+
+    private void handleDelete(HttpServletRequest req, HttpServletResponse resp) throws IOException {
+        String productIdStr = req.getParameter("productId");
+
+        if (isNullOrEmpty(productIdStr)) {
+            setFlashError(req, "Thiếu ID sản phẩm cần xóa.");
+            redirect(resp, CONTEXT_PATH);
+            return;
+        }
+
+        int productId;
+        try {
+            productId = Integer.parseInt(productIdStr.trim());
+        } catch (NumberFormatException e) {
+            setFlashError(req, "ID sản phẩm không hợp lệ.");
+            redirect(resp, CONTEXT_PATH);
+            return;
+        }
+
+        Product existing = productDAO.findById(productId);
+        if (existing == null) {
+            setFlashError(req, "Không tìm thấy sản phẩm với ID: " + productId);
+            redirect(resp, CONTEXT_PATH);
+            return;
+        }
+
+        // Enforce restriction: Only delete when PENDING
+        if (!Product.STATUS_PENDING.equals(existing.getStatus())) {
+            setFlashError(req, "Chỉ cho phép xóa sản phẩm ở trạng thái Chờ duyệt.");
+            redirect(resp, CONTEXT_PATH);
+            return;
+        }
+
+        boolean deleted = productDAO.delete(productId);
+        if (deleted) {
+            setFlashSuccess(req, "Đã xóa thành công sản phẩm SKU " + existing.getSkuCode() + "!");
+        } else {
+            setFlashError(req, "Không thể xóa sản phẩm. Vui lòng thử lại.");
         }
 
         redirect(resp, CONTEXT_PATH);

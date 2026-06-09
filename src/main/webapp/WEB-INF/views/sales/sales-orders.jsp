@@ -1,6 +1,7 @@
 <%@ page language="java" contentType="text/html; charset=UTF-8" pageEncoding="UTF-8" isELIgnored="false" %>
     <%@ taglib prefix="c" uri="jakarta.tags.core" %>
         <%@ taglib prefix="fmt" uri="jakarta.tags.fmt" %>
+            <%@ taglib prefix="fn" uri="jakarta.tags.functions" %>
 
             <%-- ══════════════════════════════════════════════════════════════════ Sales Staff — Tất cả đơn hàng (Order
                 Management) JSP port of React: OrderManagement.tsx All logic is pure vanilla JS — no hardcoded data, no
@@ -1256,6 +1257,48 @@
                     /* Status config lookup (pure CSS) via data-status */
                 </style>
 
+                <script id="orders-seed-data" type="application/json">[
+                    <c:forEach var="order" items="${orderList}" varStatus="status">
+                        <c:set var="totalQty" value="0" />
+                        <c:forEach var="item" items="${order.items}">
+                            <c:set var="totalQty" value="${totalQty + item.quantity}" />
+                        </c:forEach>
+                        {
+                            "id": "${order.orderCode}",
+                            "channel": "${order.channel == 'ONLINE' ? 'Lazada' : order.channel}",
+                            "customerName": "Khách hàng #${order.customerId != null ? order.customerId : 'N/A'}",
+                            "customerPhone": "090xxxxxxx",
+                            "totalItems": ${totalQty},
+                            "totalAmount": ${order.totalAmount},
+                            "status": "${order.status == 'PENDING' ? 'pending_review' : (order.status == 'CONFIRMED' ? 'confirmed' : (order.status == 'PACKING' ? 'packing' : (order.status == 'PACKED' ? 'packed' : (order.status == 'SHIPPED' ? 'shipping' : (order.status == 'DELIVERED' ? 'delivered' : (order.status == 'COMPLETED' ? 'completed' : (order.status == 'RETURNED' ? 'returned' : (order.status == 'DISPUTED' ? 'disputed' : (order.status == 'DISPUTE_SUCCESS' ? 'dispute_success' : (order.status == 'CANCELLED' ? 'cancelled' : order.status.toLowerCase()))))))))))}",
+                            "warehouse": "${order.warehouseName != null ? order.warehouseName : 'Chưa chỉ định kho'}",
+                            "trackingNo": "${order.trackingNo != null ? order.trackingNo : ''}",
+                            "reviewNote": "${order.reviewNote != null ? order.reviewNote : ''}",
+                            "rmaReason": "${order.rmaReason != null ? order.rmaReason : ''}",
+                            "rmaPhysicalStatus": "${order.rmaPhysicalStatus != null ? order.rmaPhysicalStatus : ''}",
+                            "rmaPlatformStatus": "${order.rmaPlatformStatus != null ? order.rmaPlatformStatus : ''}",
+                            "disputeEvidenceVideo": "${order.disputeEvidenceVideo != null ? order.disputeEvidenceVideo : ''}",
+                            "disputeNote": "${order.disputeNote != null ? order.disputeNote : ''}",
+                            "createdAt": "${order.createdAt}",
+                            "items": [
+                                <c:forEach var="item" items="${order.items}" varStatus="itemStatus">
+                                    <%
+                                    com.wms.model.OrderItem it = (com.wms.model.OrderItem) pageContext.getAttribute("item");
+                                    String escName = it.getProductName() != null ? it.getProductName().replace("\\", "\\\\").replace("\"", "\\\"").replace("\n", "\\n").replace("\r", "") : "";
+                                    String escSku = it.getSkuCode() != null ? it.getSkuCode().replace("\\", "\\\\").replace("\"", "\\\"") : "";
+                                    %>
+                                    {
+                                        "sku": "<%= escSku %>",
+                                        "name": "<%= escName %>",
+                                        "quantity": ${item.quantity},
+                                        "price": ${item.unitPrice}
+                                    }${!itemStatus.last ? ',' : ''}
+                                </c:forEach>
+                            ]
+                        }${!status.last ? ',' : ''}
+                    </c:forEach>
+                ]</script>
+
                 <%-- ── STATUS CONFIG DATA (mirroring React STATUS_CONFIG) ─────── --%>
                     <script>
                         const STATUS_CONFIG = {
@@ -1335,48 +1378,8 @@
                             }
                         }
 
-                        // ── App State ───────────────────────────────────────────────────────
-                        let allOrders = [
-                            <c:forEach var="order" items="${orderList}" varStatus="status">
-                                <c:set var="totalQty" value="0" />
-                                <c:forEach var="item" items="${order.items}">
-                                    <c:set var="totalQty" value="${totalQty + item.quantity}" />
-                                </c:forEach>
-                                {
-                                    id: "${order.orderCode}",
-                                channel: "${order.channel == 'ONLINE' ? 'Lazada' : order.channel}",
-                                customerName: "Khách hàng #${order.customerId != null ? order.customerId : 'N/A'}",
-                                customerPhone: "090xxxxxxx",
-                                totalItems: ${totalQty},
-                                totalAmount: ${order.totalAmount},
-                                status: "${order.status == 'PENDING' ? 'pending_review' : (order.status == 'CONFIRMED' ? 'confirmed' : (order.status == 'PACKING' ? 'packing' : (order.status == 'PACKED' ? 'packed' : (order.status == 'SHIPPED' ? 'shipping' : (order.status == 'DELIVERED' ? 'delivered' : (order.status == 'COMPLETED' ? 'completed' : (order.status == 'RETURNED' ? 'returned' : (order.status == 'DISPUTED' ? 'disputed' : (order.status == 'DISPUTE_SUCCESS' ? 'dispute_success' : (order.status == 'CANCELLED' ? 'cancelled' : order.status.toLowerCase()))))))))))}",
-                                warehouse: "${order.warehouseName != null ? order.warehouseName : 'Chưa chỉ định kho'}",
-                                trackingNo: "${order.trackingNo != null ? order.trackingNo : ''}",
-                                reviewNote: "${order.reviewNote != null ? order.reviewNote : ''}",
-                                rmaReason: "${order.rmaReason != null ? order.rmaReason : ''}",
-                                rmaPhysicalStatus: "${order.rmaPhysicalStatus != null ? order.rmaPhysicalStatus : ''}",
-                                rmaPlatformStatus: "${order.rmaPlatformStatus != null ? order.rmaPlatformStatus : ''}",
-                                disputeEvidenceVideo: "${order.disputeEvidenceVideo != null ? order.disputeEvidenceVideo : ''}",
-                                disputeNote: "${order.disputeNote != null ? order.disputeNote : ''}",
-                                createdAt: "${order.createdAt}",
-                                items: [
-                                <c:forEach var="item" items="${order.items}" varStatus="itemStatus">
-                                    <%
-                                    com.wms.model.OrderItem it = (com.wms.model.OrderItem) pageContext.getAttribute("item");
-                                    String escName = it.getProductName() != null ? it.getProductName().replace("\\", "\\\\").replace("\"", "\\\"").replace("\n", "\\n").replace("\r", "") : "";
-                                    String escSku = it.getSkuCode() != null ? it.getSkuCode().replace("\\", "\\\\").replace("\"", "\\\"") : "";
-            %>
-                                    {
-                                        sku: "<%= escSku %>",
-                                    name: "<%= escName %>",
-                                    quantity: ${item.quantity},
-                                    price: ${item.unitPrice}
-            }${!itemStatus.last ? ',' : ''}
-                                </c:forEach>
-                                ]
-    }${!status.last ? ',' : ''}
-                            </c:forEach>
-                        ];
+                        const ordersSeedEl = document.getElementById("orders-seed-data");
+                        let allOrders = ordersSeedEl ? JSON.parse(ordersSeedEl.textContent || "[]") : [];
                         let activeTab = "all";
                         let selectedChannel = "all";
                         let selectedStatus = "all";
@@ -1583,6 +1586,9 @@
                             let productsHtml = items.map(item => {
                                 const lineTotal = (item.price || 0) * (item.quantity || 0);
                                 const isAllocated = o.qtyAllocated;
+                                const allocationBadge = isAllocated
+                                    ? '<span class="om-badge-allocated"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12" /></svg>Đã giữ kho: ' + escHtml(o.warehouse || '') + '</span>'
+                                    : '<span class="om-badge-stock-ok"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10" /><line x1="12" y1="8" x2="12" y2="12" /><line x1="12" y1="16" x2="12.01" y2="16" /></svg>Chờ phân bổ kho</span>';
                                 // Physical row (simplified since we don't have mapping data in pure frontend)
                                 const physHtml = `
             <div style="margin-top:0.75rem;padding-top:0.625rem;border-top:1px dashed #E5EAF3;padding-left:1rem">
@@ -1600,10 +1606,7 @@
                     </div>
                     <div class="om-physical-right">
                         <div class="om-qty-req">SL yêu cầu: <strong>x\${item.quantity||0}</strong></div>
-                        \${isAllocated
-                            ? `< span class="om-badge-allocated" > <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12" /></svg>Đã giữ kho: \${ escHtml(o.warehouse || '') }</span > `
-                            : `< span class="om-badge-stock-ok" > <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10" /><line x1="12" y1="8" x2="12" y2="12" /><line x1="12" y1="16" x2="12.01" y2="16" /></svg>Chờ phân bổ kho</span > `
-                        }
+                        \${allocationBadge}
                     </div>
                 </div>
             </div>`;
@@ -1656,14 +1659,13 @@
                     const hcmStock = getWarehouseStock(phy.sku, "Kho TP.HCM");
                     const dnStock = getWarehouseStock(phy.sku, "Kho Đà Nẵng");
                     const total = hnStock + hcmStock + dnStock;
-                    
-                    return `< tr >
-                        <td class="sku-cell">\${escHtml(phy.sku||'')}</td>
-                        <td class="total-cell" style="text-align:right; font-weight:800; color:var(--navy);">\${total}</td>
-                        <td class="\${hnStock >= phy.quantity ? 'ok-cell' : 'dim-cell'}" style="text-align:right">\${hnStock}</td>
-                        <td class="\${hcmStock >= phy.quantity ? 'ok-cell' : 'dim-cell'}" style="text-align:right">\${hcmStock}</td>
-                        <td class="\${dnStock >= phy.quantity ? 'ok-cell' : 'dim-cell'}" style="text-align:right">\${dnStock}</td>
-                    </tr > `;
+                    return '<tr>'
+                        + '<td class="sku-cell">' + escHtml(phy.sku || '') + '</td>'
+                        + '<td class="total-cell" style="text-align:right; font-weight:800; color:var(--navy);">' + total + '</td>'
+                        + '<td class="' + (hnStock >= phy.quantity ? 'ok-cell' : 'dim-cell') + '" style="text-align:right">' + hnStock + '</td>'
+                        + '<td class="' + (hcmStock >= phy.quantity ? 'ok-cell' : 'dim-cell') + '" style="text-align:right">' + hcmStock + '</td>'
+                        + '<td class="' + (dnStock >= phy.quantity ? 'ok-cell' : 'dim-cell') + '" style="text-align:right">' + dnStock + '</td>'
+                        + '</tr>';
                 }).join("")}
             </tbody>
         </table>
@@ -2171,8 +2173,20 @@
                                                                 <div class="om-tracking">LHD-${order.orderCode}</div>
                                                             </td>
                                                             <td>
-                                                                <span class="om-channel-badge"
-                                                                    style="background:${order.channel == 'Shopee' ? '#EE4D2D' : (order.channel == 'TikTok' ? '#69C9D0' : (order.channel == 'Website' ? '#EB8317' : '#0F146D'))}">
+                                                                <c:choose>
+                                                                    <c:when test="${order.channel == 'Shopee'}">
+                                                                        <span class="om-channel-badge" style="background:#EE4D2D;">
+                                                                    </c:when>
+                                                                    <c:when test="${order.channel == 'TikTok'}">
+                                                                        <span class="om-channel-badge" style="background:#69C9D0;">
+                                                                    </c:when>
+                                                                    <c:when test="${order.channel == 'Website'}">
+                                                                        <span class="om-channel-badge" style="background:#EB8317;">
+                                                                    </c:when>
+                                                                    <c:otherwise>
+                                                                        <span class="om-channel-badge" style="background:#0F146D;">
+                                                                    </c:otherwise>
+                                                                </c:choose>
                                                                     <svg xmlns="http://www.w3.org/2000/svg"
                                                                         viewBox="0 0 24 24" fill="none"
                                                                         stroke="currentColor" stroke-width="2">
@@ -2181,8 +2195,10 @@
                                                                         <path
                                                                             d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z" />
                                                                     </svg>
-                                                                    ${order.channel == 'ONLINE' ? 'Lazada' :
-                                                                    order.channel}
+                                                                    <c:choose>
+                                                                        <c:when test="${order.channel == 'ONLINE'}">Lazada</c:when>
+                                                                        <c:otherwise>${order.channel}</c:otherwise>
+                                                                    </c:choose>
                                                                 </span>
                                                             </td>
                                                             <td>

@@ -1487,6 +1487,9 @@ function renderAll() {
             '</div>';
         } else {
             approvalHtml = '<span class="pill-badge ' + acClass + '">' + acLabel + '</span>';
+            if (item.approvalStatus === 'rejected' && item.reviewNote) {
+                approvalHtml += '<div class="review-note" title="' + item.reviewNote + '" style="font-size: 11px; color: #dc2626; margin-top: 4px; max-width: 120px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-align: center;">Lý do: ' + item.reviewNote + '</div>';
+            }
         }
 
         var rowClass = idx % 2 === 0 ? '' : 'style="background:rgba(240, 244, 250, 0.25)"';

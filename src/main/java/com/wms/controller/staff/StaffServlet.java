@@ -1,10 +1,10 @@
 package com.wms.controller.staff;
 
 import com.wms.controller.BaseController;
-import com.wms.dao.UserDAO;
-import com.wms.dao.WarehouseDAO;
 import com.wms.model.User;
 import com.wms.model.Warehouse;
+import com.wms.service.user.UserService;
+
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
@@ -12,7 +12,6 @@ import java.io.IOException;
 import java.sql.SQLException;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 import java.util.stream.Collectors;
 
 import com.wms.util.AppConstants;
@@ -24,16 +23,15 @@ import com.wms.util.AppConstants;
  */
 public class StaffServlet extends BaseController {
 
-    private final UserDAO userDAO = new UserDAO();
-    private final WarehouseDAO warehouseDAO = new WarehouseDAO();
+    private final UserService userService = new UserService();
 
     @Override
     protected void doGet(HttpServletRequest req, HttpServletResponse resp)
             throws ServletException, IOException {
 
         try {
-            List<User> staffList = userDAO.findByRoles("MANAGER", "SALES_STAFF", "WAREHOUSE_STAFF");
-            List<Warehouse> warehouses = warehouseDAO.findAll();
+            List<User> staffList = userService.findByRoles("MANAGER", "SALES_STAFF", "WAREHOUSE_STAFF");
+            List<Warehouse> warehouses = findWarehouses();
 
             Map<Integer, String> warehouseMap = warehouses.stream()
                 .collect(Collectors.toMap(Warehouse::getWarehouseId, Warehouse::getWarehouseName, (v1, v2) -> v1));
@@ -53,13 +51,10 @@ public class StaffServlet extends BaseController {
                 json.append("\"fullName\":\"").append(escapeJson(u.getFullName())).append("\",");
                 json.append("\"email\":\"").append(escapeJson(u.getEmail() != null ? u.getEmail() : "")).append("\",");
                 json.append("\"phone\":\"").append(escapeJson(u.getPhone() != null ? u.getPhone() : "")).append("\",");
-                
-                String roleJs = roleToJsFormat(u.getRole());
-                json.append("\"role\":\"").append(roleJs).append("\",");
+                json.append("\"role\":\"").append(roleToJsFormat(u.getRole())).append("\",");
                 json.append("\"status\":\"").append(u.isActive() ? "active" : "inactive").append("\",");
-                
                 String branchName = "";
-                if ("warehouse_staff".equals(roleJs)) {
+                if ("warehouse_staff".equals(roleToJsFormat(u.getRole()))) {
                     branchName = warehouseMap.getOrDefault(u.getWarehouseId(), "Chưa gán kho");
                 }
                 json.append("\"warehouseId\":").append(u.getWarehouseId()).append(",");
@@ -96,29 +91,17 @@ public class StaffServlet extends BaseController {
             int userId = Integer.parseInt(userIdStr);
             boolean active = Boolean.parseBoolean(activeStr);
 
-            String dbRole;
-            switch (roleStr) {
-                case "business_manager":
-                    dbRole = "MANAGER";
-                    break;
-                case "sales_staff":
-                    dbRole = "SALES_STAFF";
-                    break;
-                case "warehouse_staff":
-                    dbRole = "WAREHOUSE_STAFF";
-                    break;
-                default:
-                    writeJson(resp, "{\"success\":false,\"message\":\"Vai trò không hợp lệ.\"}");
-                    return;
+            String dbRole = mapFrontendRoleToDb(roleStr);
+            if (dbRole == null) {
+                writeJson(resp, "{\"success\":false,\"message\":\"Vai trò không hợp lệ.\"}");
+                return;
             }
 
-            Optional<User> userOpt = userDAO.findById(userId);
+            var userOpt = userService.findById(userId);
             if (userOpt.isEmpty()) {
                 writeJson(resp, "{\"success\":false,\"message\":\"Không tìm thấy nhân viên.\"}");
                 return;
             }
-
-            User user = userOpt.get();
 
             User loggedInUser = (User) req.getSession().getAttribute(AppConstants.SESSION_USER);
             if (loggedInUser != null && loggedInUser.getUserId() == userId) {
@@ -126,6 +109,7 @@ public class StaffServlet extends BaseController {
                 return;
             }
 
+            User user = userOpt.get();
             user.setRole(dbRole);
             user.setActive(active);
             if ("WAREHOUSE_STAFF".equals(dbRole)) {
@@ -138,7 +122,7 @@ public class StaffServlet extends BaseController {
                 user.setWarehouseId(0);
             }
 
-            boolean updated = userDAO.update(user);
+            boolean updated = userService.updateUserFull(user);
             if (updated) {
                 writeJson(resp, "{\"success\":true}");
             } else {
@@ -148,6 +132,15 @@ public class StaffServlet extends BaseController {
             writeJson(resp, "{\"success\":false,\"message\":\"Định dạng ID người dùng không hợp lệ.\"}");
         } catch (SQLException e) {
             writeJson(resp, "{\"success\":false,\"message\":\"Lỗi cơ sở dữ liệu: " + e.getMessage() + "\"}");
+        }
+    }
+
+    private String mapFrontendRoleToDb(String roleStr) {
+        switch (roleStr) {
+            case "business_manager": return "MANAGER";
+            case "sales_staff": return "SALES_STAFF";
+            case "warehouse_staff": return "WAREHOUSE_STAFF";
+            default: return null;
         }
     }
 
@@ -170,5 +163,13 @@ public class StaffServlet extends BaseController {
                 .replace("\n", "\\n")
                 .replace("\r", "\\r")
                 .replace("\t", "\\t");
+    }
+
+    private List<Warehouse> findWarehouses() {
+        try {
+            return new com.wms.service.warehouse.WarehouseService().findAll();
+        } catch (SQLException e) {
+            return List.of();
+        }
     }
 }

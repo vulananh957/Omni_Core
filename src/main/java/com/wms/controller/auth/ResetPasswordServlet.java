@@ -3,6 +3,7 @@ package com.wms.controller.auth;
 import com.wms.controller.BaseController;
 import com.wms.dao.UserDAO;
 import com.wms.model.User;
+import com.wms.service.auth.EmailService;
 import com.wms.util.AppConstants;
 
 import jakarta.servlet.ServletException;
@@ -199,7 +200,7 @@ public class ResetPasswordServlet extends BaseController {
             }
 
             // Send new OTP
-            com.wms.service.EmailService emailService = new com.wms.service.EmailService();
+            EmailService emailService = new EmailService();
             String newOtp = generate6DigitOtp();
             long expiresAt = now + TimeUnit.MINUTES.toMillis(AppConstants.OTP_EXPIRY_MINUTES);
 

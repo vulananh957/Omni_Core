@@ -1,4 +1,4 @@
-package com.wms.service;
+package com.wms.service.auth;
 
 import com.wms.model.User;
 import jakarta.mail.Authenticator;

@@ -5,6 +5,7 @@ import com.wms.dao.ChannelDAO;
 import com.wms.dao.ChannelProductDAO;
 import com.wms.dao.SkuMappingDAO;
 import com.wms.model.Channel;
+import com.wms.model.Product;
 import com.wms.model.SkuMapping;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -35,6 +36,9 @@ public class SalesSKUMappingServlet extends BaseController {
 
         List<Channel> channels = channelDAO.findAll();
         req.setAttribute("channels", channels);
+
+        List<Product> products = skuMappingDAO.findAllSkus();
+        req.setAttribute("products", products);
 
         req.setAttribute("pageTitle",    "Trung Tâm Ánh Xạ SKU Đa Sàn");
         req.setAttribute("pageSubtitle", "Kết nối Master SKU nội bộ kho hàng với Channel SKU trên các sàn TMĐT");

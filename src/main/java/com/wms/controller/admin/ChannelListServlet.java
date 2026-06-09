@@ -1,8 +1,9 @@
 package com.wms.controller.admin;
 
 import com.wms.controller.BaseController;
-import com.wms.dao.ChannelDAO;
 import com.wms.model.Channel;
+import com.wms.service.sales.ChannelService;
+
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
@@ -22,7 +23,7 @@ import java.util.List;
  */
 public class ChannelListServlet extends BaseController {
 
-    private final ChannelDAO channelDAO = new ChannelDAO();
+    private final ChannelService channelService = new ChannelService();
 
     @Override
     protected void doGet(HttpServletRequest req, HttpServletResponse resp)
@@ -30,38 +31,36 @@ public class ChannelListServlet extends BaseController {
 
         String pathInfo = req.getPathInfo();
 
-        // DELETE action
         if (pathInfo != null && pathInfo.startsWith("/delete/")) {
             handleDelete(req, resp, pathInfo);
             return;
         }
 
-        // OAUTH RE-AUTHORIZE action
         if (pathInfo != null && pathInfo.startsWith("/authorize/")) {
             handleAuthorizeRedirect(req, resp, pathInfo);
             return;
         }
 
-        // EDIT action — forward to channel-create form
         if (pathInfo != null && pathInfo.startsWith("/edit/")) {
             handleEditForm(req, resp, pathInfo);
             return;
         }
 
-        // LIST action — with optional keyword search
         handleList(req, resp);
     }
-
-    // ========================================================================
-    // LIST — server-side keyword search via DAO
-    // ========================================================================
 
     private void handleList(HttpServletRequest req, HttpServletResponse resp)
             throws ServletException, IOException {
         String keyword = req.getParameter("keyword");
-        List<Channel> channels = channelDAO.findAll(keyword);
-        req.setAttribute("channelsList", channels);
-        req.setAttribute("searchKeyword", keyword);
+        try {
+            List<Channel> channels = keyword != null
+                ? channelService.findAll(keyword)
+                : channelService.findAll();
+            req.setAttribute("channelsList", channels);
+            req.setAttribute("searchKeyword", keyword);
+        } catch (Exception e) {
+            req.setAttribute("channelsList", List.of());
+        }
 
         req.setAttribute("pageTitle", "Cấu hình Kênh Kết Nối");
         req.setAttribute("pageSubtitle", "Quản lý danh sách các kênh thương mại điện tử đa kênh Lazada, Shopee, TikTok Shop");
@@ -71,10 +70,6 @@ public class ChannelListServlet extends BaseController {
         req.getRequestDispatcher("/WEB-INF/views/layout/admin-layout.jsp").forward(req, resp);
     }
 
-    // ========================================================================
-    // EDIT form — load channel by id and forward to channel-create.jsp
-    // ========================================================================
-
     private void handleEditForm(HttpServletRequest req, HttpServletResponse resp, String pathInfo)
             throws ServletException, IOException {
         int channelId = parseChannelId(pathInfo);
@@ -83,7 +78,13 @@ public class ChannelListServlet extends BaseController {
             return;
         }
 
-        Channel channel = channelDAO.findById(channelId);
+        Channel channel;
+        try {
+            channel = channelService.findById(channelId);
+        } catch (Exception e) {
+            channel = null;
+        }
+
         if (channel == null) {
             resp.sendRedirect(req.getContextPath() + "/admin/channels?status=error&message=channel_not_found");
             return;
@@ -91,7 +92,6 @@ public class ChannelListServlet extends BaseController {
 
         req.setAttribute("channel", channel);
         req.setAttribute("isEditMode", true);
-
         req.setAttribute("pageTitle", "Chỉnh sửa Kênh Kết Nối");
         req.setAttribute("pageSubtitle", "Cập nhật cấu hình kênh: " + channel.getChannelName());
         req.setAttribute("currentPage", "admin-channels");
@@ -99,10 +99,6 @@ public class ChannelListServlet extends BaseController {
         req.setAttribute("contentPage", "/WEB-INF/views/admin/channel-create.jsp");
         req.getRequestDispatcher("/WEB-INF/views/layout/admin-layout.jsp").forward(req, resp);
     }
-
-    // ========================================================================
-    // DELETE
-    // ========================================================================
 
     private void handleDelete(HttpServletRequest req, HttpServletResponse resp, String pathInfo)
             throws IOException {
@@ -112,26 +108,25 @@ public class ChannelListServlet extends BaseController {
             return;
         }
 
-        Channel channel = channelDAO.findById(channelId);
+        Channel channel;
+        try {
+            channel = channelService.findById(channelId);
+        } catch (Exception e) {
+            channel = null;
+        }
+
         if (channel == null) {
             resp.sendRedirect(req.getContextPath() + "/admin/channels?status=error&message=channel_not_found");
             return;
         }
 
-        // Re-fetch with id set so DAO can delete
-        channel.setChannelId(channelId);
-        boolean deleted = channelDAO.delete(channelId);
-
-        if (deleted) {
-            resp.sendRedirect(req.getContextPath() + "/admin/channels?status=deleted");
-        } else {
+        try {
+            boolean deleted = channelService.deleteChannel(channelId);
+            resp.sendRedirect(req.getContextPath() + "/admin/channels?status=" + (deleted ? "deleted" : "error&message=delete_failed"));
+        } catch (Exception e) {
             resp.sendRedirect(req.getContextPath() + "/admin/channels?status=error&message=delete_failed");
         }
     }
-
-    // ========================================================================
-    // POST — delete via form submission
-    // ========================================================================
 
     @Override
     protected void doPost(HttpServletRequest req, HttpServletResponse resp)
@@ -143,10 +138,6 @@ public class ChannelListServlet extends BaseController {
             resp.sendRedirect(req.getContextPath() + "/admin/channels?status=error&message=invalid_action");
         }
     }
-
-    // ========================================================================
-    // DELETE (POST handler)
-    // ========================================================================
 
     private void handleDelete(HttpServletRequest req, HttpServletResponse resp)
             throws IOException {
@@ -165,17 +156,13 @@ public class ChannelListServlet extends BaseController {
             return;
         }
 
-        boolean deleted = channelDAO.delete(channelId);
-        if (deleted) {
-            resp.sendRedirect(req.getContextPath() + "/admin/channels?status=deleted");
-        } else {
+        try {
+            boolean deleted = channelService.deleteChannel(channelId);
+            resp.sendRedirect(req.getContextPath() + "/admin/channels?status=" + (deleted ? "deleted" : "error&message=delete_failed"));
+        } catch (Exception e) {
             resp.sendRedirect(req.getContextPath() + "/admin/channels?status=error&message=delete_failed");
         }
     }
-
-    // ========================================================================
-    // OAUTH RE-AUTHORIZE — store channelId in session and redirect to Lazada
-    // ========================================================================
 
     private void handleAuthorizeRedirect(HttpServletRequest req, HttpServletResponse resp, String pathInfo)
             throws IOException {
@@ -185,7 +172,13 @@ public class ChannelListServlet extends BaseController {
             return;
         }
 
-        Channel channel = channelDAO.findById(channelId);
+        Channel channel;
+        try {
+            channel = channelService.findById(channelId);
+        } catch (Exception e) {
+            channel = null;
+        }
+
         if (channel == null) {
             resp.sendRedirect(req.getContextPath() + "/admin/channels?status=error&message=channel_not_found");
             return;
@@ -194,9 +187,10 @@ public class ChannelListServlet extends BaseController {
         HttpSession session = req.getSession(true);
         session.setAttribute("pending_channel_id", String.valueOf(channelId));
 
-        String redirectUri;
-        String ngrokUrl = getNgrokPublicUrl();
+        String ngrokUrl = channelService.getNgrokPublicUrl();
         String contextPath = req.getContextPath();
+
+        String redirectUri;
         if (ngrokUrl != null) {
             if (ngrokUrl.endsWith("/")) {
                 ngrokUrl = ngrokUrl.substring(0, ngrokUrl.length() - 1);
@@ -207,7 +201,6 @@ public class ChannelListServlet extends BaseController {
             if (scheme == null || scheme.trim().isEmpty()) {
                 scheme = req.getScheme();
             }
-
             String host = req.getHeader("X-Forwarded-Host");
             if (host == null || host.trim().isEmpty()) {
                 String serverName = req.getServerName();
@@ -227,45 +220,6 @@ public class ChannelListServlet extends BaseController {
                 + "&client_id=" + channel.getApiKey();
 
         resp.sendRedirect(oauthUrl);
-    }
-
-    // ========================================================================
-    // Helpers
-    // ========================================================================
-
-    private String getNgrokPublicUrl() {
-        try {
-            java.net.URL url = new java.net.URL("http://localhost:4040/api/tunnels");
-            java.net.HttpURLConnection conn = (java.net.HttpURLConnection) url.openConnection();
-            conn.setRequestMethod("GET");
-            conn.setConnectTimeout(1000);
-            conn.setReadTimeout(1000);
-            if (conn.getResponseCode() == 200) {
-                java.io.BufferedReader in = new java.io.BufferedReader(
-                        new java.io.InputStreamReader(conn.getInputStream(), java.nio.charset.StandardCharsets.UTF_8));
-                StringBuilder content = new StringBuilder();
-                String line;
-                while ((line = in.readLine()) != null) {
-                    content.append(line);
-                }
-                in.close();
-                String json = content.toString();
-                com.fasterxml.jackson.databind.ObjectMapper mapper = new com.fasterxml.jackson.databind.ObjectMapper();
-                com.fasterxml.jackson.databind.JsonNode root = mapper.readTree(json);
-                com.fasterxml.jackson.databind.JsonNode tunnelsNode = root.path("tunnels");
-                if (tunnelsNode.isArray() && tunnelsNode.size() > 0) {
-                    for (com.fasterxml.jackson.databind.JsonNode tunnel : tunnelsNode) {
-                        String publicUrl = tunnel.path("public_url").asText();
-                        if (publicUrl != null && (publicUrl.startsWith("https://") || publicUrl.startsWith("http://"))) {
-                            return publicUrl;
-                        }
-                    }
-                }
-            }
-        } catch (Exception e) {
-            // Ignore, ngrok not running or failed to fetch
-        }
-        return null;
     }
 
     private int parseChannelId(String pathInfo) {

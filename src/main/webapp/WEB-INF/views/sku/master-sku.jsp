@@ -749,7 +749,42 @@
     .form-textarea:focus {
         border-color: rgba(16, 55, 92, 0.40);
     }
+
+    /* ─── Toast Notification CSS ─── */
+    .toast-notification {
+        position: fixed;
+        top: 24px;
+        right: 24px;
+        z-index: 9999;
+        background: #10B981;
+        color: #fff;
+        padding: 12px 24px;
+        border-radius: 8px;
+        box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+        display: none;
+        align-items: center;
+        gap: 8px;
+        font-weight: 500;
+        transition: all 0.3s ease-in-out;
+    }
+    .toast-notification.show {
+        display: flex;
+        animation: toastSlideIn 0.3s forwards;
+    }
+    .toast-notification.error {
+        background: #EF4444;
+    }
+    @keyframes toastSlideIn {
+        from { transform: translateY(-20px); opacity: 0; }
+        to { transform: translateY(0); opacity: 1; }
+    }
 </style>
+
+<!-- Toast Notification Element -->
+<div id="skuToast" class="toast-notification">
+    <span id="skuToastIcon">✓</span>
+    <span id="skuToastMsg">Cập nhật thành công!</span>
+</div>
 
 <!-- ══ TABS FILTER SECTION ════════════════════════════════════ -->
 <div class="tabs-wrap">
@@ -907,6 +942,35 @@ window.WMS_USER = {
     fullName: "${not empty loggedInUser.fullName ? loggedInUser.fullName : 'Guest'}",
     role: "${not empty loggedInUser.role ? loggedInUser.role : 'Guest'}"
 };
+
+function showToast(message, isError) {
+    var toast = document.getElementById("skuToast");
+    var msgSpan = document.getElementById("skuToastMsg");
+    var iconSpan = document.getElementById("skuToastIcon");
+    if (!toast || !msgSpan || !iconSpan) return;
+
+    msgSpan.textContent = message;
+    iconSpan.textContent = isError ? "✕" : "✓";
+    toast.className = "toast-notification show";
+    if (isError) {
+        toast.classList.add("error");
+    }
+
+    setTimeout(function() {
+        toast.classList.remove("show");
+    }, 4000);
+}
+
+// Check for flash messages from Servlet
+(function() {
+    var errorMsg = "${errorMessage}";
+    var successMsg = "${successMessage}";
+    if (errorMsg && errorMsg.trim() !== "" && errorMsg.indexOf('errorMessage') === -1) {
+        showToast(errorMsg, true);
+    } else if (successMsg && successMsg.trim() !== "" && successMsg.indexOf('successMessage') === -1) {
+        showToast(successMsg, false);
+    }
+})();
 
 function submitPostAction(action, params) {
     var form = document.createElement('form');

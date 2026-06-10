@@ -104,8 +104,6 @@
     .toast.error   { border-left-color: #ef4444; }
     .toast__icon { width: 18px; height: 18px; flex-shrink: 0; }
     @keyframes slideInToast { from { transform: translateX(100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
-
-<style>
     /* ─── Tabs & Layout ─── */
     .tabs-wrap {
         display: flex;
@@ -1107,12 +1105,6 @@
     </div>
     </c:if>
 
-    <!-- ══ EXISTING LOCAL-STORAGE SECTION ══════════════════════════════ -->
-    <!-- Toolbar -->
-    <div style="margin-bottom:16px; padding-bottom:16px; border-bottom:1px dashed var(--border);">
-        <div style="font-size:13px; font-weight:700; color:rgba(16,55,92,0.40); text-transform:uppercase; letter-spacing:.05em; margin-bottom:8px;">Local Demo</div>
-        <div style="font-size:12px; color:rgba(16,55,92,0.30);">Dữ liệu phiếu nhập demo sử dụng localStorage — dùng bảng Database phía trên để làm việc thực tế.</div>
-    </div>
     <div class="toolbar">
         <div class="search-wrap">
             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"></svg>
@@ -1391,27 +1383,61 @@
     </div>
 </div>
 
-<script>
-window.WMS_USER = {
-    fullName: '<c:out value="${loggedInUser.fullName != null ? loggedInUser.fullName : 'Guest'}"/>',
-    role: '<c:out value="${loggedInUser.role != null ? loggedInUser.role : 'Guest'}"/>'
-};
+<script id="db-products-data" type="application/json"><c:out value="${productsJson}" escapeXml="true"/></script>
+<script id="db-page-flags-data" type="application/json">{"hasInboundList": ${not empty inboundList ? 'true' : 'false'}}</script>
+<script id="db-user-data" type="application/json">{"fullName":"<c:out value='${loggedInUser.fullName}'/>","role":"<c:out value='${loggedInUser.role}'/>"}</script>
+<script id="db-inbound-list-data" type="application/json">[
+<c:forEach items="${inboundList}" var="io" varStatus="s">{"inboundId":${io.inboundId},"inboundCode":"<c:out value='${io.inboundCode}'/>","supplierName":"<c:out value='${io.supplierName}'/>","warehouseName":"<c:out value='${io.warehouseName}'/>","status":"<c:out value='${io.status}'/>","createdAt":"<c:out value='${io.createdAt}'/>"}${!s.last ? ',' : ''}
+</c:forEach>]
+</script>
 
+<script>
 (function () {
 'use strict';
 
-// ─── STATE DATABASE INITIALIZER ───
+function safeJsonParse(rawValue, fallbackValue) {
+    if (!rawValue) {
+        return fallbackValue;
+    }
+    try {
+        return JSON.parse(rawValue);
+    } catch (error) {
+        return fallbackValue;
+    }
+}
+
+var WMS_USER_DATA = safeJsonParse(document.getElementById('db-user-data') && document.getElementById('db-user-data').textContent, {});
+var PAGE_FLAGS = safeJsonParse(document.getElementById('db-page-flags-data') && document.getElementById('db-page-flags-data').textContent, {});
+var DB_PRODUCTS = safeJsonParse(document.getElementById('db-products-data') && document.getElementById('db-products-data').textContent, []);
+
+window.WMS_USER = {
+    fullName: WMS_USER_DATA.fullName || 'Guest',
+    role: WMS_USER_DATA.role || 'Guest'
+};
+
 // Inbound Receipts
 var savedGRNs = localStorage.getItem('wh_inbound_grns');
-var grns = savedGRNs ? JSON.parse(savedGRNs) : [];
+var grns = safeJsonParse(savedGRNs, []);
 
 // Master SKUs
 var savedSKUs = localStorage.getItem('wms_skus');
-var skus = savedSKUs ? JSON.parse(savedSKUs) : [];
+var skus = safeJsonParse(savedSKUs, []);
+if ((!skus || skus.length === 0) && DB_PRODUCTS.length > 0) {
+    skus = DB_PRODUCTS.map(function(p) {
+        return {
+            id: p.id,
+            sku: p.sku,
+            name: p.name,
+            category: p.category || 'Chưa phân loại',
+            status: p.status || 'PENDING',
+            qtyOnHand: p.qtyOnHand || 0
+        };
+    });
+}
 
 // Pricing configuration
 var savedPricing = localStorage.getItem('wh_pricing_warehouse');
-var pricingRecords = savedPricing ? JSON.parse(savedPricing) : [];
+var pricingRecords = safeJsonParse(savedPricing, []);
 
 // If pricing is empty, initialize it from wms_skus
 if (pricingRecords.length === 0 && skus.length > 0) {
@@ -1465,9 +1491,11 @@ window.switchMainTab = function(tabId) {
 };
 
 function syncPricingWithSkus() {
-    // Sync current quantities from wms_skus to pricing records
-    var currentSKUs = JSON.parse(localStorage.getItem('wms_skus') || '[]');
-    var priceRecords = JSON.parse(localStorage.getItem('wh_pricing_warehouse') || '[]');
+    // Sync current quantities from DB-backed products or localStorage fallback to pricing records
+    var currentSKUs = skus && skus.length > 0
+        ? skus
+        : safeJsonParse(localStorage.getItem('wms_skus'), []);
+    var priceRecords = safeJsonParse(localStorage.getItem('wh_pricing_warehouse'), []);
     
     // Update existing or add new ones
     var updated = currentSKUs.map(function(s) {
@@ -2054,7 +2082,7 @@ window.submitConfirmReceive = function() {
 };
 
 function updateMasterSkuQty(skuCode, addedQty) {
-    var currentSKUs = JSON.parse(localStorage.getItem('wms_skus') || '[]');
+    var currentSKUs = safeJsonParse(localStorage.getItem('wms_skus'), []);
     var index = currentSKUs.findIndex(function(s) { return s.sku === skuCode; });
     if (index > -1) {
         currentSKUs[index].qtyOnHand = (currentSKUs[index].qtyOnHand || 0) + addedQty;
@@ -2067,7 +2095,7 @@ function updateMasterSkuQty(skuCode, addedQty) {
 
 function updatePricingQty(skuCode, addedQty) {
     // Pricing warehouse
-    var pw = JSON.parse(localStorage.getItem('wh_pricing_warehouse') || '[]');
+    var pw = safeJsonParse(localStorage.getItem('wh_pricing_warehouse'), []);
     var idxW = pw.findIndex(function(p) { return p.sku === skuCode; });
     if (idxW > -1) {
         pw[idxW].qtyOnHand = (pw[idxW].qtyOnHand || 0) + addedQty;
@@ -2076,7 +2104,7 @@ function updatePricingQty(skuCode, addedQty) {
     }
     
     // Pricing sales (if exists, sync it too)
-    var ps = JSON.parse(localStorage.getItem('wh_pricing_sales') || '[]');
+    var ps = safeJsonParse(localStorage.getItem('wh_pricing_sales'), []);
     var idxS = ps.findIndex(function(p) { return p.sku === skuCode; });
     if (idxS > -1) {
         ps[idxS].qtyOnHand = (ps[idxS].qtyOnHand || 0) + addedQty;
@@ -2086,7 +2114,7 @@ function updatePricingQty(skuCode, addedQty) {
 
 function logInventoryLedger(sku, type, quantity, referenceId, referenceType, notes) {
     var ledgerStr = localStorage.getItem('wh_inventory_ledger');
-    var ledger = ledgerStr ? JSON.parse(ledgerStr) : [];
+    var ledger = safeJsonParse(ledgerStr, []);
     
     var entry = {
         id: 'LEG-' + Date.now() + '-' + Math.random().toString(36).substring(2, 9),
@@ -2280,172 +2308,163 @@ function padZero(n) { return n < 10 ? '0' + n : n; }
 renderReceipts();
 
 // ─── DB-SIDE INBOUND TABLE (from WarehouseInboundServlet) ───
-(function() {
-    'use strict';
+var dbInboundList = safeJsonParse(document.getElementById('db-inbound-list-data').textContent, []);
 
-    // Inbound orders data from servlet (via JSTL)
-    var dbInboundList = [
-        <c:forEach items="${inboundList}" var="io" varStatus="s">
-            {
-                inboundId: ${io.inboundId},
-                inboundCode: "<c:out value='${io.inboundCode}'/>",
-                supplierName: "<c:out value='${io.supplierName}'/>",
-                warehouseName: "<c:out value='${io.warehouseName}'/>",
-                status: "<c:out value='${io.status}'/>",
-                createdAt: "<c:out value='${io.createdAt}'/>"
-            }${!s.last ? ',' : ''}
-        </c:forEach>
-    ];
+var dbActiveFilter = 'all';
 
-    var dbActiveFilter = 'all';
+function dbStatusLabel(status) {
+    var m = {
+        'PENDING':    { label: 'Chờ',        cls: 'pending' },
+        'IN_PROGRESS':{ label: 'Đang nhập',   cls: 'confirmed' },
+        'CONFIRMED':  { label: 'Đã xác nhận', cls: 'confirmed' },
+        'RECEIVED':   { label: 'Đã nhập',     cls: 'received' },
+        'CANCELLED':  { label: 'Đã hủy',      cls: 'cancelled' }
+    };
+    var c = m[status] || { label: status, cls: 'pending' };
+    return '<span class="status-pill ' + c.cls + '"><span class="status-pill__dot"></span>' + c.label + '</span>';
+}
 
-    function dbStatusLabel(status) {
-        var m = {
-            'PENDING':    { label: 'Chờ',        cls: 'pending' },
-            'IN_PROGRESS':{ label: 'Đang nhập',   cls: 'confirmed' },
-            'CONFIRMED':  { label: 'Đã xác nhận', cls: 'confirmed' },
-            'RECEIVED':   { label: 'Đã nhập',     cls: 'received' },
-            'CANCELLED':  { label: 'Đã hủy',      cls: 'cancelled' }
-        };
-        var c = m[status] || { label: status, cls: 'pending' };
-        return '<span class="status-pill ' + c.cls + '"><span class="status-pill__dot"></span>' + c.label + '</span>';
+function dbCounts() {
+    return {
+        all:         dbInboundList.length,
+        PENDING:     dbInboundList.filter(function(o){ return o.status === 'PENDING'; }).length,
+        IN_PROGRESS: dbInboundList.filter(function(o){ return o.status === 'IN_PROGRESS'; }).length,
+        CONFIRMED:   dbInboundList.filter(function(o){ return o.status === 'CONFIRMED'; }).length,
+        RECEIVED:    dbInboundList.filter(function(o){ return o.status === 'RECEIVED'; }).length,
+        CANCELLED:   dbInboundList.filter(function(o){ return o.status === 'CANCELLED'; }).length
+    };
+}
+
+function esc(v) {
+    if (v == null) return '';
+    return String(v).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+function renderDbTable() {
+    var filtered = dbActiveFilter === 'all'
+        ? dbInboundList
+        : dbInboundList.filter(function(o){ return o.status === dbActiveFilter; });
+
+    var counts = dbCounts();
+    document.getElementById('db-count-all').textContent = counts.all;
+    document.getElementById('db-count-PENDING').textContent = counts.PENDING;
+    document.getElementById('db-count-IN_PROGRESS').textContent = counts.IN_PROGRESS;
+    document.getElementById('db-count-RECEIVED').textContent = counts.RECEIVED;
+    document.getElementById('db-count-CANCELLED').textContent = counts.CANCELLED;
+
+    var tbody = document.getElementById('dbInboundTableBody');
+    if (!tbody) return;
+
+    if (filtered.length === 0) {
+        tbody.innerHTML = '<tr class="db-empty-row"><td colspan="6">Không có phiếu nhập nào.</td></tr>';
+        return;
     }
 
-    function dbCounts() {
-        return {
-            all:       dbInboundList.length,
-            PENDING:   dbInboundList.filter(function(o){ return o.status === 'PENDING'; }).length,
-            CONFIRMED: dbInboundList.filter(function(o){ return o.status === 'CONFIRMED'; }).length,
-            RECEIVED:  dbInboundList.filter(function(o){ return o.status === 'RECEIVED'; }).length,
-            CANCELLED: dbInboundList.filter(function(o){ return o.status === 'CANCELLED'; }).length
-        };
-    }
+    tbody.innerHTML = filtered.map(function(o) {
+        var confirmBtn = o.status === 'PENDING'
+            ? '<button class="db-action-btn db-action-btn--navy" onclick="dbConfirmInbound(' + o.inboundId + ',\'' + esc(o.inboundCode) + '\')">Xác nhận</button>'
+            : '';
+        var receiveBtn = (o.status === 'CONFIRMED' || o.status === 'IN_PROGRESS')
+            ? '<button class="db-action-btn db-action-btn--emerald" onclick="dbOpenReceiveModal(' + o.inboundId + ',\'' + esc(o.inboundCode) + '\')">Nhập kho</button>'
+            : '';
 
-    function esc(v) {
-        if (v == null) return '';
-        return String(v).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
-    }
+        return '<tr>' +
+            '<td><span class="db-inbound-code">' + esc(o.inboundCode) + '</span></td>' +
+            '<td><span class="db-supplier">' + esc(o.supplierName) + '</span></td>' +
+            '<td><span class="db-warehouse">' + esc(o.warehouseName || '—') + '</span></td>' +
+            '<td style="font-size:12px; color:rgba(16,55,92,0.5);">' + esc(o.createdAt) + '</td>' +
+            '<td>' + dbStatusLabel(o.status) + '</td>' +
+            '<td class="text-right">' + confirmBtn + receiveBtn + '</td>' +
+        '</tr>';
+    }).join('');
+}
 
-    function renderDbTable() {
-        var filtered = dbActiveFilter === 'all'
-            ? dbInboundList
-            : dbInboundList.filter(function(o){ return o.status === dbActiveFilter; });
-
-        var counts = dbCounts();
-        document.getElementById('db-count-all').textContent       = counts.all;
-        document.getElementById('db-count-PENDING').textContent   = counts.PENDING;
-        document.getElementById('db-count-IN_PROGRESS').textContent = counts.IN_PROGRESS;
-        document.getElementById('db-count-RECEIVED').textContent   = counts.RECEIVED;
-        document.getElementById('db-count-CANCELLED').textContent   = counts.CANCELLED;
-
-        var tbody = document.getElementById('dbInboundTableBody');
-        if (!tbody) return;
-
-        if (filtered.length === 0) {
-            tbody.innerHTML = '<tr class="db-empty-row"><td colspan="6">Không có phiếu nhập nào.</td></tr>';
-            return;
-        }
-
-        tbody.innerHTML = filtered.map(function(o) {
-            var confirmBtn = o.status === 'PENDING'
-                ? '<button class="db-action-btn db-action-btn--navy" onclick="dbConfirmInbound(' + o.inboundId + ',\'' + esc(o.inboundCode) + '\')">Xác nhận</button>'
-                : '';
-            var receiveBtn = (o.status === 'CONFIRMED' || o.status === 'IN_PROGRESS')
-                ? '<button class="db-action-btn db-action-btn--emerald" onclick="dbOpenReceiveModal(' + o.inboundId + ',\'' + esc(o.inboundCode) + '\')">Nhập kho</button>'
-                : '';
-
-            return '<tr>' +
-                '<td><span class="db-inbound-code">' + esc(o.inboundCode) + '</span></td>' +
-                '<td><span class="db-supplier">' + esc(o.supplierName) + '</span></td>' +
-                '<td><span class="db-warehouse">' + esc(o.warehouseName || '—') + '</span></td>' +
-                '<td style="font-size:12px; color:rgba(16,55,92,0.5);">' + esc(o.createdAt) + '</td>' +
-                '<td>' + dbStatusLabel(o.status) + '</td>' +
-                '<td class="text-right">' +
-                    confirmBtn + receiveBtn +
-                '</td>' +
-            '</tr>';
-        }).join('');
-    }
-
-    // Filter tabs
-    var tabs = document.getElementById('dbFilterTabs');
-    if (tabs) {
-        tabs.addEventListener('click', function(e) {
-            var btn = e.target.closest('.db-filter-btn');
-            if (!btn) return;
-            dbActiveFilter = btn.dataset.filter;
-            tabs.querySelectorAll('.db-filter-btn').forEach(function(b){ b.classList.remove('active'); });
-            btn.classList.add('active');
-            renderDbTable();
-        });
-    }
-
-    // Create PO modal helpers
-    window.openCreatePOModal = function() {
-        document.getElementById('createPOModal').classList.add('active');
-    };
-    window.closeCreatePOModal = function() {
-        document.getElementById('createPOModal').classList.remove('active');
-    };
-
-    // Confirm action (form submit)
-    window.dbConfirmInbound = function(id, code) {
-        if (confirm('Xác nhận phiếu ' + code + '? Trạng thái sẽ chuyển sang Đã xác nhận.')) {
-            var form = document.createElement('form');
-            form.method = 'POST';
-            form.action = '${pageContext.request.contextPath}/warehouse/inbound';
-            var a = document.createElement('input'); a.type='hidden'; a.name='action'; a.value='confirm';
-            var b = document.createElement('input'); b.type='hidden'; b.name='inboundId'; b.value=id;
-            form.appendChild(a); form.appendChild(b);
-            document.body.appendChild(form);
-            form.submit();
-        }
-    };
-
-    // Receive modal
-    window.dbOpenReceiveModal = function(id, code) {
-        document.getElementById('receiveDB-inboundId').value = id;
-        document.getElementById('receiveDB-subtitle').textContent = 'Mã phiếu: ' + code;
-
-        var container = document.getElementById('receiveDBItemsContainer');
-        // Default: single product input for quick entry
-        container.innerHTML =
-            '<div class="receive-item-card">' +
-                '<div style="flex:1; font-weight:600; color:var(--navy); font-size:13px;">Nhập thông tin nhập kho</div>' +
-            '</div>' +
-            '<div style="padding:12px; background:var(--alice); border-radius:8px; border:1px solid var(--border);">' +
-                '<div class="form-group">' +
-                    '<label class="form-label">Ghi chú nhập kho</label>' +
-                    '<input class="form-input" style="background:#fff;" type="text" placeholder="Ghi chú (tùy chọn)"/>' +
-                '</div>' +
-            '</div>';
-
-        document.getElementById('receiveDBModal').classList.add('active');
-    };
-
-    window.closeReceiveDBModal = function() {
-        document.getElementById('receiveDBModal').classList.remove('active');
-    };
-
-    // Modal overlay click-outside to close
-    ['createPOModal','receiveDBModal'].forEach(function(id) {
-        var el = document.getElementById(id);
-        if (el) el.addEventListener('click', function(e){ if(e.target===el) el.classList.remove('active'); });
+var tabs = document.getElementById('dbFilterTabs');
+if (tabs) {
+    tabs.addEventListener('click', function(e) {
+        var btn = e.target.closest('.db-filter-btn');
+        if (!btn) return;
+        dbActiveFilter = btn.dataset.filter;
+        tabs.querySelectorAll('.db-filter-btn').forEach(function(b) { b.classList.remove('active'); });
+        btn.classList.add('active');
+        renderDbTable();
     });
+}
 
-    // Init
-    renderDbTable();
+window.openCreatePOModal = function() {
+    document.getElementById('createPOModal').classList.add('active');
+};
+window.closeCreatePOModal = function() {
+    document.getElementById('createPOModal').classList.remove('active');
+};
 
-    // Hook "Tạo phiếu nhập" button to open server-side modal if data exists
-    var createBtn = document.getElementById('btnCreateGRNTrigger');
-    if (createBtn) {
-        createBtn.addEventListener('click', function() {
-            <c:choose>
-                <c:when test="${not empty inboundList}">openCreatePOModal();</c:when>
-                <c:otherwise>openDraftModal('create');</c:otherwise>
-            </c:choose>
+window.dbConfirmInbound = function(id, code) {
+    if (confirm('Xác nhận phiếu ' + code + '? Trạng thái sẽ chuyển sang Đã xác nhận.')) {
+        var form = document.createElement('form');
+        form.method = 'POST';
+        form.action = '${pageContext.request.contextPath}/warehouse/inbound';
+        var actionInput = document.createElement('input');
+        actionInput.type = 'hidden';
+        actionInput.name = 'action';
+        actionInput.value = 'confirm';
+        var inboundIdInput = document.createElement('input');
+        inboundIdInput.type = 'hidden';
+        inboundIdInput.name = 'inboundId';
+        inboundIdInput.value = id;
+        form.appendChild(actionInput);
+        form.appendChild(inboundIdInput);
+        document.body.appendChild(form);
+        form.submit();
+    }
+};
+
+window.dbOpenReceiveModal = function(id, code) {
+    document.getElementById('receiveDB-inboundId').value = id;
+    document.getElementById('receiveDB-subtitle').textContent = 'Mã phiếu: ' + code;
+
+    var container = document.getElementById('receiveDBItemsContainer');
+    container.innerHTML =
+        '<div class="receive-item-card">' +
+            '<div style="flex:1; font-weight:600; color:var(--navy); font-size:13px;">Nhập thông tin nhập kho</div>' +
+        '</div>' +
+        '<div style="padding:12px; background:var(--alice); border-radius:8px; border:1px solid var(--border);">' +
+            '<div class="form-group">' +
+                '<label class="form-label">Ghi chú nhập kho</label>' +
+                '<input class="form-input" style="background:#fff;" type="text" placeholder="Ghi chú (tùy chọn)"/>' +
+            '</div>' +
+        '</div>';
+
+    document.getElementById('receiveDBModal').classList.add('active');
+};
+
+window.closeReceiveDBModal = function() {
+    document.getElementById('receiveDBModal').classList.remove('active');
+};
+
+['createPOModal', 'receiveDBModal'].forEach(function(id) {
+    var el = document.getElementById(id);
+    if (el) {
+        el.addEventListener('click', function(e) {
+            if (e.target === el) {
+                el.classList.remove('active');
+            }
         });
     }
+});
+
+renderDbTable();
+
+var hasInboundList = !!PAGE_FLAGS.hasInboundList;
+var createBtn = document.getElementById('btnCreateGRNTrigger');
+if (createBtn) {
+    createBtn.addEventListener('click', function() {
+        if (hasInboundList) {
+            openCreatePOModal();
+        } else {
+            openDraftModal('create');
+        }
+    });
+}
 })();
 
 </script>

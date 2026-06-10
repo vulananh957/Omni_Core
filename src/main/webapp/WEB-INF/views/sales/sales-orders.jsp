@@ -1006,7 +1006,6 @@
                         display: flex;
                         align-items: center;
                         justify-content: center;
-                        ring: 4px;
                         box-shadow: 0 0 0 4px #fff;
                     }
 
@@ -1315,21 +1314,31 @@
                             cancelled: { label: "Đã hủy", bg: "#f9fafb", text: "#374151", border: "#e5e7eb", dot: "#6b7280" },
                         };
 
-                        const CHANNEL_COLORS = {
-                            Shopee: "#EE4D2D",
-                            TikTok: "#69C9D0",
-                            Lazada: "#0F146D",
-                            Website: "#EB8317"
-                        };
-
-                        const CHANNELS = ["Shopee", "TikTok", "Lazada", "Website"];
+                        const CHANNEL_COLORS = {};
+                        let CHANNELS = [];
+                        try {
+                            const rawChannelsJson = '<c:out value="${channelsJson}" escapeXml="false"/>';
+                            if (rawChannelsJson && rawChannelsJson.trim() && rawChannelsJson.indexOf('channelsJson') === -1) {
+                                const parsedChannels = JSON.parse(rawChannelsJson);
+                                CHANNELS = parsedChannels.map(function(channel) { return channel.channelName; });
+                                parsedChannels.forEach(function(channel) {
+                                    CHANNEL_COLORS[channel.channelName] = '#69C9D0';
+                                });
+                            }
+                        } catch (e) {
+                            CHANNELS = [];
+                        }
+                        if (CHANNELS.length === 0) {
+                            CHANNELS = ["Shopee", "TikTok", "Lazada", "Website"];
+                            CHANNEL_COLORS.Shopee = "#EE4D2D";
+                            CHANNEL_COLORS.TikTok = "#69C9D0";
+                            CHANNEL_COLORS.Lazada = "#0F146D";
+                            CHANNEL_COLORS.Website = "#EB8317";
+                        }
                         const SHIPPING_CARRIERS = ["SPX Express", "Lazada Express", "TikTok Express", "Viettel Post"];
 
                         function getCarrierByChannel(ch) {
-                            if (ch === "Shopee") return "SPX Express";
-                            if (ch === "Lazada") return "Lazada Express";
-                            if (ch === "TikTok") return "TikTok Express";
-                            return "Viettel Post";
+                            return CHANNELS.indexOf(ch) !== -1 ? "SPX Express" : "Viettel Post";
                         }
 
                         // ── App Stock Lookup (dynamic from wh_pricing_sales) ─────────────────────────
@@ -2014,10 +2023,9 @@
                                                 <div id="ddChannel" class="om-dropdown">
                                                     <button onclick="selectChannel('all')" class="selected">Tất cả các
                                                         kênh</button>
-                                                    <button onclick="selectChannel('Shopee')">Shopee</button>
-                                                    <button onclick="selectChannel('TikTok')">TikTok</button>
-                                                    <button onclick="selectChannel('Lazada')">Lazada</button>
-                                                    <button onclick="selectChannel('Website')">Website</button>
+                                                    <c:forEach var="ch" items="${channels}">
+                                                        <button onclick="selectChannel('${ch.channelName}')">${ch.channelName}</button>
+                                                    </c:forEach>
                                                 </div>
                                             </div>
 

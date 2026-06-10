@@ -1450,10 +1450,10 @@
                     <label class="outbound-form-label">Kho xuất *</label>
                     <select name="warehouseId" id="create-warehouse-id" class="outbound-form-input"
                             style="font-weight:600; cursor:pointer;" required>
-                        <option value="" disabled selected>-- Chon kho --</option>
-                        <c:forEach var="w" items="${warehouses}">
-                            <option value="${w.warehouseId}">${w.warehouseName}</option>
-                        </c:forEach>
+                        <option value="" disabled selected>-- Chọn kho --</option>
+                        <option value="1">Kho Hà Nội</option>
+                        <option value="2">Kho Đà Nẵng</option>
+                        <option value="3">Kho TP. Hồ Chí Minh</option>
                     </select>
                 </div>
                 <div class="outbound-form-group">

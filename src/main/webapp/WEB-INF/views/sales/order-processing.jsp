@@ -896,11 +896,26 @@
 
 <script>
 // ── CONSTANTS & GLOBALS ──────────────────────────────────────────────
-const WAREHOUSES = [
-    { name: "Kho Hà Nội", code: "HN" },
-    { name: "Kho TP.HCM", code: "HCM" },
-    { name: "Kho Đà Nẵng", code: "DN" }
-];
+const WAREHOUSES = [];
+try {
+    const rawWarehousesJson = '<c:out value="${warehousesJson}" escapeXml="false"/>';
+    if (rawWarehousesJson && rawWarehousesJson.trim() && rawWarehousesJson.indexOf('warehousesJson') === -1) {
+        const parsedWarehouses = JSON.parse(rawWarehousesJson);
+        parsedWarehouses.forEach(function(warehouse) {
+            WAREHOUSES.push({
+                name: warehouse.warehouseName,
+                code: warehouse.warehouseCode
+            });
+        });
+    }
+} catch (e) {}
+if (WAREHOUSES.length === 0) {
+    WAREHOUSES.push(
+        { name: "Kho Hà Nội", code: "WH-HN" },
+        { name: "Kho TP.HCM", code: "WH-HCM" },
+        { name: "Kho Đà Nẵng", code: "WH-DN" }
+    );
+}
 
 const STATUS_CONFIG = {
     pending_review: { label: "Chờ duyệt", bg: "background:#fee2e2", text: "color:#dc2626;border-color:#fca5a5", dot: "background:#ef4444" },

@@ -1,8 +1,11 @@
 package com.wms.controller.sales;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.wms.controller.BaseController;
 import com.wms.model.Order;
+import com.wms.model.Warehouse;
 import com.wms.service.sales.OrderService;
+import com.wms.service.warehouse.WarehouseService;
 
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -17,6 +20,8 @@ import java.util.List;
 public class SalesOrderProcessingServlet extends BaseController {
 
     private final OrderService orderService = new OrderService();
+    private final WarehouseService warehouseService = new WarehouseService();
+    private final ObjectMapper objectMapper = new ObjectMapper();
 
     @Override
     protected void doGet(HttpServletRequest req, HttpServletResponse resp)
@@ -24,9 +29,14 @@ public class SalesOrderProcessingServlet extends BaseController {
 
         try {
             List<Order> list = orderService.findAllOrders();
+            List<Warehouse> warehouses = warehouseService.findAllActive();
             req.setAttribute("orderList", list);
+            req.setAttribute("warehouses", warehouses);
+            req.setAttribute("warehousesJson", objectMapper.writeValueAsString(warehouses));
         } catch (Exception e) {
             req.setAttribute("orderList", List.of());
+            req.setAttribute("warehouses", List.<Warehouse>of());
+            req.setAttribute("warehousesJson", "[]");
         }
 
         req.setAttribute("pageTitle",    "Xử Lý Đơn Hàng");

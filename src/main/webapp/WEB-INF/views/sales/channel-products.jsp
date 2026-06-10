@@ -864,11 +864,10 @@
         <div class="cp-filter-left">
             <div class="cp-select-wrapper">
                 <select class="cp-select" id="filterChannelSelect" onchange="onChannelFilterChange(this.value)">
-                    <option value="all">Tất cả kênh</option>
-                    <option value="shopee">Shopee</option>
-                    <option value="tiktok">TikTok</option>
-                    <option value="lazada">Lazada</option>
-                    <option value="website">Website</option>
+                    <option value="all">Tat ca kenh</option>
+                    <c:forEach var="ch" items="${channelsList}">
+                        <option value="${ch.channelName}">${ch.channelName}</option>
+                    </c:forEach>
                 </select>
                 <svg class="cp-select-arrow" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M19 9l-7 7-7-7" /></svg>
             </div>
@@ -1655,7 +1654,7 @@ function updateChannelBufferStock(channelId) {
 function renderProductsTab() {
     // 1. Filter products
     const filtered = channelProducts.filter(p => {
-        const matchChannel = filterChannel === "all" || p.channel === filterChannel;
+        const matchChannel = filterChannel === "all" || p.channel.toLowerCase() === filterChannel.toLowerCase();
         const matchSearch = !productSearchVal ||
             p.productName.toLowerCase().includes(productSearchVal.toLowerCase()) ||
             p.masterSKU.toLowerCase().includes(productSearchVal.toLowerCase()) ||

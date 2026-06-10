@@ -23,20 +23,28 @@ public class TransferDAO {
         "SELECT st.transfer_id, st.transfer_code, "
       + "st.from_warehouse_id, fw.warehouse_name AS from_warehouse_name, "
       + "st.to_warehouse_id,   tw.warehouse_name AS to_warehouse_name, "
-      + "st.created_by, st.approved_by, st.status, st.note, st.created_at, st.completed_at "
+      + "st.created_by, creator.full_name AS creator_name, "
+      + "st.approved_by, approver.full_name AS approver_name, "
+      + "st.status, st.note, st.created_at, st.completed_at "
       + "FROM stock_transfers st "
       + "LEFT JOIN warehouses fw ON st.from_warehouse_id = fw.warehouse_id "
       + "LEFT JOIN warehouses tw ON st.to_warehouse_id   = tw.warehouse_id "
+      + "LEFT JOIN users creator ON st.created_by   = creator.user_id "
+      + "LEFT JOIN users approver ON st.approved_by = approver.user_id "
       + "ORDER BY st.created_at DESC LIMIT 200";
 
     private static final String SQL_FIND_BY_ID =
         "SELECT st.transfer_id, st.transfer_code, "
       + "st.from_warehouse_id, fw.warehouse_name AS from_warehouse_name, "
       + "st.to_warehouse_id,   tw.warehouse_name AS to_warehouse_name, "
-      + "st.created_by, st.approved_by, st.status, st.note, st.created_at, st.completed_at "
+      + "st.created_by, creator.full_name AS creator_name, "
+      + "st.approved_by, approver.full_name AS approver_name, "
+      + "st.status, st.note, st.created_at, st.completed_at "
       + "FROM stock_transfers st "
       + "LEFT JOIN warehouses fw ON st.from_warehouse_id = fw.warehouse_id "
       + "LEFT JOIN warehouses tw ON st.to_warehouse_id   = tw.warehouse_id "
+      + "LEFT JOIN users creator ON st.created_by   = creator.user_id "
+      + "LEFT JOIN users approver ON st.approved_by = approver.user_id "
       + "WHERE st.transfer_id = ?";
 
     /**
@@ -59,7 +67,9 @@ public class TransferDAO {
                 t.setToWarehouseId(rs.getInt("to_warehouse_id"));
                 t.setToWarehouseName(rs.getString("to_warehouse_name"));
                 t.setCreatedBy(rs.getInt("created_by"));
+                try { t.setCreatorName(rs.getString("creator_name")); } catch (SQLException ignored) {}
                 t.setApprovedBy(rs.getObject("approved_by") != null ? rs.getInt("approved_by") : null);
+                try { t.setApproverName(rs.getString("approver_name")); } catch (SQLException ignored) {}
                 t.setStatus(rs.getString("status"));
                 t.setNote(rs.getString("note"));
                 java.sql.Timestamp ca = rs.getTimestamp("created_at");
@@ -94,13 +104,15 @@ public class TransferDAO {
                     t.setFromWarehouseName(rs.getString("from_warehouse_name"));
                     t.setToWarehouseId(rs.getInt("to_warehouse_id"));
                     t.setToWarehouseName(rs.getString("to_warehouse_name"));
-                    t.setCreatedBy(rs.getInt("created_by"));
-                    t.setApprovedBy(rs.getObject("approved_by") != null ? rs.getInt("approved_by") : null);
-                    t.setStatus(rs.getString("status"));
-                    t.setNote(rs.getString("note"));
-                    java.sql.Timestamp ca = rs.getTimestamp("created_at");
-                    if (ca != null) t.setCreatedAt(ca.toLocalDateTime());
-                    return t;
+                t.setCreatedBy(rs.getInt("created_by"));
+                try { t.setCreatorName(rs.getString("creator_name")); } catch (SQLException ignored) {}
+                t.setApprovedBy(rs.getObject("approved_by") != null ? rs.getInt("approved_by") : null);
+                try { t.setApproverName(rs.getString("approver_name")); } catch (SQLException ignored) {}
+                t.setStatus(rs.getString("status"));
+                t.setNote(rs.getString("note"));
+                java.sql.Timestamp ca = rs.getTimestamp("created_at");
+                if (ca != null) t.setCreatedAt(ca.toLocalDateTime());
+                return t;
                 }
             }
 
@@ -162,7 +174,9 @@ public class TransferDAO {
         private int toWarehouseId;
         private String toWarehouseName;
         private int createdBy;
+        private String creatorName;
         private Integer approvedBy;
+        private String approverName;
         private String status;
         private String note;
         private java.time.LocalDateTime createdAt;
@@ -182,8 +196,12 @@ public class TransferDAO {
         public void setToWarehouseName(String toWarehouseName) { this.toWarehouseName = toWarehouseName; }
         public int getCreatedBy() { return createdBy; }
         public void setCreatedBy(int createdBy) { this.createdBy = createdBy; }
+        public String getCreatorName() { return creatorName; }
+        public void setCreatorName(String creatorName) { this.creatorName = creatorName; }
         public Integer getApprovedBy() { return approvedBy; }
         public void setApprovedBy(Integer approvedBy) { this.approvedBy = approvedBy; }
+        public String getApproverName() { return approverName; }
+        public void setApproverName(String approverName) { this.approverName = approverName; }
         public String getStatus() { return status; }
         public void setStatus(String status) { this.status = status; }
         public String getNote() { return note; }

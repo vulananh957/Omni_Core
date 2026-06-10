@@ -285,17 +285,6 @@
         font-size: 12px; font-weight: 600;
         border: 1px solid #fde68a; border-radius: calc(var(--radius-btn) - 2px);
     }
-    .wt-page-btn {
-        display: inline-flex; align-items: center; justify-content: center;
-        padding: 5px 10px; min-width: 28px; height: 28px;
-        background: #fff; border: 1px solid var(--border);
-        border-radius: calc(var(--radius-btn) - 4px);
-        font-size: 12px; font-weight: 600; color: rgba(16,55,92,.60);
-        cursor: pointer; transition: all .12s;
-        box-sizing: border-box;
-    }
-    .wt-page-btn:hover { color: var(--navy); background: var(--alice); border-color: rgba(16,55,92,.30); }
-    .wt-page-btn.active { background: var(--navy); color: #fff; border-color: var(--navy); pointer-events: none; }
 </style>
 
 <!-- ═══ PAGE HEADER ═══ -->
@@ -316,7 +305,7 @@
             </svg>
         </div>
         <div>
-            <div class="wt-stat-val" id="wtStatTotal">${statusCounts.all != null ? statusCounts.all : 0}</div>
+            <div class="wt-stat-val" id="wtStatTotal">0</div>
             <div class="wt-stat-lbl">Tổng phiếu</div>
         </div>
     </div>
@@ -328,7 +317,7 @@
             </svg>
         </div>
         <div>
-            <div class="wt-stat-val" id="wtStatTransit" style="color:#b45309;">${statusCounts.IN_TRANSIT != null ? statusCounts.IN_TRANSIT : 0}</div>
+            <div class="wt-stat-val" id="wtStatTransit" style="color:#b45309;">0</div>
             <div class="wt-stat-lbl">Đang chuyển</div>
         </div>
     </div>
@@ -340,7 +329,7 @@
             </svg>
         </div>
         <div>
-            <div class="wt-stat-val" id="wtStatReceived" style="color:#059669;">${statusCounts.RECEIVED != null ? statusCounts.RECEIVED : 0}</div>
+            <div class="wt-stat-val" id="wtStatReceived" style="color:#059669;">0</div>
             <div class="wt-stat-lbl">Đã nhận</div>
         </div>
     </div>
@@ -353,7 +342,7 @@
             </svg>
         </div>
         <div>
-            <div class="wt-stat-val" id="wtStatDraft" style="color:rgba(16,55,92,.60);">${statusCounts.DRAFT != null ? statusCounts.DRAFT : 0}</div>
+            <div class="wt-stat-val" id="wtStatDraft" style="color:rgba(16,55,92,.60);">0</div>
             <div class="wt-stat-lbl">Bản nháp</div>
         </div>
     </div>
@@ -366,7 +355,7 @@
              fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
             <circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/>
         </svg>
-        <input class="wt-search-input" type="text" id="wtSearch" value="<c:out value='${search}'/>"
+        <input class="wt-search-input" type="text" id="wtSearch"
                placeholder="Tìm mã phiếu, kho nguồn, kho đích…"/>
     </div>
     <button class="wt-btn-create" id="wtBtnCreate">
@@ -380,20 +369,20 @@
 
 <!-- ═══ TABS ═══ -->
 <div class="wt-tabs" id="wtTabs">
-    <button class="wt-tab ${empty currentStatus || currentStatus == 'all' ? 'active' : ''}" data-tab="all">
-        Tất cả <span class="wt-tab-badge" id="wtBadge-all">${statusCounts.all != null ? statusCounts.all : 0}</span>
+    <button class="wt-tab active" data-tab="all">
+        Tất cả <span class="wt-tab-badge" id="wtBadge-all">0</span>
     </button>
-    <button class="wt-tab ${currentStatus == 'DRAFT' ? 'active' : ''}" data-tab="DRAFT">
-        Nháp <span class="wt-tab-badge" id="wtBadge-DRAFT">${statusCounts.DRAFT != null ? statusCounts.DRAFT : 0}</span>
+    <button class="wt-tab" data-tab="DRAFT">
+        Nháp <span class="wt-tab-badge" id="wtBadge-DRAFT">0</span>
     </button>
-    <button class="wt-tab ${currentStatus == 'IN_TRANSIT' ? 'active' : ''}" data-tab="IN_TRANSIT">
-        Đang chuyển <span class="wt-tab-badge" id="wtBadge-IN_TRANSIT">${statusCounts.IN_TRANSIT != null ? statusCounts.IN_TRANSIT : 0}</span>
+    <button class="wt-tab" data-tab="IN_TRANSIT">
+        Đang chuyển <span class="wt-tab-badge" id="wtBadge-IN_TRANSIT">0</span>
     </button>
-    <button class="wt-tab ${currentStatus == 'RECEIVED' ? 'active' : ''}" data-tab="RECEIVED">
-        Đã nhận <span class="wt-tab-badge" id="wtBadge-RECEIVED">${statusCounts.RECEIVED != null ? statusCounts.RECEIVED : 0}</span>
+    <button class="wt-tab" data-tab="RECEIVED">
+        Đã nhận <span class="wt-tab-badge" id="wtBadge-RECEIVED">0</span>
     </button>
-    <button class="wt-tab ${currentStatus == 'CANCELLED' ? 'active' : ''}" data-tab="CANCELLED">
-        Đã hủy <span class="wt-tab-badge" id="wtBadge-CANCELLED">${statusCounts.CANCELLED != null ? statusCounts.CANCELLED : 0}</span>
+    <button class="wt-tab" data-tab="CANCELLED">
+        Đã hủy <span class="wt-tab-badge" id="wtBadge-CANCELLED">0</span>
     </button>
 </div>
 
@@ -415,25 +404,6 @@
                 <tr><td colspan="6" class="wt-empty">Đang tải dữ liệu…</td></tr>
             </tbody>
         </table>
-    </div>
-    <!-- Pagination Footer -->
-    <div class="wt-pagination" style="display: flex; align-items: center; justify-content: space-between; padding: 12px 20px; border-top: 1px solid var(--border);">
-        <div style="font-size: 12px; color: rgba(16,55,92,.50);">
-            Hiển thị <b>${startRecord}</b> - <b>${endRecord}</b> trên tổng số <b>${totalTransfers}</b> kết quả
-        </div>
-        <c:if test="${totalPages > 1}">
-        <div style="display: flex; gap: 4px;">
-            <c:if test="${currentPageNum > 1}">
-                <a href="?status=${currentStatus}&search=${search}&page=${currentPageNum - 1}" class="wt-page-btn" style="text-decoration:none;">&laquo; Trước</a>
-            </c:if>
-            <c:forEach var="p" begin="1" end="${totalPages}">
-                <a href="?status=${currentStatus}&search=${search}&page=${p}" class="wt-page-btn ${p == currentPageNum ? 'active' : ''}" style="text-decoration:none;">${p}</a>
-            </c:forEach>
-            <c:if test="${currentPageNum < totalPages}">
-                <a href="?status=${currentStatus}&search=${search}&page=${currentPageNum + 1}" class="wt-page-btn" style="text-decoration:none;">Sau &raquo;</a>
-            </c:if>
-        </div>
-        </c:if>
     </div>
 </div>
 
@@ -561,7 +531,23 @@
             "fromWH": "<c:out value='${t.fromWarehouseName}'/>",
             "toWH": "<c:out value='${t.toWarehouseName}'/>",
             "status": "<c:out value='${t.status}'/>",
-            "createdAt": "<c:out value='${t.createdAt}'/>"
+            "createdAt": "<c:out value='${t.createdAt}'/>",
+            "completedAt": "<c:out value='${t.completedAt}'/>",
+            "note": "<c:out value='${t.note}'/>",
+            "createdBy": ${t.createdBy},
+            "creatorName": "<c:out value='${t.creatorName}'/>",
+            "approvedBy": ${t.approvedBy != null ? t.approvedBy : 'null'},
+            "approverName": "<c:out value='${t.approverName}'/>",
+            "items": [
+                <c:forEach items="${transferItemsMap[t.transferId]}" var="item" varStatus="itemStatus">
+                    {
+                        "sku": "<c:out value='${item.skuCode}'/>",
+                        "name": "<c:out value='${item.productName}'/>",
+                        "shippedQty": "<c:out value='${item.shippedQty}'/>",
+                        "receivedQty": "<c:out value='${item.receivedQty}'/>"
+                    }${!itemStatus.last ? ',' : ''}
+                </c:forEach>
+            ]
         }${!s.last ? ',' : ''}
     </c:forEach>
 ]
@@ -595,8 +581,8 @@
 
     /* ─── State ─── */
     var localTransfers = [];   // local-created (draft/pending), not yet in DB
-    var activeTab  = "${currentStatus != null ? currentStatus : 'all'}";
-    var searchTxt  = "${search != null ? search : ''}";
+    var activeTab  = 'all';
+    var searchTxt  = '';
     var detailDoc  = null;
 
     /* ─── DOM refs ─── */
@@ -685,12 +671,38 @@
     function render() {
         var all = allTransfers();
 
-        if (all.length === 0) {
+        // Counts
+        function cnt(key) {
+            if (key === 'all') return all.length;
+            return all.filter(function (t) { return t.status === key; }).length;
+        }
+        document.getElementById('wtStatTotal').textContent    = all.length;
+        document.getElementById('wtStatTransit').textContent  = cnt('IN_TRANSIT');
+        document.getElementById('wtStatReceived').textContent = cnt('RECEIVED');
+        document.getElementById('wtStatDraft').textContent    = cnt('DRAFT') + cnt('draft');
+
+        ['all','DRAFT','IN_TRANSIT','RECEIVED','CANCELLED'].forEach(function (k) {
+            var el = document.getElementById('wtBadge-' + k);
+            if (el) el.textContent = cnt(k);
+        });
+
+        // Filter
+        var q = searchTxt.toLowerCase();
+        var filtered = all.filter(function (t) {
+            var matchTab = activeTab === 'all' || t.status === activeTab;
+            var matchQ   = !q ||
+                (t.id   && t.id.toLowerCase().includes(q)) ||
+                (t.fromWH && t.fromWH.toLowerCase().includes(q)) ||
+                (t.toWH   && t.toWH.toLowerCase().includes(q));
+            return matchTab && matchQ;
+        });
+
+        if (filtered.length === 0) {
             tbody.innerHTML = '<tr><td colspan="6" class="wt-empty">Không có phiếu chuyển kho nào phù hợp.</td></tr>';
             return;
         }
 
-        tbody.innerHTML = all.map(function (t) {
+        tbody.innerHTML = filtered.map(function (t) {
             var acts = '<button class="wt-btn-icon" data-action="view" data-id="' + esc(t.id) + '" title="Xem chi tiết">' + eyeSVG() + '</button>';
             if (t._src === 'local' && t.status === 'draft') {
                 acts += '<button class="wt-btn-sm navy" data-action="submit" data-id="' + esc(t.id) + '">Gửi duyệt</button>' +
@@ -737,16 +749,14 @@
     tabs.addEventListener('click', function (e) {
         var btn = e.target.closest('.wt-tab');
         if (!btn) return;
-        var tab = btn.dataset.tab;
-        window.location.href = '?status=' + tab + '&search=' + encodeURIComponent(searchEl.value) + '&page=1';
+        activeTab = btn.dataset.tab;
+        tabs.querySelectorAll('.wt-tab').forEach(function (t) { t.classList.remove('active'); });
+        btn.classList.add('active');
+        render();
     });
 
     /* ─── Search ─── */
-    searchEl.addEventListener('keypress', function (e) {
-        if (e.key === 'Enter') {
-            window.location.href = '?status=' + activeTab + '&search=' + encodeURIComponent(this.value) + '&page=1';
-        }
-    });
+    searchEl.addEventListener('input', function () { searchTxt = this.value; render(); });
 
     /* ─── Create modal ─── */
     document.getElementById('wtBtnCreate').addEventListener('click', function () {
@@ -800,38 +810,98 @@
     function openDetail(t) {
         detailDoc = t;
         var r = t._raw || t;
+        var items = Array.isArray(r.items) ? r.items : [];
+        var totalRequested = 0;
+        var totalReceived = 0;
+
+        var rowsHtml = items.length ? items.map(function (item, index) {
+            var shippedQty = Number(item.shippedQty || 0);
+            var receivedQty = Number(item.receivedQty || 0);
+            totalRequested += shippedQty;
+            totalReceived += receivedQty;
+
+            return '<tr>' +
+                '<td style="padding:10px 12px;border:1px solid var(--border);text-align:center;">' + (index + 1) + '</td>' +
+                '<td style="padding:10px 12px;border:1px solid var(--border);font-family:monospace;font-size:12px;">' + esc(item.sku || '—') + '</td>' +
+                '<td style="padding:10px 12px;border:1px solid var(--border);font-weight:600;">' + esc(item.name || '—') + '</td>' +
+                '<td style="padding:10px 12px;border:1px solid var(--border);text-align:center;background:rgba(59,130,246,.06);color:#1d4ed8;font-weight:700;">' + esc(item.shippedQty || '0') + '</td>' +
+                '<td style="padding:10px 12px;border:1px solid var(--border);text-align:center;background:rgba(16,185,129,.06);color:#047857;font-weight:700;">' + esc(item.receivedQty || '0') + '</td>' +
+                '</tr>';
+        }).join('') : '<tr><td colspan="5" style="padding:14px;border:1px solid var(--border);text-align:center;color:rgba(16,55,92,.55);">Chưa có dòng hàng hóa chi tiết cho phiếu chuyển kho này.</td></tr>';
+
         var noteHtml = r.note ?
             '<div class="wt-detail-sep">' +
-            '<div class="wt-dl-lbl" style="margin-bottom:6px;">Ghi chú / Lý do:</div>' +
-            '<div class="wt-detail-note">' + esc(r.note) + '</div>' +
+                '<div class="wt-dl-lbl" style="margin-bottom:6px;">Lý do / ghi chú điều chuyển</div>' +
+                '<div class="wt-detail-note">' + esc(r.note) + '</div>' +
             '</div>' : '';
 
+        var completedHtml = r.completedAt ?
+            '<div><div class="wt-dl-lbl">Hoàn tất lúc</div><div class="wt-dl-val muted">' + esc(r.completedAt) + '</div></div>' :
+            '<div><div class="wt-dl-lbl">Hoàn tất lúc</div><div class="wt-dl-val muted">Chưa hoàn tất</div></div>';
+
         detailBody.innerHTML =
-            '<div class="wt-detail-grid" style="padding-bottom:14px;border-bottom:1px solid var(--border);">' +
-                '<div><div class="wt-dl-lbl">Mã phiếu:</div>' +
-                '<div style="font-weight:700;font-size:15px;color:var(--navy);margin-top:2px;font-family:monospace;">' + esc(t.id) + '</div></div>' +
-                '<div><div class="wt-dl-lbl">Trạng thái:</div><div style="margin-top:4px;">' + pill(t.status) + '</div></div>' +
+            '<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:16px;padding-bottom:16px;border-bottom:1px solid var(--border);">' +
+                '<div>' +
+                    '<div class="wt-dl-lbl">Mã phiếu chuyển kho</div>' +
+                    '<div style="font-weight:800;font-size:18px;color:var(--navy);margin-top:4px;font-family:monospace;">' + esc(t.id) + '</div>' +
+                    '<div style="font-size:12px;color:rgba(16,55,92,.55);margin-top:6px;">Internal Stock Transfer Note</div>' +
+                '</div>' +
+                '<div style="text-align:right;">' +
+                    '<div class="wt-dl-lbl">Trạng thái</div>' +
+                    '<div style="margin-top:6px;">' + pill(t.status) + '</div>' +
+                '</div>' +
             '</div>' +
             '<div class="wt-flow">' +
-                '<div>' +
-                    '<div class="wt-dl-lbl" style="font-size:9px;">Từ kho:</div>' +
-                    '<div style="font-size:12px;font-weight:700;color:var(--navy);">' + esc(t.fromWH || '—') + '</div>' +
+                '<div style="flex:1;background:#f0f7ff;border:1px solid #cfe3ff;border-radius:12px;padding:12px 14px;">' +
+                    '<div class="wt-dl-lbl" style="font-size:10px;color:#1d4ed8;">KHO NGUỒN</div>' +
+                    '<div style="font-size:14px;font-weight:800;color:var(--navy);margin-top:4px;">' + esc(t.fromWH || '—') + '</div>' +
                 '</div>' +
                 '<div class="wt-flow-arrow"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 1l4 4-4 4"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><path d="M7 23l-4-4 4-4"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg></div>' +
-                '<div>' +
-                    '<div class="wt-dl-lbl" style="font-size:9px;">Đến kho:</div>' +
-                    '<div style="font-size:12px;font-weight:700;color:var(--navy);">' + esc(t.toWH || '—') + '</div>' +
+                '<div style="flex:1;background:#ecfdf5;border:1px solid #b7ebcf;border-radius:12px;padding:12px 14px;">' +
+                    '<div class="wt-dl-lbl" style="font-size:10px;color:#047857;">KHO ĐÍCH</div>' +
+                    '<div style="font-size:14px;font-weight:800;color:var(--navy);margin-top:4px;">' + esc(t.toWH || '—') + '</div>' +
                 '</div>' +
             '</div>' +
             '<div class="wt-detail-sep">' +
-                '<div class="wt-detail-grid">' +
-                    '<div><div class="wt-dl-lbl">Ngày tạo:</div>' +
-                    '<div class="wt-dl-val muted">' + esc(t.createdAt || '—') + '</div></div>' +
-                    (r.qty ? '<div><div class="wt-dl-lbl">Số lượng:</div>' +
-                    '<div class="wt-dl-val">' + esc(r.qty) + ' sản phẩm</div></div>' : '') +
+                '<div class="wt-detail-grid" style="grid-template-columns:repeat(2,minmax(0,1fr));gap:16px 20px;">' +
+                    '<div><div class="wt-dl-lbl">Người lập phiếu</div><div class="wt-dl-val">' + esc(r.creatorName || 'Nhân viên kho') + '</div></div>' +
+                    '<div><div class="wt-dl-lbl">Người duyệt</div><div class="wt-dl-val">' + esc(r.approverName || 'Chưa duyệt') + '</div></div>' +
+                    '<div><div class="wt-dl-lbl">Ngày tạo</div><div class="wt-dl-val muted">' + esc(t.createdAt || '—') + '</div></div>' +
+                    completedHtml +
                 '</div>' +
             '</div>' +
-            noteHtml;
+            noteHtml +
+            '<div class="wt-detail-sep">' +
+                '<div style="display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:10px;">' +
+                    '<div class="wt-dl-lbl" style="font-size:12px;">Danh sách hàng hóa điều chuyển</div>' +
+                    '<div style="display:flex;gap:8px;flex-wrap:wrap;">' +
+                        '<span style="padding:6px 10px;border-radius:999px;background:rgba(59,130,246,.08);color:#1d4ed8;font-size:12px;font-weight:700;">SL yêu cầu: ' + totalRequested + '</span>' +
+                        '<span style="padding:6px 10px;border-radius:999px;background:rgba(16,185,129,.08);color:#047857;font-size:12px;font-weight:700;">SL thực chuyển: ' + totalReceived + '</span>' +
+                    '</div>' +
+                '</div>' +
+                '<div style="overflow:auto;border:1px solid var(--border);border-radius:12px;">' +
+                    '<table style="width:100%;border-collapse:collapse;background:#fff;">' +
+                        '<thead>' +
+                            '<tr style="background:var(--alice);">' +
+                                '<th style="padding:10px 12px;border:1px solid var(--border);text-align:center;width:56px;">STT</th>' +
+                                '<th style="padding:10px 12px;border:1px solid var(--border);text-align:left;">Mã SKU</th>' +
+                                '<th style="padding:10px 12px;border:1px solid var(--border);text-align:left;">Tên sản phẩm</th>' +
+                                '<th style="padding:10px 12px;border:1px solid var(--border);text-align:center;">SL yêu cầu</th>' +
+                                '<th style="padding:10px 12px;border:1px solid var(--border);text-align:center;">SL thực chuyển</th>' +
+                            '</tr>' +
+                        '</thead>' +
+                        '<tbody>' + rowsHtml + '</tbody>' +
+                    '</table>' +
+                '</div>' +
+            '</div>' +
+            '<div class="wt-detail-sep" style="padding-top:4px;">' +
+                '<div style="display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px;text-align:center;">' +
+                    '<div><div class="wt-dl-lbl">Người lập phiếu</div><div style="height:42px;"></div><div style="border-top:1px dashed var(--border);padding-top:6px;font-size:12px;">' + esc(r.creatorName || 'Nhân viên kho') + '</div></div>' +
+                    '<div><div class="wt-dl-lbl">Thủ kho xuất</div><div style="height:42px;"></div><div style="border-top:1px dashed var(--border);padding-top:6px;font-size:12px;">' + esc(t.fromWH || '—') + '</div></div>' +
+                    '<div><div class="wt-dl-lbl">Thủ kho nhận</div><div style="height:42px;"></div><div style="border-top:1px dashed var(--border);padding-top:6px;font-size:12px;">' + esc(t.toWH || '—') + '</div></div>' +
+                    '<div><div class="wt-dl-lbl">Quản lý duyệt</div><div style="height:42px;"></div><div style="border-top:1px dashed var(--border);padding-top:6px;font-size:12px;">' + esc(r.approverName || 'Chờ duyệt') + '</div></div>' +
+                '</div>' +
+            '</div>';
 
         pendingNote.style.display = (t.status === 'pending') ? 'inline-flex' : 'none';
         detailOvl.style.display = 'flex';

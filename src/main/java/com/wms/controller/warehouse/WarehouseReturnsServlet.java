@@ -3,8 +3,10 @@ package com.wms.controller.warehouse;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.wms.controller.BaseController;
+import com.wms.model.Channel;
 import com.wms.model.ReturnItem;
 import com.wms.model.ReturnOrder;
+import com.wms.service.sales.ChannelService;
 import com.wms.service.warehouse.ReturnService;
 
 import jakarta.servlet.ServletException;
@@ -22,6 +24,7 @@ public class WarehouseReturnsServlet extends BaseController {
 
     private static final String CONTEXT_PATH = "/warehouse/returns";
     private final ReturnService returnService = new ReturnService();
+    private final ChannelService channelService = new ChannelService();
     private final ObjectMapper objectMapper = new ObjectMapper();
 
     @Override
@@ -33,9 +36,11 @@ public class WarehouseReturnsServlet extends BaseController {
         try {
             req.setAttribute("products", returnService.findApprovedProducts());
             req.setAttribute("returns", returnService.findAll());
+            req.setAttribute("channels", channelService.findAll());
         } catch (Exception e) {
             req.setAttribute("products", List.of());
             req.setAttribute("returns", List.of());
+            req.setAttribute("channels", List.<Channel>of());
         }
 
         req.setAttribute("pageTitle",    "Trung Tâm Tiếp Nhận Hàng Hoàn QC");

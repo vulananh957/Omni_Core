@@ -26,6 +26,7 @@ public class ProductService {
             return "[]";
         }
     }
+
     public List<Product> findPendingApproval() {
         return productDAO.findPendingApproval();
     }

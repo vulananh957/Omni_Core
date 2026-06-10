@@ -21,6 +21,27 @@ public class WarehouseService {
         return warehouseDAO.findAll();
     }
 
+    public List<Warehouse> findAllActive() throws SQLException {
+        List<Warehouse> all = warehouseDAO.findAll();
+        return all.stream()
+                .filter(Warehouse::isActive)
+                .collect(java.util.stream.Collectors.toList());
+    }
+
+    public List<Zone> findAllZones() throws SQLException {
+        List<Warehouse> warehouses = warehouseDAO.findAll();
+        return warehouses.stream()
+                .flatMap(w -> w.getZones() != null ? w.getZones().stream() : java.util.stream.Stream.empty())
+                .collect(java.util.stream.Collectors.toList());
+    }
+
+    public List<Zone> findZonesByWarehouseId(int warehouseId) throws SQLException {
+        Warehouse w = warehouseDAO.findById(warehouseId);
+        if (w != null && w.getZones() != null) {
+            return w.getZones();
+        }
+        return java.util.Collections.emptyList();
+    }
     public Warehouse findById(int warehouseId) throws SQLException {
         return warehouseDAO.findById(warehouseId);
     }

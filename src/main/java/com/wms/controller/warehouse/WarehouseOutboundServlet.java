@@ -2,7 +2,9 @@ package com.wms.controller.warehouse;
 
 import com.wms.controller.BaseController;
 import com.wms.model.OutboundOrder;
+import com.wms.model.Warehouse;
 import com.wms.service.warehouse.OutboundService;
+import com.wms.service.warehouse.WarehouseService;
 
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -19,6 +21,7 @@ public class WarehouseOutboundServlet extends BaseController {
 
     private static final String CONTEXT_PATH = "/warehouse/outbound";
     private final OutboundService outboundService = new OutboundService();
+    private final WarehouseService warehouseService = new WarehouseService();
 
     @Override
     protected void doGet(HttpServletRequest req, HttpServletResponse resp)
@@ -33,8 +36,11 @@ public class WarehouseOutboundServlet extends BaseController {
             } else {
                 outboundOrders = outboundService.findAll();
             }
+            List<Warehouse> warehouses = warehouseService.findAllActive();
+            req.setAttribute("warehouses", warehouses);
         } catch (Exception e) {
             outboundOrders = List.of();
+            req.setAttribute("warehouses", List.<Warehouse>of());
         }
 
         req.setAttribute("outboundOrders", outboundOrders);

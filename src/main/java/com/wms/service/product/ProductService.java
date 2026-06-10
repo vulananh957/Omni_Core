@@ -1,5 +1,7 @@
 package com.wms.service.product;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.wms.dao.CategoryDAO;
 import com.wms.dao.ProductDAO;
 import com.wms.model.Category;
@@ -11,11 +13,19 @@ public class ProductService {
 
     private final ProductDAO productDAO = new ProductDAO();
     private final CategoryDAO categoryDAO = new CategoryDAO();
+    private final ObjectMapper objectMapper = new ObjectMapper();
 
     public List<Product> findAll() {
         return productDAO.findAll();
     }
 
+    public String toJson(List<Product> products) {
+        try {
+            return objectMapper.writeValueAsString(products);
+        } catch (JsonProcessingException e) {
+            return "[]";
+        }
+    }
     public List<Product> findPendingApproval() {
         return productDAO.findPendingApproval();
     }

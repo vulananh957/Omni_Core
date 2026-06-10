@@ -1,6 +1,7 @@
 package com.wms.dao;
 
 import com.wms.util.DBConnection;
+import com.wms.service.util.StatusLabelService;
 import java.math.BigDecimal;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
@@ -333,8 +334,8 @@ public class LedgerDAO {
                             map.put("sku", rs.getString("sku_code"));
                             map.put("name", rs.getString("product_name"));
                             map.put("uom", rs.getString("unit"));
-                            map.put("lot", "LOT-AUTO");
-                            map.put("hsd", "30/06/2027");
+                            map.put("lot", "LOT-OUT-" + System.currentTimeMillis());
+                            map.put("hsd", "");
                             map.put("qtyRequest", rs.getDouble("qty"));
                             map.put("qtyIssued", rs.getDouble("picked_qty"));
                             map.put("price", rs.getDouble("base_price"));
@@ -359,7 +360,7 @@ public class LedgerDAO {
                             map.put("sku", rs.getString("sku_code"));
                             map.put("name", rs.getString("product_name"));
                             map.put("uom", rs.getString("unit"));
-                            map.put("lot", "LOT-TRANS");
+                            map.put("lot", "LOT-TRANS-" + System.currentTimeMillis());
                             map.put("requested", rs.getDouble("shipped_qty"));
                             map.put("transferred", rs.getObject("received_qty") != null ? rs.getDouble("received_qty") : rs.getDouble("shipped_qty"));
                             map.put("remark", "");
@@ -853,53 +854,26 @@ public class LedgerDAO {
     }
 
     private String mapInboundStatus(String dbStatus) {
-        if ("PENDING".equals(dbStatus)) return "Chờ duyệt";
-        if ("IN_PROGRESS".equals(dbStatus)) return "Đang xử lý";
-        if ("RECEIVED".equals(dbStatus)) return "Hoàn thành";
-        if ("CANCELLED".equals(dbStatus)) return "Từ chối";
-        return dbStatus;
+        return StatusLabelService.getInboundLabel(dbStatus);
     }
 
     private String mapOutboundStatus(String dbStatus) {
-        if ("PENDING".equals(dbStatus)) return "Chờ duyệt";
-        if ("PICKING".equals(dbStatus)) return "Đang xử lý";
-        if ("PACKED".equals(dbStatus)) return "Đang xử lý";
-        if ("SHIPPED".equals(dbStatus)) return "Đang giao";
-        if ("DELIVERED".equals(dbStatus)) return "Hoàn thành";
-        if ("CANCELLED".equals(dbStatus)) return "Từ chối";
-        return dbStatus;
+        return StatusLabelService.getOutboundLabel(dbStatus);
     }
 
     private String mapTransferStatus(String dbStatus) {
-        if ("DRAFT".equals(dbStatus)) return "Nháp";
-        if ("IN_TRANSIT".equals(dbStatus)) return "Chờ duyệt";
-        if ("RECEIVED".equals(dbStatus)) return "Hoàn thành";
-        if ("CANCELLED".equals(dbStatus)) return "Từ chối";
-        return dbStatus;
+        return StatusLabelService.getTransferLabel(dbStatus);
     }
 
     private String mapPhysicalStatus(String dbStatus) {
-        if ("DRAFT".equals(dbStatus)) return "Nháp";
-        if ("IN_PROGRESS".equals(dbStatus)) return "Chờ duyệt";
-        if ("APPROVED".equals(dbStatus)) return "Hoàn thành";
-        return dbStatus;
+        return StatusLabelService.getPhysicalLabel(dbStatus);
     }
 
     private String mapReturnStatus(String dbStatus) {
-        if ("RECEIVED".equals(dbStatus)) return "Chờ xác nhận WH";
-        if ("INSPECTING".equals(dbStatus)) return "Chờ xác nhận WH";
-        if ("PASS".equals(dbStatus)) return "Đã xử lý";
-        if ("FAIL".equals(dbStatus)) return "Đã xử lý";
-        if ("RESTOCKED".equals(dbStatus)) return "Đã xử lý";
-        if ("SCRAPPED".equals(dbStatus)) return "Đã xử lý";
-        return dbStatus;
+        return StatusLabelService.getReturnLabel(dbStatus);
     }
 
     private String getStatusColor(String status) {
-        if ("Chờ duyệt".equals(status) || "Chờ xác nhận WH".equals(status)) return "#d97706"; // amber
-        if ("Đang xử lý".equals(status)) return "#2563eb"; // blue
-        if ("Hoàn thành".equals(status) || "Đã duyệt".equals(status) || "Đã xử lý".equals(status)) return "#059669"; // green
-        if ("Từ chối".equals(status)) return "#dc2626"; // red
-        return "#6b7280"; // gray (Draft/Nháp)
+        return StatusLabelService.getStatusColor(status);
     }
 }

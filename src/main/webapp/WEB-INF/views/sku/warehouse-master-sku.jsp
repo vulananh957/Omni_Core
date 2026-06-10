@@ -1,5 +1,16 @@
 <%@ page language="java" contentType="text/html; charset=UTF-8" pageEncoding="UTF-8" %>
 <%@ taglib prefix="c" uri="jakarta.tags.core" %>
+<%@ page import="com.wms.model.Product" %>
+<%@ page import="java.util.List" %>
+<%@ page import="com.fasterxml.jackson.databind.ObjectMapper" %>
+<%
+    List<Product> products = (List<Product>) request.getAttribute("products");
+    if (products == null) products = java.util.Collections.emptyList();
+
+    ObjectMapper mapper = new ObjectMapper();
+    String productsJson = mapper.valueToTree(products).toString();
+    request.setAttribute("productsJson", productsJson);
+%>
 
 <style>
     /* ─── Metric & Grid Layouts ─── */
@@ -254,7 +265,6 @@
         font-weight: 600;
         color: var(--navy);
         display: -webkit-box;
-        line-clamp: 2;
         -webkit-line-clamp: 2;
         -webkit-box-orient: vertical;
         overflow: hidden;
@@ -665,10 +675,10 @@
     <!-- Warehouse filter -->
     <div class="select-wrap">
         <select id="skuWarehouseFilter">
-            <option value="">Tat ca kho</option>
-            <c:forEach var="w" items="${warehouses}">
-                <option value="${w.warehouseId}">${w.warehouseName}</option>
-            </c:forEach>
+            <option value="">Tất cả kho</option>
+            <option value="1">Kho Hà Nội</option>
+            <option value="2">Kho Đà Nẵng</option>
+            <option value="3">Kho TP. Hồ Chí Minh</option>
         </select>
         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></svg>
     </div>
@@ -939,28 +949,8 @@ try {
 var savedSKUs = localStorage.getItem('wms_skus');
 var localSKUs = savedSKUs ? JSON.parse(savedSKUs) : [];
 
-// Always prefer server data when present; clear stale client cache for this page
-if (SERVER_PRODUCTS.length > 0 && savedSKUs) {
-    localStorage.removeItem('wms_skus');
-    localSKUs = [];
-}
-
 // Merge: server data takes priority if available
 var skus = (SERVER_PRODUCTS.length > 0) ? SERVER_PRODUCTS.map(function(p) {
-    var qtyOnHand = Number(p.qtyOnHand || 0);
-    var minStock = Number(p.minStock || 0);
-    var maxStock = Number(p.maxStock || 0);
-    var approvalStatus = p.status === 'APPROVED' ? 'approved' : p.status === 'REJECTED' ? 'rejected' : 'pending';
-    var stockStatus = 'inactive';
-
-    if (approvalStatus === 'approved') {
-        if (qtyOnHand <= minStock) {
-            stockStatus = 'low_stock';
-        } else {
-            stockStatus = 'active';
-        }
-    }
-
     return {
         id: 'p-' + p.productId,
         sku: p.skuCode || '',
@@ -968,15 +958,15 @@ var skus = (SERVER_PRODUCTS.length > 0) ? SERVER_PRODUCTS.map(function(p) {
         category: p.categoryName || '',
         dimensions: p.attributesText || 'N/A',
         weight: p.weightKg ? p.weightKg + ' kg' : 'N/A',
-        qtyOnHand: qtyOnHand,
-        minStock: minStock,
-        maxStock: maxStock,
-        status: stockStatus,
-        approvalStatus: approvalStatus,
-        locationConfigs: p.locationConfigs || [],
+        qtyOnHand: 0,
+        minStock: p.minStock || 0,
+        maxStock: p.maxStock || 0,
+        status: p.status || 'pending',
+        approvalStatus: p.status === 'APPROVED' ? 'approved' : p.status === 'REJECTED' ? 'rejected' : 'pending',
+        locationConfigs: [],
         createdBy: p.creatorName || p.createdBy || '',
         createdAt: p.createdAt || '',
-        updatedBy: p.approverName || p.updatedBy || '',
+        updatedBy: p.updatedBy || '',
         lastUpdated: p.updatedAt || ''
     };
 }) : localSKUs;
@@ -984,43 +974,31 @@ var skus = (SERVER_PRODUCTS.length > 0) ? SERVER_PRODUCTS.map(function(p) {
 /* ─── State ──────────────────────────────────────────────── */
 var selectedWarehouse = '';
 
-var LOCATIONS = [];
-try {
-    var rawWarehousesJson = '<c:out value="${warehousesJson}" escapeXml="false"/>';
-    if (rawWarehousesJson && rawWarehousesJson.trim() && rawWarehousesJson.indexOf('warehousesJson') === -1) {
-        var parsedWarehouses = JSON.parse(rawWarehousesJson);
-        LOCATIONS = parsedWarehouses.map(function(w) {
-            return {
-                id: 'loc-' + w.warehouseId,
-                name: w.warehouseName,
-                code: w.warehouseCode,
-                city: w.address
-            };
-        });
-    }
-} catch (e) {
-    LOCATIONS = [];
-}
+var LOCATIONS = [
+    { id: "loc-hn",  name: "Kho Hà Nội",      code: "HN",  city: "Hà Nội" },
+    { id: "loc-dn",  name: "Kho Đà Nẵng",     code: "DN",  city: "Đà Nẵng" },
+    { id: "loc-hcm", name: "Kho TP. Hồ Chí Minh", code: "HCM", city: "TP.HCM" }
+];
 
-var ZONES = [];
-try {
-    var rawZonesJson = '<c:out value="${zonesJson}" escapeXml="false"/>';
-    if (rawZonesJson && rawZonesJson.trim() && rawZonesJson.indexOf('zonesJson') === -1) {
-        var parsedZones = JSON.parse(rawZonesJson);
-        ZONES = parsedZones.map(function(z) {
-            return {
-                id: 'z-' + z.zoneId,
-                locationId: 'loc-' + z.warehouseId,
-                code: z.zoneCode,
-                name: z.zoneName,
-                zoneType: z.zoneType,
-                allowForNew: z.zoneType === 'NORMAL' || z.zoneType === 'RETURN'
-            };
-        });
-    }
-} catch (e) {
-    ZONES = [];
-}
+var ZONES = [
+    // Hà Nội
+    { id: "z-hn-regular",   locationId: "loc-hn",  code: "HN-A1", name: "Khu Hàng Thường",          allowForNew: true  },
+    { id: "z-hn-cold",      locationId: "loc-hn",  code: "HN-B1", name: "Khu Hàng Lạnh / Giá trị cao", allowForNew: true  },
+    { id: "z-hn-promo",     locationId: "loc-hn",  code: "HN-C1", name: "Khu Hàng Khuyến Mãi",      allowForNew: true  },
+    { id: "z-hn-damaged",   locationId: "loc-hn",  code: "HN-D1", name: "Khu Hàng Hỏng",            allowForNew: false },
+    { id: "z-hn-complaint", locationId: "loc-hn",  code: "HN-D2", name: "Khu Hàng Khiếu Nại",       allowForNew: false },
+    // Đà Nẵng
+    { id: "z-dn-regular",   locationId: "loc-dn",  code: "DN-A1", name: "Khu Hàng Thường",          allowForNew: true  },
+    { id: "z-dn-cold",      locationId: "loc-dn",  code: "DN-B1", name: "Khu Hàng Lạnh / Giá trị cao", allowForNew: true  },
+    { id: "z-dn-damaged",   locationId: "loc-dn",  code: "DN-D1", name: "Khu Hàng Hỏng",            allowForNew: false },
+    { id: "z-dn-complaint", locationId: "loc-dn",  code: "DN-D2", name: "Khu Hàng Khiếu Nại",       allowForNew: false },
+    // TP.HCM
+    { id: "z-hcm-regular",  locationId: "loc-hcm", code: "HCM-A1", name: "Khu Hàng Thường",         allowForNew: true  },
+    { id: "z-hcm-cold",     locationId: "loc-hcm", code: "HCM-B1", name: "Khu Hàng Lạnh / Giá trị cao", allowForNew: true },
+    { id: "z-hcm-promo",    locationId: "loc-hcm", code: "HCM-C1", name: "Khu Hàng Khuyến Mãi",     allowForNew: true  },
+    { id: "z-hcm-damaged",  locationId: "loc-hcm", code: "HCM-D1", name: "Khu Hàng Hỏng",           allowForNew: false },
+    { id: "z-hcm-complaint",locationId: "loc-hcm", code: "HCM-D2", name: "Khu Hàng Khiếu Nại",      allowForNew: false }
+];
 
 var search = '';
 var selectedCategory = 'Tất cả';

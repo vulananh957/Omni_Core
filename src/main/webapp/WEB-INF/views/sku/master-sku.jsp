@@ -1,16 +1,6 @@
 <%@ page language="java" contentType="text/html; charset=UTF-8" pageEncoding="UTF-8" %>
 <%@ taglib prefix="c" uri="jakarta.tags.core" %>
-<%@ page import="com.wms.model.Product" %>
-<%@ page import="java.util.List" %>
-<%@ page import="com.fasterxml.jackson.databind.ObjectMapper" %>
-<%
-    List<Product> products = (List<Product>) request.getAttribute("products");
-    if (products == null) products = java.util.Collections.emptyList();
 
-    ObjectMapper mapper = new ObjectMapper();
-    String productsJson = mapper.valueToTree(products).toString();
-    request.setAttribute("productsJson", productsJson);
-%>
 <style>
     /* ─── Tabs Styling ─── */
     .tabs-wrap {
@@ -1025,20 +1015,8 @@ try {
 var savedSKUs = localStorage.getItem('wms_skus');
 var localSKUs = savedSKUs ? JSON.parse(savedSKUs) : [];
 
-function hasVisibleMojibake(text) {
-    if (!text) return false;
-    return /Ã.|Æ.|áº|á»|Ä‘|á¸/i.test(String(text));
-}
-
-function shouldUseLocalFallback(serverProducts, localProducts) {
-    if (serverProducts.length > 0) {
-        return false;
-    }
-    return localProducts.length > 0;
-}
-
 /* ─── State ──────────────────────────────────────────────── */
-var skus = shouldUseLocalFallback(SERVER_PRODUCTS, localSKUs) ? localSKUs : SERVER_PRODUCTS.map(function(p) {
+var skus = (SERVER_PRODUCTS.length > 0) ? SERVER_PRODUCTS.map(function(p) {
     return {
         id: p.id || ('p-' + p.productId),
         sku: p.sku || p.skuCode || '',
@@ -1052,17 +1030,13 @@ var skus = shouldUseLocalFallback(SERVER_PRODUCTS, localSKUs) ? localSKUs : SERV
         status: p.status || 'pending',
         approvalStatus: p.approvalStatus || (p.status === 'APPROVED' ? 'approved' : p.status === 'REJECTED' ? 'rejected' : 'pending'),
         locationConfigs: p.locationConfigs || [],
-        createdBy: p.creatorName || p.createdBy || '',
+        createdBy: p.createdBy || p.creatorName || '',
         createdAt: p.createdAt || '',
-        updatedBy: p.approverName || p.updatedBy || '',
+        updatedBy: p.updatedBy || p.approverName || '',
         lastUpdated: p.lastUpdated || p.updatedAt || '',
         reviewNote: p.reviewNote || ''
     };
-});
-
-if (SERVER_PRODUCTS.length > 0 && skus.some(function (item) { return hasVisibleMojibake(item.name); })) {
-    console.warn('master-sku: Server product data still contains mojibake product names');
-}
+}) : localSKUs;
 
 
 // Bind dynamic warehouses and zones from servlet

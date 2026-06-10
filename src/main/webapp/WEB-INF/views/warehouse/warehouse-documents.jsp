@@ -1089,19 +1089,8 @@
         var savedSKUs = localStorage.getItem('wms_skus');
         var PRODUCTS = savedSKUs ? JSON.parse(savedSKUs) : [];
 
-        var WAREHOUSES = [];
-        try {
-            var rawWhJson = '<c:out value="${warehousesJson}" escapeXml="false"/>';
-            if (rawWhJson && rawWhJson.trim() && rawWhJson.indexOf('warehousesJson') === -1) {
-                WAREHOUSES = JSON.parse(rawWhJson);
-            }
-        } catch (e) {
-            WAREHOUSES = [];
-        }
-        if (WAREHOUSES.length === 0) {
-            var savedWarehouses = localStorage.getItem('wms_warehouses');
-            WAREHOUSES = savedWarehouses ? JSON.parse(savedWarehouses) : [];
-        }
+        var savedWarehouses = localStorage.getItem('wms_warehouses');
+        var WAREHOUSES = savedWarehouses ? JSON.parse(savedWarehouses) : [];
 
         // Constants matching React
         var DOC_TYPE_CONFIG = {
@@ -1270,12 +1259,13 @@
                         createDocWarehouse.appendChild(opt);
                     });
                 } else {
-                    // No warehouses available — user must create one first
-                    var opt = document.createElement('option');
-                    opt.value = '';
-                    opt.textContent = '(Khong co kho — vui long tao kho truoc)';
-                    opt.disabled = true;
-                    createDocWarehouse.appendChild(opt);
+                    var defaults = ["Khu A - Hàng Thường", "Khu B - Hàng Lạnh", "Khu Hoàn Hàng", "Kho HCM - Quận 1", "Kho HCM - Quận 7", "Kho Đà Nẵng", "Kho Hà Nội"];
+                    defaults.forEach(function(d) {
+                        var opt = document.createElement('option');
+                        opt.value = d;
+                        opt.textContent = d;
+                        createDocWarehouse.appendChild(opt);
+                    });
                 }
 
                 // Sync type changes immediately

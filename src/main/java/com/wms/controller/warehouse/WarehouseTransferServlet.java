@@ -10,9 +10,6 @@ import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
 
 /**
  * WarehouseTransferServlet — Handles Transfer Inventory (Điều chuyển kho) for the Warehouse Staff.
@@ -28,22 +25,11 @@ public class WarehouseTransferServlet extends BaseController {
             throws ServletException, IOException {
 
         try {
-            List<TransferDAO.Transfer> transfers = transferService.findAll();
-            req.setAttribute("transfers", transfers);
-
-            // Build transfer→items map for the detail view
-            Map<Integer, List<TransferDAO.TransferItem>> transferItemsMap = new HashMap<>();
-            for (TransferDAO.Transfer t : transfers) {
-                List<TransferDAO.TransferItem> items = transferService.findItemsByTransferId(t.getTransferId());
-                transferItemsMap.put(t.getTransferId(), items);
-            }
-            req.setAttribute("transferItemsMap", transferItemsMap);
-
+            req.setAttribute("transfers", transferService.findAll());
             req.setAttribute("products", transferService.findApprovedProducts());
             req.setAttribute("warehouses", transferService.findAllWarehouses());
         } catch (Exception e) {
             req.setAttribute("transfers", java.util.List.<TransferDAO.Transfer>of());
-            req.setAttribute("transferItemsMap", new HashMap<Integer, List<TransferDAO.TransferItem>>());
             req.setAttribute("products", java.util.List.<Product>of());
             req.setAttribute("warehouses", java.util.List.<Warehouse>of());
         }

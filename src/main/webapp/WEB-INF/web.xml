@@ -1,0 +1,440 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<web-app xmlns="https://jakarta.ee/xml/ns/jakartaee"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="https://jakarta.ee/xml/ns/jakartaee
+                             https://jakarta.ee/xml/ns/jakartaee/web-app_6_0.xsd"
+         version="6.0">
+
+    <display-name>B2C Omnichannel WMS Hub</display-name>
+
+    <!-- ======================================================
+         CONTEXT LISTENERS
+    ====================================================== -->
+    <!-- Installs JUL-to-SLF4J bridge so LazadaOrderService logs go through Logback -->
+    <listener>
+        <listener-class>com.wms.listener.LoggingInitListener</listener-class>
+    </listener>
+    <!-- Runs DB schema initialisation on first deployment -->
+    <listener>
+        <listener-class>com.wms.listener.SchemaInitListener</listener-class>
+    </listener>
+
+    <!-- ======================================================
+         CONTEXT PARAMETERS
+    ====================================================== -->
+    <context-param>
+        <param-name>app.name</param-name>
+        <param-value>WMS Hub - Grocery</param-value>
+    </context-param>
+
+    <!-- Lazada Auto-Sync Scheduler config (read by LazadaSyncScheduler listener) -->
+    <context-param>
+        <param-name>lazada.sync.enabled</param-name>
+        <param-value>true</param-value>
+    </context-param>
+    <context-param>
+        <param-name>lazada.sync.interval.minutes</param-name>
+        <param-value>5</param-value>
+    </context-param>
+
+    <!-- ======================================================
+         FILTERS — run before every request
+    ====================================================== -->
+    <!-- UTF-8 Encoding Filter (must run FIRST) -->
+    <filter>
+        <filter-name>EncodingFilter</filter-name>
+        <filter-class>com.wms.filter.EncodingFilter</filter-class>
+    </filter>
+    <filter-mapping>
+        <filter-name>EncodingFilter</filter-name>
+        <url-pattern>/*</url-pattern>
+    </filter-mapping>
+
+    <!-- Authentication Guard Filter -->
+    <filter>
+        <filter-name>AuthFilter</filter-name>
+        <filter-class>com.wms.filter.AuthFilter</filter-class>
+    </filter>
+    <!-- AuthFilter: only intercept direct requests (not forwards/includes from within servlets) -->
+    <filter-mapping>
+        <filter-name>AuthFilter</filter-name>
+        <url-pattern>/*</url-pattern>
+        <dispatcher>REQUEST</dispatcher>
+    </filter-mapping>
+
+    <!-- ======================================================
+         SERVLETS
+    ====================================================== -->
+
+    <!-- Login -->
+    <servlet>
+        <servlet-name>LoginServlet</servlet-name>
+        <servlet-class>com.wms.controller.auth.LoginServlet</servlet-class>
+    </servlet>
+    <servlet-mapping>
+        <servlet-name>LoginServlet</servlet-name>
+        <url-pattern>/login</url-pattern>
+    </servlet-mapping>
+
+    <!-- OTP Verification -->
+    <servlet>
+        <servlet-name>OtpServlet</servlet-name>
+        <servlet-class>com.wms.controller.auth.OtpServlet</servlet-class>
+    </servlet>
+    <servlet-mapping>
+        <servlet-name>OtpServlet</servlet-name>
+        <url-pattern>/otp</url-pattern>
+    </servlet-mapping>
+
+    <!-- Password Change OTP Verification -->
+    <servlet>
+        <servlet-name>PasswordChangeOtpServlet</servlet-name>
+        <servlet-class>com.wms.controller.auth.PasswordChangeOtpServlet</servlet-class>
+    </servlet>
+    <servlet-mapping>
+        <servlet-name>PasswordChangeOtpServlet</servlet-name>
+        <url-pattern>/password-change-otp</url-pattern>
+    </servlet-mapping>
+
+    <!-- Forgot Password -->
+    <servlet>
+        <servlet-name>ForgotPasswordServlet</servlet-name>
+        <servlet-class>com.wms.controller.auth.ForgotPasswordServlet</servlet-class>
+    </servlet>
+    <servlet-mapping>
+        <servlet-name>ForgotPasswordServlet</servlet-name>
+        <url-pattern>/forgot-password</url-pattern>
+    </servlet-mapping>
+
+    <!-- Reset Password -->
+    <servlet>
+        <servlet-name>ResetPasswordServlet</servlet-name>
+        <servlet-class>com.wms.controller.auth.ResetPasswordServlet</servlet-class>
+    </servlet>
+    <servlet-mapping>
+        <servlet-name>ResetPasswordServlet</servlet-name>
+        <url-pattern>/reset-password</url-pattern>
+    </servlet-mapping>
+
+    <!-- Logout -->
+    <servlet>
+        <servlet-name>LogoutServlet</servlet-name>
+        <servlet-class>com.wms.controller.auth.LogoutServlet</servlet-class>
+    </servlet>
+    <servlet-mapping>
+        <servlet-name>LogoutServlet</servlet-name>
+        <url-pattern>/logout</url-pattern>
+    </servlet-mapping>
+
+    <!-- ── Business Manager routes ────────────────────────────── -->
+    <servlet>
+        <servlet-name>BusinessDashboardServlet</servlet-name>
+        <servlet-class>com.wms.controller.dashboard.BusinessDashboardServlet</servlet-class>
+    </servlet>
+    <servlet-mapping>
+        <servlet-name>BusinessDashboardServlet</servlet-name>
+        <url-pattern>/business/dashboard</url-pattern>
+    </servlet-mapping>
+
+    <servlet>
+        <servlet-name>MasterSKUServlet</servlet-name>
+        <servlet-class>com.wms.controller.sku.MasterSKUServlet</servlet-class>
+    </servlet>
+    <servlet-mapping>
+        <servlet-name>MasterSKUServlet</servlet-name>
+        <url-pattern>/business/master-sku</url-pattern>
+    </servlet-mapping>
+
+    <servlet>
+        <servlet-name>CategoryServlet</servlet-name>
+        <servlet-class>com.wms.controller.category.CategoryServlet</servlet-class>
+    </servlet>
+    <servlet-mapping>
+        <servlet-name>CategoryServlet</servlet-name>
+        <url-pattern>/business/categories</url-pattern>
+    </servlet-mapping>
+
+    <servlet>
+        <servlet-name>WarehouseServlet</servlet-name>
+        <servlet-class>com.wms.controller.warehouse.WarehouseServlet</servlet-class>
+    </servlet>
+    <servlet-mapping>
+        <servlet-name>WarehouseServlet</servlet-name>
+        <url-pattern>/business/warehouses</url-pattern>
+    </servlet-mapping>
+
+    <servlet>
+        <servlet-name>InventoryServlet</servlet-name>
+        <servlet-class>com.wms.controller.inventory.InventoryServlet</servlet-class>
+    </servlet>
+    <servlet-mapping>
+        <servlet-name>InventoryServlet</servlet-name>
+        <url-pattern>/business/inventory</url-pattern>
+    </servlet-mapping>
+
+    <servlet>
+        <servlet-name>LedgerServlet</servlet-name>
+        <servlet-class>com.wms.controller.ledger.LedgerServlet</servlet-class>
+    </servlet>
+    <servlet-mapping>
+        <servlet-name>LedgerServlet</servlet-name>
+        <url-pattern>/business/ledger</url-pattern>
+    </servlet-mapping>
+
+    <servlet>
+        <servlet-name>StaffServlet</servlet-name>
+        <servlet-class>com.wms.controller.staff.StaffServlet</servlet-class>
+    </servlet>
+    <servlet-mapping>
+        <servlet-name>StaffServlet</servlet-name>
+        <url-pattern>/business/staff</url-pattern>
+    </servlet-mapping>
+
+    <servlet>
+        <servlet-name>BusinessProfileServlet</servlet-name>
+        <servlet-class>com.wms.controller.dashboard.BusinessProfileServlet</servlet-class>
+    </servlet>
+    <servlet-mapping>
+        <servlet-name>BusinessProfileServlet</servlet-name>
+        <url-pattern>/business/profile</url-pattern>
+    </servlet-mapping>
+
+    <!-- ── Warehouse Staff routes ──────────────────────────────── -->
+    <servlet>
+        <servlet-name>WarehouseMasterSKUServlet</servlet-name>
+        <servlet-class>com.wms.controller.warehouse.WarehouseMasterSKUServlet</servlet-class>
+    </servlet>
+    <servlet-mapping>
+        <servlet-name>WarehouseMasterSKUServlet</servlet-name>
+        <url-pattern>/warehouse/master-sku</url-pattern>
+    </servlet-mapping>
+
+    <servlet>
+        <servlet-name>WarehouseInboundServlet</servlet-name>
+        <servlet-class>com.wms.controller.warehouse.WarehouseInboundServlet</servlet-class>
+    </servlet>
+    <servlet-mapping>
+        <servlet-name>WarehouseInboundServlet</servlet-name>
+        <url-pattern>/warehouse/inbound</url-pattern>
+    </servlet-mapping>
+
+    <servlet>
+        <servlet-name>WarehouseOutboundServlet</servlet-name>
+        <servlet-class>com.wms.controller.warehouse.WarehouseOutboundServlet</servlet-class>
+    </servlet>
+    <servlet-mapping>
+        <servlet-name>WarehouseOutboundServlet</servlet-name>
+        <url-pattern>/warehouse/outbound</url-pattern>
+    </servlet-mapping>
+
+    <servlet>
+        <servlet-name>WarehouseTransferServlet</servlet-name>
+        <servlet-class>com.wms.controller.warehouse.WarehouseTransferServlet</servlet-class>
+    </servlet>
+    <servlet-mapping>
+        <servlet-name>WarehouseTransferServlet</servlet-name>
+        <url-pattern>/warehouse/transfer</url-pattern>
+    </servlet-mapping>
+
+    <servlet>
+        <servlet-name>WarehouseInventoryCheckServlet</servlet-name>
+        <servlet-class>com.wms.controller.warehouse.WarehouseInventoryCheckServlet</servlet-class>
+    </servlet>
+    <servlet-mapping>
+        <servlet-name>WarehouseInventoryCheckServlet</servlet-name>
+        <url-pattern>/warehouse/inventory-check</url-pattern>
+    </servlet-mapping>
+
+    <servlet>
+        <servlet-name>WarehouseReturnsServlet</servlet-name>
+        <servlet-class>com.wms.controller.warehouse.WarehouseReturnsServlet</servlet-class>
+    </servlet>
+    <servlet-mapping>
+        <servlet-name>WarehouseReturnsServlet</servlet-name>
+        <url-pattern>/warehouse/returns</url-pattern>
+    </servlet-mapping>
+
+    <servlet>
+        <servlet-name>WarehouseDocumentsServlet</servlet-name>
+        <servlet-class>com.wms.controller.warehouse.WarehouseDocumentsServlet</servlet-class>
+    </servlet>
+    <servlet-mapping>
+        <servlet-name>WarehouseDocumentsServlet</servlet-name>
+        <url-pattern>/warehouse/documents</url-pattern>
+    </servlet-mapping>
+
+    <servlet>
+        <servlet-name>WarehouseProfileServlet</servlet-name>
+        <servlet-class>com.wms.controller.warehouse.WarehouseProfileServlet</servlet-class>
+    </servlet>
+    <servlet-mapping>
+        <servlet-name>WarehouseProfileServlet</servlet-name>
+        <url-pattern>/warehouse/profile</url-pattern>
+    </servlet-mapping>
+
+    <!-- ── Sales Staff routes ──────────────────────────────────── -->
+    <servlet>
+        <servlet-name>SalesProfileServlet</servlet-name>
+        <servlet-class>com.wms.controller.sales.SalesProfileServlet</servlet-class>
+    </servlet>
+    <servlet-mapping>
+        <servlet-name>SalesProfileServlet</servlet-name>
+        <url-pattern>/sales/profile</url-pattern>
+    </servlet-mapping>
+
+    <servlet>
+        <servlet-name>SalesOrdersServlet</servlet-name>
+        <servlet-class>com.wms.controller.sales.SalesOrdersServlet</servlet-class>
+    </servlet>
+    <servlet-mapping>
+        <servlet-name>SalesOrdersServlet</servlet-name>
+        <url-pattern>/sales/orders</url-pattern>
+    </servlet-mapping>
+
+    <servlet>
+        <servlet-name>SalesOrderProcessingServlet</servlet-name>
+        <servlet-class>com.wms.controller.sales.SalesOrderProcessingServlet</servlet-class>
+    </servlet>
+    <servlet-mapping>
+        <servlet-name>SalesOrderProcessingServlet</servlet-name>
+        <url-pattern>/sales/order-processing</url-pattern>
+    </servlet-mapping>
+
+    <servlet>
+        <servlet-name>OrderActionServlet</servlet-name>
+        <servlet-class>com.wms.controller.sales.OrderActionServlet</servlet-class>
+    </servlet>
+    <servlet-mapping>
+        <servlet-name>OrderActionServlet</servlet-name>
+        <url-pattern>/sales/order-action</url-pattern>
+    </servlet-mapping>
+
+    <servlet>
+        <servlet-name>SalesSKUMappingServlet</servlet-name>
+        <servlet-class>com.wms.controller.sales.SalesSKUMappingServlet</servlet-class>
+    </servlet>
+    <servlet-mapping>
+        <servlet-name>SalesSKUMappingServlet</servlet-name>
+        <url-pattern>/sales/sku-mapping</url-pattern>
+    </servlet-mapping>
+
+    <servlet>
+        <servlet-name>SalesChannelProductsServlet</servlet-name>
+        <servlet-class>com.wms.controller.sales.SalesChannelProductsServlet</servlet-class>
+    </servlet>
+    <servlet-mapping>
+        <servlet-name>SalesChannelProductsServlet</servlet-name>
+        <url-pattern>/sales/channel-products</url-pattern>
+    </servlet-mapping>
+
+    <!-- ── Admin routes ────────────────────────────────────────── -->
+    <servlet>
+        <servlet-name>AdminProfileServlet</servlet-name>
+        <servlet-class>com.wms.controller.admin.AdminProfileServlet</servlet-class>
+    </servlet>
+    <servlet-mapping>
+        <servlet-name>AdminProfileServlet</servlet-name>
+        <url-pattern>/admin/profile</url-pattern>
+    </servlet-mapping>
+
+    <!-- User Management module (UC-SYS01) -->
+    <servlet>
+        <servlet-name>UserManagementServlet</servlet-name>
+        <servlet-class>com.wms.controller.admin.UserManagementServlet</servlet-class>
+    </servlet>
+    <servlet-mapping>
+        <servlet-name>UserManagementServlet</servlet-name>
+        <url-pattern>/admin/users</url-pattern>
+    </servlet-mapping>
+    <servlet-mapping>
+        <servlet-name>UserManagementServlet</servlet-name>
+        <url-pattern>/admin/users/*</url-pattern>
+    </servlet-mapping>
+    <servlet-mapping>
+        <servlet-name>UserManagementServlet</servlet-name>
+        <url-pattern>/admin/staff-roles</url-pattern>
+    </servlet-mapping>
+    <servlet-mapping>
+        <servlet-name>UserManagementServlet</servlet-name>
+        <url-pattern>/admin/staff-roles/*</url-pattern>
+    </servlet-mapping>
+
+    <!-- Channel management and integrations -->
+    <servlet>
+        <servlet-name>ChannelListServlet</servlet-name>
+        <servlet-class>com.wms.controller.admin.ChannelListServlet</servlet-class>
+    </servlet>
+    <servlet-mapping>
+        <servlet-name>ChannelListServlet</servlet-name>
+        <url-pattern>/admin/channels</url-pattern>
+    </servlet-mapping>
+    <servlet-mapping>
+        <servlet-name>ChannelListServlet</servlet-name>
+        <url-pattern>/admin/channels/*</url-pattern>
+    </servlet-mapping>
+    <servlet-mapping>
+        <servlet-name>ChannelListServlet</servlet-name>
+        <url-pattern>/admin/api-connections</url-pattern>
+    </servlet-mapping>
+
+    <servlet>
+        <servlet-name>ChannelConfigServlet</servlet-name>
+        <servlet-class>com.wms.controller.admin.ChannelConfigServlet</servlet-class>
+    </servlet>
+    <servlet-mapping>
+        <servlet-name>ChannelConfigServlet</servlet-name>
+        <url-pattern>/admin/channels/create</url-pattern>
+    </servlet-mapping>
+
+    <servlet>
+        <servlet-name>LazadaAuthCallbackServlet</servlet-name>
+        <servlet-class>com.wms.controller.admin.LazadaAuthCallbackServlet</servlet-class>
+    </servlet>
+    <servlet-mapping>
+        <servlet-name>LazadaAuthCallbackServlet</servlet-name>
+        <url-pattern>/lazada/callback</url-pattern>
+    </servlet-mapping>
+
+    <!-- ======================================================
+         WELCOME & ERROR PAGES
+    ====================================================== -->
+    <welcome-file-list>
+        <welcome-file>login</welcome-file>
+    </welcome-file-list>
+
+    <!-- ======================================================
+         SESSION CONFIG
+    ====================================================== -->
+    <session-config>
+        <session-timeout>30</session-timeout>
+        <cookie-config>
+            <http-only>true</http-only>
+            <secure>false</secure>
+        </cookie-config>
+    </session-config>
+
+    <!-- ======================================================
+         ERROR PAGES
+    ====================================================== -->
+    <error-page>
+        <error-code>400</error-code>
+        <location>/WEB-INF/views/error/400.jsp</location>
+    </error-page>
+    <error-page>
+        <error-code>403</error-code>
+        <location>/WEB-INF/views/error/403.jsp</location>
+    </error-page>
+    <error-page>
+        <error-code>404</error-code>
+        <location>/WEB-INF/views/error/404.jsp</location>
+    </error-page>
+    <error-page>
+        <error-code>500</error-code>
+        <location>/WEB-INF/views/error/500.jsp</location>
+    </error-page>
+    <error-page>
+        <exception-type>java.lang.Exception</exception-type>
+        <location>/WEB-INF/views/error/500.jsp</location>
+    </error-page>
+
+</web-app>

@@ -40,7 +40,7 @@ public class OrderDAO {
                            + "ORDER BY o.created_at DESC LIMIT 100";
         String sqlItems = "SELECT p.product_id, p.sku_code, p.product_name, oi.qty, oi.unit_price " +
                           "FROM order_items oi " +
-                          "JOIN products p ON oi.product_id = p.product_id " +
+                          "JOIN products p ON oi.sku_id = p.product_id " +
                           "WHERE oi.order_id = ?";
 
         try (Connection conn = DBConnection.getConnection();
@@ -236,7 +236,7 @@ public class OrderDAO {
         String sql =
             "SELECT p.product_id, p.sku_code, p.product_name, SUM(oi.qty * oi.unit_price) AS total_revenue, COUNT(DISTINCT o.order_id) AS order_count " +
             "FROM order_items oi " +
-            "JOIN products p ON oi.product_id = p.product_id " +
+            "JOIN products p ON oi.sku_id = p.product_id " +
             "JOIN orders o ON oi.order_id = o.order_id " +
             "WHERE o.status NOT IN ('CANCELLED','REJECTED') " +
             "GROUP BY p.product_id, p.sku_code, p.product_name " +
@@ -312,9 +312,9 @@ public class OrderDAO {
 
     public List<OrderItem> findItemsByOrderId(int orderId) {
         List<OrderItem> items = new ArrayList<>();
-        String sql = "SELECT oi.product_id, p.sku_code, p.product_name, oi.qty, oi.unit_price "
+        String sql = "SELECT p.product_id, p.sku_code, p.product_name, oi.qty, oi.unit_price "
                    + "FROM order_items oi "
-                   + "JOIN products p ON oi.product_id = p.product_id "
+                   + "JOIN products p ON oi.sku_id = p.product_id "
                    + "WHERE oi.order_id = ?";
         try (Connection conn = DBConnection.getConnection();
              PreparedStatement ps = conn.prepareStatement(sql)) {

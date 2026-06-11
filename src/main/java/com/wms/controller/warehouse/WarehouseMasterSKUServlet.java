@@ -54,6 +54,7 @@ public class WarehouseMasterSKUServlet extends BaseController {
 
             List<Category> categories = productService.findAllCategories();
             req.setAttribute("categories", categories);
+            req.setAttribute("categoriesJson", objectMapper.writeValueAsString(categories));
         } catch (Exception e) {
             LOGGER.warning("Failed to load products: " + e.getMessage());
             req.setAttribute("products", java.util.List.<Product>of());
@@ -63,6 +64,7 @@ public class WarehouseMasterSKUServlet extends BaseController {
             req.setAttribute("zones", java.util.List.<Zone>of());
             req.setAttribute("zonesJson", "[]");
             req.setAttribute("categories", java.util.List.<Category>of());
+            req.setAttribute("categoriesJson", "[]");
         }
 
         consumeFlash(req);

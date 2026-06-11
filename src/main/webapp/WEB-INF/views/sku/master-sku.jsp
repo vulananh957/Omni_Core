@@ -1123,6 +1123,48 @@ if (DB_WAREHOUSES.length > 0) {
     ];
 }
 
+var DB_CATEGORIES = [];
+try {
+    var rawCategoriesJson = '<c:out value="${categoriesJson}" escapeXml="false"/>';
+    if (rawCategoriesJson && rawCategoriesJson.trim() && rawCategoriesJson.indexOf('categoriesJson') === -1) {
+        DB_CATEGORIES = JSON.parse(rawCategoriesJson);
+    }
+} catch (e) {
+    console.warn('master-sku: Failed to parse categoriesJson', e);
+}
+
+function buildCategoryTreeOptions(categories, isFilter) {
+    var html = isFilter ? '<option value="Tất cả">Tất cả</option>' : '';
+    
+    function recurse(parentId, prefix) {
+        var levelNodes = categories.filter(function(c) {
+            var nodeParentId = c.parentId;
+            if (parentId === null) {
+                return nodeParentId === null || nodeParentId === 0 || nodeParentId === 'null';
+            }
+            return nodeParentId == parentId;
+        });
+        
+        levelNodes.forEach(function(node) {
+            html += '<option value="' + escapeHtml(node.categoryName) + '">' + prefix + escapeHtml(node.categoryName) + '</option>';
+            recurse(node.categoryId, prefix + '    ');
+        });
+    }
+    
+    recurse(null, '');
+    return html;
+}
+
+function escapeHtml(str) {
+    if (!str) return '';
+    return str
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#039;");
+}
+
 var search = '';
 var selectedCategory = 'Tất cả';
 var activeTab = 'all'; // 'all', 'pending', 'approved', 'rejected'
@@ -1153,6 +1195,10 @@ var btnRejectSubmit  = document.getElementById('btnRejectSubmit');
 var rejectIdInput    = document.getElementById('reject-item-id');
 var rejectReasonInput = document.getElementById('reject-reason');
 var rejectCodeLabel  = document.getElementById('reject-sku-code-label');
+
+if (catSelect && DB_CATEGORIES.length > 0) {
+    catSelect.innerHTML = buildCategoryTreeOptions(DB_CATEGORIES, true);
+}
 
 /* ─── Handlers ───────────────────────────────────────────── */
 if (searchInput) {

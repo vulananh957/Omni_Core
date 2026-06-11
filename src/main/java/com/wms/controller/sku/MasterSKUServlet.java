@@ -42,9 +42,13 @@ public class MasterSKUServlet extends BaseController {
         }
 
         try {
-            req.setAttribute("categories", productService.findAllCategories());
+            List<com.wms.model.Category> categories = productService.findAllCategories();
+            req.setAttribute("categories", categories);
+            req.setAttribute("categoriesJson", objectMapper.writeValueAsString(categories));
         } catch (Exception e) {
             LOGGER.log(Level.WARNING, "MasterSKUServlet: Failed to load categories", e);
+            req.setAttribute("categories", List.of());
+            req.setAttribute("categoriesJson", "[]");
         }
 
         try {

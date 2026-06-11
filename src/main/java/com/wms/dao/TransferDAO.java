@@ -6,6 +6,7 @@ import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.sql.Statement;
 import java.sql.Timestamp;
 import java.util.ArrayList;
 import java.util.List;
@@ -23,20 +24,28 @@ public class TransferDAO {
         "SELECT st.transfer_id, st.transfer_code, "
       + "st.from_warehouse_id, fw.warehouse_name AS from_warehouse_name, "
       + "st.to_warehouse_id,   tw.warehouse_name AS to_warehouse_name, "
-      + "st.created_by, st.approved_by, st.status, st.note, st.created_at, st.completed_at "
+      + "st.created_by, creator.full_name AS creator_name, "
+      + "st.approved_by, approver.full_name AS approver_name, "
+      + "st.status, st.note, st.created_at, st.completed_at "
       + "FROM stock_transfers st "
       + "LEFT JOIN warehouses fw ON st.from_warehouse_id = fw.warehouse_id "
       + "LEFT JOIN warehouses tw ON st.to_warehouse_id   = tw.warehouse_id "
+      + "LEFT JOIN users creator ON st.created_by   = creator.user_id "
+      + "LEFT JOIN users approver ON st.approved_by = approver.user_id "
       + "ORDER BY st.created_at DESC LIMIT 200";
 
     private static final String SQL_FIND_BY_ID =
         "SELECT st.transfer_id, st.transfer_code, "
       + "st.from_warehouse_id, fw.warehouse_name AS from_warehouse_name, "
       + "st.to_warehouse_id,   tw.warehouse_name AS to_warehouse_name, "
-      + "st.created_by, st.approved_by, st.status, st.note, st.created_at, st.completed_at "
+      + "st.created_by, creator.full_name AS creator_name, "
+      + "st.approved_by, approver.full_name AS approver_name, "
+      + "st.status, st.note, st.created_at, st.completed_at "
       + "FROM stock_transfers st "
       + "LEFT JOIN warehouses fw ON st.from_warehouse_id = fw.warehouse_id "
       + "LEFT JOIN warehouses tw ON st.to_warehouse_id   = tw.warehouse_id "
+      + "LEFT JOIN users creator ON st.created_by   = creator.user_id "
+      + "LEFT JOIN users approver ON st.approved_by = approver.user_id "
       + "WHERE st.transfer_id = ?";
 
     /**
@@ -59,7 +68,9 @@ public class TransferDAO {
                 t.setToWarehouseId(rs.getInt("to_warehouse_id"));
                 t.setToWarehouseName(rs.getString("to_warehouse_name"));
                 t.setCreatedBy(rs.getInt("created_by"));
+                try { t.setCreatorName(rs.getString("creator_name")); } catch (SQLException ignored) {}
                 t.setApprovedBy(rs.getObject("approved_by") != null ? rs.getInt("approved_by") : null);
+                try { t.setApproverName(rs.getString("approver_name")); } catch (SQLException ignored) {}
                 t.setStatus(rs.getString("status"));
                 t.setNote(rs.getString("note"));
                 java.sql.Timestamp ca = rs.getTimestamp("created_at");
@@ -94,13 +105,15 @@ public class TransferDAO {
                     t.setFromWarehouseName(rs.getString("from_warehouse_name"));
                     t.setToWarehouseId(rs.getInt("to_warehouse_id"));
                     t.setToWarehouseName(rs.getString("to_warehouse_name"));
-                    t.setCreatedBy(rs.getInt("created_by"));
-                    t.setApprovedBy(rs.getObject("approved_by") != null ? rs.getInt("approved_by") : null);
-                    t.setStatus(rs.getString("status"));
-                    t.setNote(rs.getString("note"));
-                    java.sql.Timestamp ca = rs.getTimestamp("created_at");
-                    if (ca != null) t.setCreatedAt(ca.toLocalDateTime());
-                    return t;
+                t.setCreatedBy(rs.getInt("created_by"));
+                try { t.setCreatorName(rs.getString("creator_name")); } catch (SQLException ignored) {}
+                t.setApprovedBy(rs.getObject("approved_by") != null ? rs.getInt("approved_by") : null);
+                try { t.setApproverName(rs.getString("approver_name")); } catch (SQLException ignored) {}
+                t.setStatus(rs.getString("status"));
+                t.setNote(rs.getString("note"));
+                java.sql.Timestamp ca = rs.getTimestamp("created_at");
+                if (ca != null) t.setCreatedAt(ca.toLocalDateTime());
+                return t;
                 }
             }
 
@@ -147,6 +160,71 @@ public class TransferDAO {
     }
 
     /**
+     * Inserts a new stock transfer record and returns the generated transfer_id.
+     */
+    public int insert(Transfer t) throws SQLException {
+        String sql = "INSERT INTO stock_transfers "
+            + "(transfer_code, from_warehouse_id, to_warehouse_id, created_by, status, note, created_at) "
+            + "VALUES (?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)";
+
+        try (Connection conn = DBConnection.getConnection();
+             PreparedStatement ps = conn.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)) {
+            ps.setString(1, t.getTransferCode());
+            ps.setInt(2, t.getFromWarehouseId());
+            ps.setInt(3, t.getToWarehouseId());
+            ps.setInt(4, t.getCreatedBy());
+            ps.setString(5, t.getStatus() != null ? t.getStatus() : Transfer.STATUS_DRAFT);
+            ps.setString(6, t.getNote());
+
+            int affected = ps.executeUpdate();
+            if (affected == 0) {
+                throw new SQLException("Creating transfer failed, no rows affected.");
+            }
+
+            int transferId;
+            try (ResultSet keys = ps.getGeneratedKeys()) {
+                if (keys.next()) {
+                    transferId = keys.getInt(1);
+                } else {
+                    throw new SQLException("Creating transfer failed, no ID obtained.");
+                }
+            }
+            return transferId;
+        }
+    }
+
+    /**
+     * Inserts a transfer item row.
+     */
+    public void insertItem(TransferItem ti) throws SQLException {
+        String sql = "INSERT INTO stock_transfer_items "
+            + "(transfer_id, product_id, shipped_qty, received_qty) "
+            + "VALUES (?, ?, ?, ?)";
+
+        try (Connection conn = DBConnection.getConnection();
+             PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setInt(1, ti.getTransferId());
+            ps.setInt(2, ti.getProductId());
+            ps.setBigDecimal(3, ti.getShippedQty());
+            ps.setBigDecimal(4, ti.getReceivedQty());
+            ps.executeUpdate();
+        }
+    }
+
+    /**
+     * Updates the status of a stock transfer.
+     */
+    public void updateStatus(int transferId, String status) throws SQLException {
+        String sql = "UPDATE stock_transfers SET status = ?, completed_at = CURRENT_TIMESTAMP WHERE transfer_id = ?";
+        try (Connection conn = DBConnection.getConnection();
+             PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setString(1, status);
+            ps.setInt(2, transferId);
+            ps.executeUpdate();
+        }
+    }
+
+    /**
      * Simple domain object for StockTransfer.
      */
     public static class Transfer {
@@ -162,7 +240,9 @@ public class TransferDAO {
         private int toWarehouseId;
         private String toWarehouseName;
         private int createdBy;
+        private String creatorName;
         private Integer approvedBy;
+        private String approverName;
         private String status;
         private String note;
         private java.time.LocalDateTime createdAt;
@@ -182,8 +262,12 @@ public class TransferDAO {
         public void setToWarehouseName(String toWarehouseName) { this.toWarehouseName = toWarehouseName; }
         public int getCreatedBy() { return createdBy; }
         public void setCreatedBy(int createdBy) { this.createdBy = createdBy; }
+        public String getCreatorName() { return creatorName; }
+        public void setCreatorName(String creatorName) { this.creatorName = creatorName; }
         public Integer getApprovedBy() { return approvedBy; }
         public void setApprovedBy(Integer approvedBy) { this.approvedBy = approvedBy; }
+        public String getApproverName() { return approverName; }
+        public void setApproverName(String approverName) { this.approverName = approverName; }
         public String getStatus() { return status; }
         public void setStatus(String status) { this.status = status; }
         public String getNote() { return note; }

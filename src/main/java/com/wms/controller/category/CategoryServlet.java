@@ -1,8 +1,9 @@
 package com.wms.controller.category;
 
 import com.wms.controller.BaseController;
-import com.wms.dao.CategoryDAO;
 import com.wms.model.Category;
+import com.wms.service.product.CategoryService;
+
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
@@ -18,16 +19,21 @@ import java.util.logging.Logger;
 public class CategoryServlet extends BaseController {
 
     private static final Logger LOGGER = Logger.getLogger(CategoryServlet.class.getName());
-    private final CategoryDAO categoryDAO = new CategoryDAO();
+    private final CategoryService categoryService = new CategoryService();
 
     @Override
     protected void doGet(HttpServletRequest req, HttpServletResponse resp)
             throws ServletException, IOException {
 
+        try {
+            req.setAttribute("categories", categoryService.findAll());
+        } catch (Exception e) {
+            LOGGER.log(Level.WARNING, "CategoryServlet: Failed to load categories", e);
+        }
+
         req.setAttribute("pageTitle",    "Quản Lý Danh Mục Sản Phẩm");
         req.setAttribute("pageSubtitle", "Xây dựng sơ đồ cây phân cấp danh mục sản phẩm và ánh xạ danh mục đa sàn");
         req.setAttribute("currentPage",  "categories");
-        req.setAttribute("categories",   categoryDAO.findAll());
 
         req.setAttribute("contentPage", "/WEB-INF/views/category/categories.jsp");
 
@@ -68,7 +74,7 @@ public class CategoryServlet extends BaseController {
         resp.sendRedirect(req.getContextPath() + "/business/categories");
     }
 
-    private boolean handleCreate(HttpServletRequest req) {
+    private boolean handleCreate(HttpServletRequest req) throws Exception {
         String name = req.getParameter("categoryName");
         String parentIdStr = req.getParameter("parentId");
 
@@ -76,22 +82,19 @@ public class CategoryServlet extends BaseController {
             return false;
         }
 
-        Category category = new Category();
-        category.setCategoryName(name.trim());
-        category.setDescription(req.getParameter("description"));
-
+        Integer parentId = null;
         if (!isNullOrEmpty(parentIdStr)) {
             try {
-                category.setParentId(Integer.parseInt(parentIdStr));
+                parentId = Integer.parseInt(parentIdStr);
             } catch (NumberFormatException e) {
                 LOGGER.log(Level.WARNING, "CategoryServlet: Invalid parentId: " + parentIdStr);
             }
         }
 
-        return categoryDAO.insert(category);
+        return categoryService.createCategory(name, parentId);
     }
 
-    private boolean handleUpdate(HttpServletRequest req) {
+    private boolean handleUpdate(HttpServletRequest req) throws Exception {
         String categoryIdStr = req.getParameter("categoryId");
         String name = req.getParameter("categoryName");
         String parentIdStr = req.getParameter("parentId");
@@ -100,51 +103,45 @@ public class CategoryServlet extends BaseController {
             return false;
         }
 
+        int categoryId = Integer.parseInt(categoryIdStr);
+        Category category = categoryService.findById(categoryId);
+        if (category == null) {
+            return false;
+        }
+
+        CategoryService.ValidationResult validation =
+            categoryService.validateCategoryData(name, categoryId, parseParentId(parentIdStr));
+        if (!validation.isSuccess()) {
+            return false;
+        }
+
+        category.setCategoryName(name.trim());
+        category.setDescription(req.getParameter("description"));
+        category.setParentId(parseParentId(parentIdStr));
+
+        return categoryService.updateCategory(category);
+    }
+
+    private boolean handleDelete(HttpServletRequest req) throws Exception {
+        String categoryIdStr = req.getParameter("categoryId");
+        if (isNullOrEmpty(categoryIdStr)) {
+            return false;
+        }
         try {
             int categoryId = Integer.parseInt(categoryIdStr);
-            Category category = categoryDAO.findById(categoryId);
-            if (category == null) {
-                return false;
-            }
-
-            category.setCategoryName(name.trim());
-            category.setDescription(req.getParameter("description"));
-
-            if (!isNullOrEmpty(parentIdStr)) {
-                try {
-                    int parentId = Integer.parseInt(parentIdStr);
-                    if (parentId != categoryId) {
-                        category.setParentId(parentId);
-                    } else {
-                        category.setParentId(null);
-                    }
-                } catch (NumberFormatException e) {
-                    category.setParentId(null);
-                }
-            } else {
-                category.setParentId(null);
-            }
-
-            return categoryDAO.update(category);
+            return categoryService.deleteCategory(categoryId);
         } catch (NumberFormatException e) {
-            LOGGER.log(Level.WARNING, "CategoryServlet: Invalid categoryId: " + categoryIdStr);
+            LOGGER.log(Level.WARNING, "CategoryServlet: Invalid categoryId for delete: " + categoryIdStr);
             return false;
         }
     }
 
-    private boolean handleDelete(HttpServletRequest req) {
-        String categoryIdStr = req.getParameter("categoryId");
-
-        if (isNullOrEmpty(categoryIdStr)) {
-            return false;
-        }
-
+    private Integer parseParentId(String parentIdStr) {
+        if (isNullOrEmpty(parentIdStr)) return null;
         try {
-            int categoryId = Integer.parseInt(categoryIdStr);
-            return categoryDAO.delete(categoryId);
+            return Integer.parseInt(parentIdStr);
         } catch (NumberFormatException e) {
-            LOGGER.log(Level.WARNING, "CategoryServlet: Invalid categoryId for delete: " + categoryIdStr);
-            return false;
+            return null;
         }
     }
 }

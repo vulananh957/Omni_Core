@@ -1,9 +1,9 @@
 package com.wms.controller.warehouse;
 
 import com.wms.controller.BaseController;
-import com.wms.dao.UserDAO;
 import com.wms.model.User;
-import com.wms.util.AppConstants;
+import com.wms.service.user.UserService;
+
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
@@ -14,14 +14,15 @@ import java.io.IOException;
 import java.sql.SQLException;
 import java.util.Optional;
 
+import com.wms.util.AppConstants;
+
 /**
  * WarehouseProfileServlet — Handles Account Settings (Cài đặt tài khoản) for Warehouse Staff.
- *
  * Maps to /warehouse/profile.
  */
 public class WarehouseProfileServlet extends BaseController {
 
-    private final UserDAO userDAO = new UserDAO();
+    private final UserService userService = new UserService();
 
     @Override
     protected void doGet(HttpServletRequest req, HttpServletResponse resp)
@@ -32,7 +33,7 @@ public class WarehouseProfileServlet extends BaseController {
 
         if (sessionUser != null) {
             try {
-                Optional<User> freshUserOpt = userDAO.findById(sessionUser.getUserId());
+                Optional<User> freshUserOpt = userService.findById(sessionUser.getUserId());
                 if (freshUserOpt.isPresent()) {
                     User freshUser = freshUserOpt.get();
                     freshUser.setPasswordHash(null);
@@ -43,15 +44,12 @@ public class WarehouseProfileServlet extends BaseController {
             }
         }
 
-        // Page metadata for the layout shell
         req.setAttribute("pageTitle",    "Cài Đặt Tài Khoản");
         req.setAttribute("pageSubtitle", "Quản lý thông tin cá nhân và bảo mật");
         req.setAttribute("currentPage",  "wh-profile");
 
-        // Set the body content page fragment
         req.setAttribute("contentPage", "/WEB-INF/views/warehouse/warehouse-profile.jsp");
 
-        // Forward to the layout shell
         req.getRequestDispatcher("/WEB-INF/views/layout/warehouse-layout.jsp")
            .forward(req, resp);
     }
@@ -93,7 +91,7 @@ public class WarehouseProfileServlet extends BaseController {
                 sessionUser.setPhone(phone != null ? phone.trim() : null);
 
                 try {
-                    userDAO.updateProfile(sessionUser);
+                    userService.updateProfile(sessionUser);
                 } catch (SQLException e) {
                     // DB not connected fallback
                 }
@@ -110,15 +108,10 @@ public class WarehouseProfileServlet extends BaseController {
                     return;
                 }
 
-                // Verify current password
+                Optional<User> dbUserOpt = userService.findById(sessionUser.getUserId());
                 String currentHash = null;
-                try {
-                    Optional<User> dbUserOpt = userDAO.findById(sessionUser.getUserId());
-                    if (dbUserOpt.isPresent()) {
-                        currentHash = dbUserOpt.get().getPasswordHash();
-                    }
-                } catch (SQLException e) {
-                    // DB not connected
+                if (dbUserOpt.isPresent()) {
+                    currentHash = dbUserOpt.get().getPasswordHash();
                 }
 
                 if (currentHash == null || !BCrypt.checkpw(currentPassword, currentHash)) {
@@ -126,13 +119,8 @@ public class WarehouseProfileServlet extends BaseController {
                     return;
                 }
 
-                // Update DB with new hash
                 String newHash = BCrypt.hashpw(newPassword, BCrypt.gensalt(12));
-                try {
-                    userDAO.updatePassword(sessionUser.getUserId(), newHash);
-                } catch (SQLException e) {
-                    // DB not connected fallback
-                }
+                userService.updatePasswordDirect(sessionUser.getUserId(), newHash);
 
                 resp.getWriter().write("{\"success\":true,\"message\":\"Đổi mật khẩu thành công!\"}");
             } else {

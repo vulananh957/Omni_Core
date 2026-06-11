@@ -29,10 +29,13 @@ public class OrderDAO {
      */
     public List<Order> getAllOrders() {
         List<Order> list = new ArrayList<>();
-        String sqlOrders = "SELECT o.order_id, o.order_code, o.customer_id, o.warehouse_id, w.warehouse_name, o.channel, o.status, o.total_amount, o.created_by, o.created_at, o.updated_at, "
-                           + "o.tracking_no, o.review_note, o.rma_reason, o.rma_physical_status, o.rma_platform_status, o.dispute_evidence_video, o.dispute_note "
+        String sqlOrders = "SELECT o.order_id, o.order_code, o.customer_id, o.warehouse_id, w.warehouse_name, o.channel, o.status, o.total_amount, o.note, o.created_by, o.created_at, o.updated_at, "
+                           + "o.tracking_no, o.review_note, o.rma_reason, o.rma_physical_status, o.rma_platform_status, o.dispute_evidence_video, o.dispute_note, "
+                           + "sd.recipient_name, sd.shipping_address, u.phone AS customer_phone, u.full_name AS customer_name "
                            + "FROM orders o "
                            + "LEFT JOIN warehouses w ON o.warehouse_id = w.warehouse_id "
+                           + "LEFT JOIN order_shipping_details sd ON o.order_id = sd.order_id "
+                           + "LEFT JOIN users u ON o.customer_id = u.user_id "
                            + "ORDER BY o.created_at DESC LIMIT 100";
         String sqlItems = "SELECT s.sku_code, s.product_name, oi.qty, oi.unit_price " +
                           "FROM order_items oi " +
@@ -55,7 +58,13 @@ public class OrderDAO {
                     
                     order.setWarehouseId(rsOrders.getInt("warehouse_id"));
                     order.setWarehouseName(rsOrders.getString("warehouse_name"));
-                    order.setChannel(rsOrders.getString("channel"));
+                    
+                    String rawChannel = rsOrders.getString("channel");
+                    String note = rsOrders.getString("note");
+                    String trackingNo = rsOrders.getString("tracking_no");
+                    order.setNote(note);
+                    order.setChannel(detectChannel(rawChannel, note, trackingNo));
+                    
                     order.setStatus(rsOrders.getString("status"));
                     order.setTotalAmount(rsOrders.getDouble("total_amount"));
                     
@@ -81,6 +90,20 @@ public class OrderDAO {
                     order.setDisputeEvidenceVideo(rsOrders.getString("dispute_evidence_video"));
                     order.setDisputeNote(rsOrders.getString("dispute_note"));
 
+                    // Customer & recipient details
+                    String recipientName = rsOrders.getString("recipient_name");
+                    String userFullName = rsOrders.getString("customer_name");
+                    String finalCustomerName = (recipientName != null && !recipientName.trim().isEmpty())
+                            ? recipientName
+                            : ((userFullName != null && !userFullName.trim().isEmpty()) ? userFullName : "Khách hàng #" + (order.getCustomerId() != null ? order.getCustomerId() : "N/A"));
+                    order.setCustomerName(finalCustomerName);
+
+                    String customerPhone = rsOrders.getString("customer_phone");
+                    order.setCustomerPhone(customerPhone != null ? customerPhone : "Chưa có SĐT");
+
+                    String shippingAddress = rsOrders.getString("shipping_address");
+                    order.setCustomerAddress(shippingAddress != null ? shippingAddress : "Chưa có địa chỉ");
+
                     // Query and set items
                     psItems.setInt(1, orderId);
                     try (ResultSet rsItems = psItems.executeQuery()) {
@@ -104,6 +127,30 @@ public class OrderDAO {
             LOGGER.log(Level.WARNING, "OrderDAO: Failed to retrieve orders", e);
         }
         return list;
+    }
+
+    /**
+     * Tự động nhận diện kênh bán hàng dựa vào tên kênh thô, ghi chú đơn hàng hoặc mã vận đơn.
+     */
+    private String detectChannel(String rawChannel, String note, String trackingNo) {
+        if (note != null) {
+            String noteLower = note.toLowerCase();
+            if (noteLower.contains("shopee")) return "Shopee";
+            if (noteLower.contains("lazada")) return "Lazada";
+            if (noteLower.contains("tiktok")) return "TikTok";
+            if (noteLower.contains("website") || noteLower.contains("web")) return "Website";
+        }
+        if (trackingNo != null) {
+            String trackingLower = trackingNo.toLowerCase();
+            if (trackingLower.startsWith("lze") || trackingLower.contains("lazada")) return "Lazada";
+            if (trackingLower.startsWith("tkt") || trackingLower.contains("tiktok")) return "TikTok";
+            if (trackingLower.startsWith("vtp") || trackingLower.contains("viettel")) return "Website";
+            if (trackingLower.startsWith("spx") || trackingLower.contains("shopee")) return "Shopee";
+        }
+        if ("ONLINE".equalsIgnoreCase(rawChannel)) {
+            return "Lazada"; // Mặc định là Lazada cho các đơn ONLINE khác nếu không phân tích được
+        }
+        return rawChannel;
     }
 
     public boolean updateOrderStatusAndWarehouse(String orderCode, String status, int warehouseId, String reviewNote) {

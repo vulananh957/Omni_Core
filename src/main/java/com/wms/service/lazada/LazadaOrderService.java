@@ -1,4 +1,4 @@
-package com.wms.service;
+package com.wms.service.lazada;
 
 import com.lazada.lazop.api.*;
 import com.wms.model.Channel;

@@ -2,75 +2,6 @@
 <%@ taglib prefix="c" uri="jakarta.tags.core" %>
 
 <style>
-    /* ─── DB Returns Banner ─── */
-    .db-ret-header {
-        display: flex; align-items: center; justify-content: space-between;
-        margin-bottom: 16px;
-    }
-    .db-ret-title { font-size: 15px; font-weight: 800; color: var(--navy); letter-spacing: -0.02em; }
-    .db-ret-subtitle { font-size: 12px; color: rgba(16,55,92,0.40); margin-top: 2px; }
-    .db-ret-badge {
-        display: inline-flex; align-items: center; gap: 4px;
-        padding: 3px 10px; border-radius: 20px;
-        font-size: 10px; font-weight: 700;
-        background: rgba(6,182,212,0.1); color: #0891b2;
-        border: 1px solid rgba(6,182,212,0.2);
-    }
-    .db-ret-tabs {
-        display: flex; flex-wrap: wrap; gap: 4px;
-        background: #fff; border: 1px solid var(--border);
-        border-radius: var(--radius-card); padding: 4px;
-        margin-bottom: 16px;
-    }
-    .db-ret-tab {
-        display: flex; align-items: center; gap: 6px;
-        padding: 6px 14px; font-size: 12px; font-weight: 600;
-        border: none; background: none; cursor: pointer;
-        color: rgba(16,55,92,0.50); border-radius: calc(var(--radius-btn) - 4px);
-        transition: all .15s;
-    }
-    .db-ret-tab.active { background: var(--navy); color: #fff; }
-    .db-ret-tab:not(.active):hover { color: var(--navy); }
-    .db-ret-count {
-        font-size: 9px; font-weight: 700; padding: 1px 5px; border-radius: 9999px;
-    }
-    .db-ret-tab.active .db-ret-count { background: rgba(255,255,255,.20); color: #fff; }
-    .db-ret-tab:not(.active) .db-ret-count { background: rgba(16,55,92,.08); color: rgba(16,55,92,.50); }
-    .db-ret-card {
-        background: #fff; border: 1px solid var(--border);
-        border-radius: var(--radius-card); overflow: hidden; margin-bottom: 12px;
-    }
-    .db-ret-hdr {
-        display: flex; align-items: center; gap: 16px;
-        padding: 14px 20px; cursor: pointer; transition: background .12s;
-    }
-    .db-ret-hdr:hover { background: rgba(240,244,250,.40); }
-    .db-ret-icon {
-        width: 36px; height: 36px; border-radius: var(--radius-btn);
-        display: flex; align-items: center; justify-content: center; flex-shrink: 0;
-    }
-    .db-ret-icon svg { width: 16px; height: 16px; }
-    .db-ret-info { flex: 1; min-width: 0; }
-    .db-ret-id { font-size: 13px; font-weight: 700; color: var(--navy); }
-    .db-ret-meta { font-size: 11px; color: rgba(16,55,92,0.40); margin-top: 2px; }
-    .db-ret-customer { font-size: 12px; color: rgba(16,55,92,0.60); margin-top: 2px; }
-    .db-ret-stat-label { font-size: 9px; font-weight: 700; text-transform: uppercase; color: rgba(16,55,92,.40); }
-    .db-ret-stat-val { font-size: 14px; font-weight: 800; color: var(--navy); }
-    .db-ret-actions { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
-    .db-ret-chevron { width: 14px; height: 14px; color: rgba(16,55,92,.30); transition: transform .15s; }
-    .db-ret-card.expanded .db-ret-chevron { transform: rotate(180deg); }
-    .db-ret-body { border-top: 1px solid var(--border); display: none; }
-    .db-ret-card.expanded .db-ret-body { display: block; }
-    .db-ret-table { width: 100%; border-collapse: collapse; }
-    .db-ret-table thead tr { background: var(--alice); border-bottom: 1px solid var(--border); }
-    .db-ret-table thead th {
-        padding: 8px 16px; font-size: 10px; font-weight: 700; text-transform: uppercase;
-        letter-spacing: .08em; color: rgba(16,55,92,.40);
-    }
-    .db-ret-table tbody tr { border-bottom: 1px solid var(--border); }
-    .db-ret-table tbody tr:last-child { border-bottom: none; }
-    .db-ret-table tbody td { padding: 10px 16px; font-size: 12px; color: var(--navy); }
-    .db-ret-empty { text-align: center; padding: 40px; font-size: 13px; color: rgba(16,55,92,.40); }
     .ret-status-pill {
         display: inline-flex; align-items: center; gap: 4px;
         padding: 3px 10px; border-radius: 20px; font-size: 10px; font-weight: 700;
@@ -432,39 +363,6 @@
     .ret-input:focus, .ret-select:focus, .ret-textarea:focus { border-color: rgba(16,55,92,0.30); }
 </style>
 
-<!-- ═══ DB-SIDE RETURNS (from servlet) ═══ -->
-<c:if test="${not empty products}">
-<div class="db-ret-header">
-    <div>
-        <div class="db-ret-title">Danh sách hàng hoàn (Database)</div>
-        <div class="db-ret-subtitle">Dữ liệu hàng hoàn từ MySQL — QC logic xử lý Day 3</div>
-    </div>
-    <div class="db-ret-badge">
-        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:12px;height:12px;"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/></svg>
-        MySQL · QC Day 3
-    </div>
-</div>
-
-<div class="db-ret-tabs" id="dbRetTabs">
-    <button class="db-ret-tab active" data-tab="all">
-        Tất cả <span class="db-ret-count" id="dbRet-all">0</span>
-    </button>
-    <button class="db-ret-tab" data-tab="PENDING_QC">
-        Chờ QC <span class="db-ret-count" id="dbRet-PENDING_QC">0</span>
-    </button>
-    <button class="db-ret-tab" data-tab="APPROVED">
-        Duyệt <span class="db-ret-count" id="dbRet-APPROVED">0</span>
-    </button>
-    <button class="db-ret-tab" data-tab="REJECTED">
-        Từ chối <span class="db-ret-count" id="dbRet-REJECTED">0</span>
-    </button>
-</div>
-
-<div id="dbRetContainer" style="margin-bottom:24px;">
-    <div class="db-ret-empty">Đang tải dữ liệu hàng hoàn...</div>
-</div>
-</c:if>
-
 <!-- ═══ STATS ROW ═══ -->
 <div class="ret-stats-grid">
     <!-- Chờ kiểm QC -->
@@ -642,10 +540,9 @@
                     <div class="ret-form-group">
                         <label class="ret-form-label">Kênh bán hàng *</label>
                         <select class="ret-select" id="formChannel">
-                            <option value="Shopee">Shopee</option>
-                            <option value="TikTok">TikTok</option>
-                            <option value="Website">Website</option>
-                            <option value="Lazada">Lazada</option>
+                            <c:forEach var="ch" items="${channels}">
+                                <option value="${ch.channelName}">${ch.channelName}</option>
+                            </c:forEach>
                         </select>
                     </div>
                 </div>
@@ -749,49 +646,10 @@
 ]
 </script>
 
-<script id="db-returns-data" type="application/json">
-[
-    <c:forEach items="${returns}" var="r" varStatus="s">
-        {
-            "id": "<c:out value='${r.returnId}'/>",
-            "soRef": "<c:out value='${r.orderCode}'/>",
-            "channel": "<c:out value='${r.channel}'/>",
-            "customer": "<c:out value='${r.customerName}'/>",
-            "phone": "<c:out value='${r.customerPhone}'/>",
-            "returnedAt": "<c:out value='${r.createdAt}'/>",
-            "status": "<c:out value='${r.status}'/>",
-            "items": [
-                <c:forEach items="${r.items}" var="item" varStatus="iStatus">
-                    {
-                        "skuCode": "<c:out value='${item.skuCode}'/>",
-                        "skuName": "<c:out value='${item.skuName}'/>",
-                        "qty": ${item.qty},
-                        "returnReason": "<c:out value='${item.returnReason}'/>",
-                        "qcDecision": "<c:out value='${item.qcDecision}'/>",
-                        "qcNote": "<c:out value='${item.qcNote}'/>"
-                    }${!iStatus.last ? ',' : ''}
-                </c:forEach>
-            ]
-        }${!s.last ? ',' : ''}
-    </c:forEach>
-]
-</script>
-
-<script id="db-products-data" type="application/json">
-[
-    <c:forEach items="${products}" var="p" varStatus="s">
-        { "sku": "<c:out value='${p.sku}'/>", "name": "<c:out value='${p.name}'/>" }${!s.last ? ',' : ''}
-    </c:forEach>
-]
-</script>
-
 <!-- ═══ JAVASCRIPT ═══ -->
 <script>
 (function () {
     'use strict';
-
-    var dbReturns = [];
-    var isQCForDb = false;
 
     function submitPostAction(action, params) {
         var form = document.createElement('form');
@@ -983,26 +841,6 @@
     document.getElementById('btnCancelQC').addEventListener('click', function () { qcOverlay.style.display = 'none'; });
     document.getElementById('btnConfirmQC').addEventListener('click', function () {
         if (!selectedQCId) return;
-
-        if (isQCForDb) {
-            var r = dbReturns.find(function (item) { return String(item.id) === String(selectedQCId); });
-            if (!r) return;
-
-            var itemsPayload = r.items.map(function(item) {
-                return {
-                    productId: item.productId,
-                    qcDecision: tempDecisions[item.skuCode] || 'pending',
-                    qcNote: tempNotes[item.skuCode] || ''
-                };
-            });
-
-            submitPostAction('qc', {
-                returnId: selectedQCId,
-                itemsJson: JSON.stringify(itemsPayload)
-            });
-            qcOverlay.style.display = 'none';
-            return;
-        }
 
         var rma = returns.find(function (r) { return r.id === selectedQCId; });
         if (!rma) return;
@@ -1538,137 +1376,5 @@
 
     // ─── Init ───
     render();
-
-    // ─── DB-Side Returns (from servlet) ───
-    (function() {
-        'use strict';
-
-        var dbReturns = JSON.parse(document.getElementById('db-returns-data').textContent || '[]');
-
-        // Products from DB
-        var dbProducts = JSON.parse(document.getElementById('db-products-data').textContent || '[]');
-
-        var dbActiveTab = 'all';
-        var dbExpanded = null;
-
-        function dbStatusConfig(status) {
-            var m = {
-                'PENDING_QC': { label: 'Chờ QC',       cls: 'pending_qc', bg: 'rgba(255,186,8,.20)', text: '#c2410c',
-                    icon: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>' },
-                'APPROVED':   { label: 'Duyệt',        cls: 'approved',   bg: 'rgba(26,115,232,.08)', text: '#1a73e8',
-                    icon: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>' },
-                'REJECTED':   { label: 'Từ chối',      cls: 'rejected',   bg: '#fef2f2', text: '#991b1b',
-                    icon: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>' }
-            };
-            return m[status] || m['PENDING_QC'];
-        }
-
-        function esc(v) {
-            if (v == null) return '';
-            return String(v).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
-        }
-
-        function renderDbReturns() {
-            var counts = {
-                all:        dbReturns.length,
-                PENDING_QC: dbReturns.filter(function(r){ return r.status==='PENDING_QC'; }).length,
-                APPROVED:   dbReturns.filter(function(r){ return r.status==='APPROVED'; }).length,
-                REJECTED:   dbReturns.filter(function(r){ return r.status==='REJECTED'; }).length
-            };
-
-            ['all','PENDING_QC','APPROVED','REJECTED'].forEach(function(k) {
-                var el = document.getElementById('dbRet-' + k);
-                if (el) el.textContent = counts[k];
-            });
-
-            var filtered = dbActiveTab === 'all'
-                ? dbReturns
-                : dbReturns.filter(function(r){ return r.status === dbActiveTab; });
-
-            var container = document.getElementById('dbRetContainer');
-            if (!container) return;
-
-            if (filtered.length === 0) {
-                container.innerHTML = '<div class="db-ret-empty">Không có phiếu hàng hoàn nào phù hợp.</div>';
-                return;
-            }
-
-            container.innerHTML = filtered.map(function(r) {
-                var sc = dbStatusConfig(r.status);
-                var isExp = dbExpanded === r.id;
-                var totalQty = r.items.reduce(function(s,i){ return s + i.qty; }, 0);
-
-                var itemsRows = r.items.map(function(item) {
-                    return '<tr>' +
-                        '<td><span style="font-family:monospace; font-size:10px; color:rgba(16,55,92,.50);">' + esc(item.skuCode) + '</span></td>' +
-                        '<td style="font-weight:600;">' + esc(item.skuName) + '</td>' +
-                        '<td style="text-align:right; font-weight:700;">' + item.qty + '</td>' +
-                        '<td style="color:rgba(16,55,92,.60);">' + esc(item.returnReason || '—') + '</td>' +
-                        '<td><span class="ret-status-pill ' + (item.qcDecision === 'resalable' ? 'approved' : item.qcDecision === 'defective' ? 'rejected' : 'pending_qc') + '">' +
-                        '<span class="ret-status-pill__dot"></span>' +
-                        (item.qcDecision === 'resalable' ? 'Còn tốt' : item.qcDecision === 'defective' ? 'Hỏng' : 'Chưa QC') +
-                        '</span></td>' +
-                        '</tr>';
-                }).join('');
-
-                return '<div class="db-ret-card ' + (isExp ? 'expanded' : '') + '">' +
-                    '<div class="db-ret-hdr" onclick="dbToggleReturn(\'' + r.id + '\')">' +
-                        '<div class="db-ret-icon" style="background:' + sc.bg + '; color:' + sc.text + ';">' + sc.icon + '</div>' +
-                        '<div class="db-ret-info">' +
-                            '<div class="db-ret-id">' + esc(r.id) + ' <span style="font-weight:400; color:rgba(16,55,92,.30);">← ' + esc(r.soRef) + '</span></div>' +
-                            '<div class="db-ret-customer">' + esc(r.customer) + ' · ' + esc(r.phone) + '</div>' +
-                            '<div class="db-ret-meta">' + esc(r.returnedAt) + ' · <span style="background:' + sc.bg + '; color:' + sc.text + '; padding:1px 6px; border-radius:10px; font-size:9px; font-weight:700;">' + sc.label + '</span></div>' +
-                        '</div>' +
-                        '<div class="db-ret-actions" style="gap:16px; margin-right:12px;">' +
-                            '<div style="text-align:right;">' +
-                                '<div class="db-ret-stat-label">Tổng SL</div>' +
-                                '<div class="db-ret-stat-val">' + totalQty + '</div>' +
-                            '</div>' +
-                        '</div>' +
-                        '<svg class="db-ret-chevron" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg>' +
-                    '</div>' +
-                    '<div class="db-ret-body">' +
-                        '<table class="db-ret-table">' +
-                            '<thead><tr><th>SKU</th><th>Tên sản phẩm</th><th style="text-align:right;">SL</th><th>Lý do hoàn</th><th>Kết quả QC</th></tr></thead>' +
-                            '<tbody>' + itemsRows + '</tbody>' +
-                        '</table>' +
-                    '</div>' +
-                '</div>';
-            }).join('');
-        }
-
-        window.dbToggleReturn = function(id) {
-            dbExpanded = dbExpanded === id ? null : id;
-            renderDbReturns();
-        };
-
-        var tabs = document.getElementById('dbRetTabs');
-        if (tabs) {
-            tabs.addEventListener('click', function(e) {
-                var btn = e.target.closest('.db-ret-tab');
-                if (!btn) return;
-                dbActiveTab = btn.dataset.tab;
-                tabs.querySelectorAll('.db-ret-tab').forEach(function(t){ t.classList.remove('active'); });
-                btn.classList.add('active');
-                renderDbReturns();
-            });
-        }
-
-        // Populate product dropdown with DB products
-        var formSku = document.getElementById('formItemSku');
-        if (formSku && dbProducts.length > 0) {
-            var firstOpt = formSku.querySelector('option[value=""]');
-            formSku.innerHTML = '';
-            if (firstOpt) formSku.appendChild(firstOpt);
-            dbProducts.forEach(function(p) {
-                var opt = document.createElement('option');
-                opt.value = p.sku;
-                opt.textContent = p.sku + ' — ' + p.name;
-                formSku.appendChild(opt);
-            });
-        }
-
-        renderDbReturns();
-    })();
 })();
 </script>

@@ -565,7 +565,7 @@
             <option value="${ch.channelId}">${ch.channelName} (${ch.platform})</option>
         </c:forEach>
     </select>
-    <button class="sm-btn-action" onclick="openCreateModal()" style="margin-left: auto">
+    <button class="sm-btn-action" id="btnCreateMapping" onclick="openCreateModal()" style="margin-left: auto">
         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
         Tạo ánh xạ mới
     </button>
@@ -676,6 +676,15 @@
             <input type="hidden" name="action" id="smCrudAction" value="create" />
             <input type="hidden" name="mappingId" id="smCrudMappingId" value="" />
             <div class="sm-modal-body">
+                <div class="sm-form-group">
+                    <label class="sm-field-label">Sản phẩm Master SKU *</label>
+                    <select class="sm-select" name="productId" id="smCrudProductId" required style="width:100%">
+                        <option value="">-- Chọn Master SKU --</option>
+                        <c:forEach var="p" items="${products}">
+                            <option value="${p.productId}">${p.skuCode} - ${p.productName}</option>
+                        </c:forEach>
+                    </select>
+                </div>
                 <div class="sm-form-group">
                     <label class="sm-field-label">Kênh bán hàng *</label>
                     <select class="sm-select" name="channelId" id="smCrudChannelId" required style="width:100%">
@@ -1073,10 +1082,11 @@ function pullMarketplaceProducts() {
 function renderTableHeader() {
     const header = document.getElementById("smTableHeader");
     const dbTbody = document.getElementById("smDbTableBody");
+    const smTbody = document.getElementById("smTableBody");
 
     if (activeTab === "db") {
         dbTbody.style.display = "";
-        document.getElementById("smTableBody").closest(".sm-table-scroll").querySelector("table").style.display = "none";
+        smTbody.style.display = "none";
         header.innerHTML = `
             <th style="width: 144px">Master SKU</th>
             <th style="width: 220px">Tên sản phẩm</th>
@@ -1089,7 +1099,7 @@ function renderTableHeader() {
         return;
     }
 
-    document.getElementById("smTableBody").closest(".sm-table-scroll").querySelector("table").style.display = "";
+    smTbody.style.display = "";
     dbTbody.style.display = "none";
 
     let html = "";
@@ -1429,6 +1439,7 @@ function openCreateModal() {
     document.getElementById("smCrudModalTitle").textContent = "Tạo Ánh Xạ SKU Mới";
     document.getElementById("smCrudAction").value = "create";
     document.getElementById("smCrudMappingId").value = "";
+    document.getElementById("smCrudProductId").value = "";
     document.getElementById("smCrudChannelId").value = "";
     document.getElementById("smCrudChannelSku").value = "";
     document.getElementById("smCrudSellerSku").value = "";
@@ -1444,6 +1455,7 @@ function openDbEditModal(mappingId) {
     document.getElementById("smCrudModalTitle").textContent = "Sửa Ánh Xạ SKU";
     document.getElementById("smCrudAction").value = "update";
     document.getElementById("smCrudMappingId").value = mappingId;
+    document.getElementById("smCrudProductId").value = row.getAttribute("data-sku-id");
     document.getElementById("smCrudChannelId").value = row.getAttribute("data-channel-id");
     document.getElementById("smCrudChannelSku").value = tds[3] ? tds[3].textContent.trim() : "";
     document.getElementById("smCrudSellerSku").value = tds[4] ? tds[4].textContent.trim() : "";

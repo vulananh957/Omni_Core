@@ -531,7 +531,23 @@
             "fromWH": "<c:out value='${t.fromWarehouseName}'/>",
             "toWH": "<c:out value='${t.toWarehouseName}'/>",
             "status": "<c:out value='${t.status}'/>",
-            "createdAt": "<c:out value='${t.createdAt}'/>"
+            "createdAt": "<c:out value='${t.createdAt}'/>",
+            "completedAt": "<c:out value='${t.completedAt}'/>",
+            "note": "<c:out value='${t.note}'/>",
+            "createdBy": ${t.createdBy},
+            "creatorName": "<c:out value='${t.creatorName}'/>",
+            "approvedBy": ${t.approvedBy != null ? t.approvedBy : 'null'},
+            "approverName": "<c:out value='${t.approverName}'/>",
+            "items": [
+                <c:forEach items="${transferItemsMap[t.transferId]}" var="item" varStatus="itemStatus">
+                    {
+                        "sku": "<c:out value='${item.skuCode}'/>",
+                        "name": "<c:out value='${item.productName}'/>",
+                        "shippedQty": "<c:out value='${item.shippedQty}'/>",
+                        "receivedQty": "<c:out value='${item.receivedQty}'/>"
+                    }${!itemStatus.last ? ',' : ''}
+                </c:forEach>
+            ]
         }${!s.last ? ',' : ''}
     </c:forEach>
 ]
@@ -759,32 +775,47 @@
 
         var srcWHId  = fSrcWH.value;
         var dstWHId  = fDstWH.value;
-        var srcWH    = DB_WAREHOUSES.find(function (w) { return String(w.id) === srcWHId; });
-        var dstWH    = DB_WAREHOUSES.find(function (w) { return String(w.id) === dstWHId; });
+        if (!srcWHId) { alert('Vui lòng chọn kho xuất!'); return; }
+        if (!dstWHId) { alert('Vui lòng chọn kho nhận!'); return; }
+        if (srcWHId === dstWHId) { alert('Kho xuất và kho nhận phải khác nhau!'); return; }
 
-        var now = new Date();
-        var nowStr = now.getFullYear() + '-' +
-                     String(now.getMonth()+1).padStart(2,'0') + '-' +
-                     String(now.getDate()).padStart(2,'0') + ' ' +
-                     String(now.getHours()).padStart(2,'0') + ':' +
-                     String(now.getMinutes()).padStart(2,'0');
+        var srcWH = DB_WAREHOUSES.find(function (w) { return String(w.id) === srcWHId; });
+        var dstWH = DB_WAREHOUSES.find(function (w) { return String(w.id) === dstWHId; });
 
-        localTransfers.unshift({
-            id:        'TR-L-' + String(Date.now()).slice(-6),
-            sku:       sku,
-            skuName:   fSkuName.value.trim(),
-            qty:       qty,
-            fromWH:    srcWH ? srcWH.name : (srcWHId || '—'),
-            toWH:      dstWH ? dstWH.name : (dstWHId || '—'),
-            status:    isSubmit ? 'pending' : 'draft',
-            createdAt: nowStr,
-            note:      fNote.value.trim() || null,
-            createdBy: 'Nhân viên kho'
+        var payload = {
+            action: 'create',
+            fromWarehouseId: parseInt(srcWHId, 10),
+            toWarehouseId:   parseInt(dstWHId, 10),
+            sku:             sku,
+            qty:             qty,
+            note:            fNote.value.trim()
+        };
+
+        var btn = isSubmit
+            ? document.getElementById('wtBtnSubmit')
+            : document.getElementById('wtBtnDraft');
+        btn.disabled = true;
+
+        fetch(window.location.pathname, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        })
+        .then(function(res) { return res.json(); })
+        .then(function(data) {
+            btn.disabled = false;
+            if (data.success) {
+                createOvl.style.display = 'none';
+                fSku.value = ''; fSkuName.value = ''; fQty.value = 1; fNote.value = '';
+                location.reload();
+            } else {
+                alert('Lỗi: ' + (data.message || 'Không thể tạo phiếu chuyển kho.'));
+            }
+        })
+        .catch(function(err) {
+            btn.disabled = false;
+            alert('Có lỗi mạng xảy ra khi tạo phiếu chuyển kho.');
         });
-
-        createOvl.style.display = 'none';
-        fSku.value = ''; fSkuName.value = ''; fQty.value = 1; fNote.value = '';
-        render();
     }
 
     document.getElementById('wtBtnDraft').addEventListener('click', function () { doCreate(false); });
@@ -794,38 +825,111 @@
     function openDetail(t) {
         detailDoc = t;
         var r = t._raw || t;
+        var items;
+
+        if (Array.isArray(r.items) && r.items.length > 0) {
+            items = r.items;
+        } else if (r.sku) {
+            items = [{
+                sku:         r.sku,
+                name:        r.skuName || r.sku,
+                shippedQty:  r.qty,
+                receivedQty: 0
+            }];
+        } else {
+            items = [];
+        }
+        var totalRequested = 0;
+        var totalReceived = 0;
+
+        var rowsHtml = items.length ? items.map(function (item, index) {
+            var shippedQty = Number(item.shippedQty || 0);
+            var receivedQty = Number(item.receivedQty || 0);
+            totalRequested += shippedQty;
+            totalReceived += receivedQty;
+
+            return '<tr>' +
+                '<td style="padding:10px 12px;border:1px solid var(--border);text-align:center;">' + (index + 1) + '</td>' +
+                '<td style="padding:10px 12px;border:1px solid var(--border);font-family:monospace;font-size:12px;">' + esc(item.sku || '—') + '</td>' +
+                '<td style="padding:10px 12px;border:1px solid var(--border);font-weight:600;">' + esc(item.name || '—') + '</td>' +
+                '<td style="padding:10px 12px;border:1px solid var(--border);text-align:center;background:rgba(59,130,246,.06);color:#1d4ed8;font-weight:700;">' + esc(item.shippedQty || '0') + '</td>' +
+                '<td style="padding:10px 12px;border:1px solid var(--border);text-align:center;background:rgba(16,185,129,.06);color:#047857;font-weight:700;">' + esc(item.receivedQty || '0') + '</td>' +
+                '</tr>';
+        }).join('') : '<tr><td colspan="5" style="padding:14px;border:1px solid var(--border);text-align:center;color:rgba(16,55,92,.55);">Chưa có dòng hàng hóa chi tiết cho phiếu chuyển kho này.</td></tr>';
+
         var noteHtml = r.note ?
             '<div class="wt-detail-sep">' +
-            '<div class="wt-dl-lbl" style="margin-bottom:6px;">Ghi chú / Lý do:</div>' +
-            '<div class="wt-detail-note">' + esc(r.note) + '</div>' +
+                '<div class="wt-dl-lbl" style="margin-bottom:6px;">Lý do / ghi chú điều chuyển</div>' +
+                '<div class="wt-detail-note">' + esc(r.note) + '</div>' +
             '</div>' : '';
 
+        var completedHtml = r.completedAt ?
+            '<div><div class="wt-dl-lbl">Hoàn tất lúc</div><div class="wt-dl-val muted">' + esc(r.completedAt) + '</div></div>' :
+            '<div><div class="wt-dl-lbl">Hoàn tất lúc</div><div class="wt-dl-val muted">Chưa hoàn tất</div></div>';
+
         detailBody.innerHTML =
-            '<div class="wt-detail-grid" style="padding-bottom:14px;border-bottom:1px solid var(--border);">' +
-                '<div><div class="wt-dl-lbl">Mã phiếu:</div>' +
-                '<div style="font-weight:700;font-size:15px;color:var(--navy);margin-top:2px;font-family:monospace;">' + esc(t.id) + '</div></div>' +
-                '<div><div class="wt-dl-lbl">Trạng thái:</div><div style="margin-top:4px;">' + pill(t.status) + '</div></div>' +
+            '<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:16px;padding-bottom:16px;border-bottom:1px solid var(--border);">' +
+                '<div>' +
+                    '<div class="wt-dl-lbl">Mã phiếu chuyển kho</div>' +
+                    '<div style="font-weight:800;font-size:18px;color:var(--navy);margin-top:4px;font-family:monospace;">' + esc(t.id) + '</div>' +
+                    '<div style="font-size:12px;color:rgba(16,55,92,.55);margin-top:6px;">Internal Stock Transfer Note</div>' +
+                '</div>' +
+                '<div style="text-align:right;">' +
+                    '<div class="wt-dl-lbl">Trạng thái</div>' +
+                    '<div style="margin-top:6px;">' + pill(t.status) + '</div>' +
+                '</div>' +
             '</div>' +
             '<div class="wt-flow">' +
-                '<div>' +
-                    '<div class="wt-dl-lbl" style="font-size:9px;">Từ kho:</div>' +
-                    '<div style="font-size:12px;font-weight:700;color:var(--navy);">' + esc(t.fromWH || '—') + '</div>' +
+                '<div style="flex:1;background:#f0f7ff;border:1px solid #cfe3ff;border-radius:12px;padding:12px 14px;">' +
+                    '<div class="wt-dl-lbl" style="font-size:10px;color:#1d4ed8;">KHO NGUỒN</div>' +
+                    '<div style="font-size:14px;font-weight:800;color:var(--navy);margin-top:4px;">' + esc(t.fromWH || '—') + '</div>' +
                 '</div>' +
                 '<div class="wt-flow-arrow"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 1l4 4-4 4"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><path d="M7 23l-4-4 4-4"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg></div>' +
-                '<div>' +
-                    '<div class="wt-dl-lbl" style="font-size:9px;">Đến kho:</div>' +
-                    '<div style="font-size:12px;font-weight:700;color:var(--navy);">' + esc(t.toWH || '—') + '</div>' +
+                '<div style="flex:1;background:#ecfdf5;border:1px solid #b7ebcf;border-radius:12px;padding:12px 14px;">' +
+                    '<div class="wt-dl-lbl" style="font-size:10px;color:#047857;">KHO ĐÍCH</div>' +
+                    '<div style="font-size:14px;font-weight:800;color:var(--navy);margin-top:4px;">' + esc(t.toWH || '—') + '</div>' +
                 '</div>' +
             '</div>' +
             '<div class="wt-detail-sep">' +
-                '<div class="wt-detail-grid">' +
-                    '<div><div class="wt-dl-lbl">Ngày tạo:</div>' +
-                    '<div class="wt-dl-val muted">' + esc(t.createdAt || '—') + '</div></div>' +
-                    (r.qty ? '<div><div class="wt-dl-lbl">Số lượng:</div>' +
-                    '<div class="wt-dl-val">' + esc(r.qty) + ' sản phẩm</div></div>' : '') +
+                '<div class="wt-detail-grid" style="grid-template-columns:repeat(2,minmax(0,1fr));gap:16px 20px;">' +
+                    '<div><div class="wt-dl-lbl">Người lập phiếu</div><div class="wt-dl-val">' + esc(r.creatorName || 'Nhân viên kho') + '</div></div>' +
+                    '<div><div class="wt-dl-lbl">Người duyệt</div><div class="wt-dl-val">' + esc(r.approverName || 'Chưa duyệt') + '</div></div>' +
+                    '<div><div class="wt-dl-lbl">Ngày tạo</div><div class="wt-dl-val muted">' + esc(t.createdAt || '—') + '</div></div>' +
+                    completedHtml +
                 '</div>' +
             '</div>' +
-            noteHtml;
+            noteHtml +
+            '<div class="wt-detail-sep">' +
+                '<div style="display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:10px;">' +
+                    '<div class="wt-dl-lbl" style="font-size:12px;">Danh sách hàng hóa điều chuyển</div>' +
+                    '<div style="display:flex;gap:8px;flex-wrap:wrap;">' +
+                        '<span style="padding:6px 10px;border-radius:999px;background:rgba(59,130,246,.08);color:#1d4ed8;font-size:12px;font-weight:700;">SL yêu cầu: ' + totalRequested + '</span>' +
+                        '<span style="padding:6px 10px;border-radius:999px;background:rgba(16,185,129,.08);color:#047857;font-size:12px;font-weight:700;">SL thực chuyển: ' + totalReceived + '</span>' +
+                    '</div>' +
+                '</div>' +
+                '<div style="overflow:auto;border:1px solid var(--border);border-radius:12px;">' +
+                    '<table style="width:100%;border-collapse:collapse;background:#fff;">' +
+                        '<thead>' +
+                            '<tr style="background:var(--alice);">' +
+                                '<th style="padding:10px 12px;border:1px solid var(--border);text-align:center;width:56px;">STT</th>' +
+                                '<th style="padding:10px 12px;border:1px solid var(--border);text-align:left;">Mã SKU</th>' +
+                                '<th style="padding:10px 12px;border:1px solid var(--border);text-align:left;">Tên sản phẩm</th>' +
+                                '<th style="padding:10px 12px;border:1px solid var(--border);text-align:center;">SL yêu cầu</th>' +
+                                '<th style="padding:10px 12px;border:1px solid var(--border);text-align:center;">SL thực chuyển</th>' +
+                            '</tr>' +
+                        '</thead>' +
+                        '<tbody>' + rowsHtml + '</tbody>' +
+                    '</table>' +
+                '</div>' +
+            '</div>' +
+            '<div class="wt-detail-sep" style="padding-top:4px;">' +
+                '<div style="display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px;text-align:center;">' +
+                    '<div><div class="wt-dl-lbl">Người lập phiếu</div><div style="height:42px;"></div><div style="border-top:1px dashed var(--border);padding-top:6px;font-size:12px;">' + esc(r.creatorName || 'Nhân viên kho') + '</div></div>' +
+                    '<div><div class="wt-dl-lbl">Thủ kho xuất</div><div style="height:42px;"></div><div style="border-top:1px dashed var(--border);padding-top:6px;font-size:12px;">' + esc(t.fromWH || '—') + '</div></div>' +
+                    '<div><div class="wt-dl-lbl">Thủ kho nhận</div><div style="height:42px;"></div><div style="border-top:1px dashed var(--border);padding-top:6px;font-size:12px;">' + esc(t.toWH || '—') + '</div></div>' +
+                    '<div><div class="wt-dl-lbl">Quản lý duyệt</div><div style="height:42px;"></div><div style="border-top:1px dashed var(--border);padding-top:6px;font-size:12px;">' + esc(r.approverName || 'Chờ duyệt') + '</div></div>' +
+                '</div>' +
+            '</div>';
 
         pendingNote.style.display = (t.status === 'pending') ? 'inline-flex' : 'none';
         detailOvl.style.display = 'flex';

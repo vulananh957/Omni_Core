@@ -1,49 +1,73 @@
 package com.wms.controller.warehouse;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.wms.controller.BaseController;
-import com.wms.dao.InboundDAO;
-import com.wms.dao.InventoryDAO;
 import com.wms.model.InboundOrder;
-import com.wms.model.ReceiptNote;
-import com.wms.model.User;
-import com.wms.util.AppConstants;
+import com.wms.model.Product;
+import com.wms.model.Warehouse;
+import com.wms.service.product.ProductService;
+import com.wms.service.warehouse.InboundService;
+import com.wms.service.warehouse.WarehouseService;
+
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
 import java.math.BigDecimal;
 import java.time.LocalDate;
-import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.List;
 
 /**
- * WarehouseInboundServlet — Handles Inbound Receipts (Nhập kho) for the Warehouse Staff.
+ * WarehouseInboundServlet — Handles Inbound Receipts (Nhập kho) for the
+ * Warehouse Staff.
  *
  * Maps to /warehouse/inbound.
  */
 public class WarehouseInboundServlet extends BaseController {
 
-    private final InboundDAO  inboundDAO  = new InboundDAO();
-    private final InventoryDAO inventoryDAO = new InventoryDAO();
+    private final InboundService inboundService = new InboundService();
+    private final ProductService productService = new ProductService();
+    private final WarehouseService warehouseService = new WarehouseService();
+    private final ObjectMapper objectMapper = new ObjectMapper();
 
     @Override
     protected void doGet(HttpServletRequest req, HttpServletResponse resp)
             throws ServletException, IOException {
 
-        List<InboundOrder> inboundList = inboundDAO.findAll();
-        req.setAttribute("inboundList", inboundList);
+        try {
+            List<InboundOrder> inboundList = inboundService.findAll();
+            List<Product> products = productService.findAll();
+            List<Warehouse> warehouses = warehouseService.findAllActive();
+            req.setAttribute("inboundList", inboundList);
+            req.setAttribute("products", products);
+            req.setAttribute("productsJson", toProductsJson(products));
+            req.setAttribute("warehouses", warehouses);
+        } catch (Exception e) {
+            req.setAttribute("inboundList", List.of());
+            req.setAttribute("products", List.<Product>of());
+            req.setAttribute("productsJson", "[]");
+            req.setAttribute("warehouses", List.<Warehouse>of());
+        }
 
-        // Page metadata for the layout shell
-        req.setAttribute("pageTitle",    "Quản Lý Phiếu Nhập Kho");
-        req.setAttribute("pageSubtitle", "Xử lý hàng từ nhà cung cấp — ghi nhận tồn kho và tạo ledger entry khi xác nhận");
-        req.setAttribute("currentPage",  "wh-inbound");
+        req.setAttribute("pageTitle", "Quản Lý Phiếu Nhập Kho");
+        req.setAttribute("pageSubtitle",
+                "Xử lý hàng từ nhà cung cấp — ghi nhận tồn kho và tạo ledger entry khi xác nhận");
+        req.setAttribute("currentPage", "wh-inbound");
 
-        // Set the body content page fragment
         req.setAttribute("contentPage", "/WEB-INF/views/inbound/warehouse-inbound.jsp");
 
-        // Forward to the layout shell
         req.getRequestDispatcher("/WEB-INF/views/layout/warehouse-layout.jsp")
-           .forward(req, resp);
+                .forward(req, resp);
+    }
+
+    private String toProductsJson(List<Product> products) {
+        try {
+            return objectMapper.writeValueAsString(products);
+        } catch (JsonProcessingException e) {
+            return "[]";
+        }
     }
 
     @Override
@@ -51,132 +75,125 @@ public class WarehouseInboundServlet extends BaseController {
             throws ServletException, IOException {
 
         String action = req.getParameter("action");
-        User currentUser = (User) getSessionAttr(req, AppConstants.SESSION_USER);
-        int createdBy = (currentUser != null) ? currentUser.getUserId() : 1;
+        Integer currentUserId = getCurrentUserId(req);
 
         if ("create".equals(action) || action == null) {
-            // ── Create new inbound PO ──────────────────────────────
             String supplierName = req.getParameter("supplierName");
             String warehouseIdStr = req.getParameter("warehouseId");
             String expectedDateStr = req.getParameter("expectedDate");
             String notes = req.getParameter("notes");
 
-            if (isNullOrEmpty(supplierName) || isNullOrEmpty(warehouseIdStr)) {
-                setError(req, "Vui lòng nhập đầy đủ thông tin bắt buộc.");
-                doGet(req, resp);
+            int warehouseId = 0;
+            try {
+                warehouseId = Integer.parseInt(warehouseIdStr);
+            } catch (NumberFormatException e) {
+                setError(req, "ID kho không hợp lệ.");
+                redirect(resp, "/warehouse/inbound");
+                return;
+            }
+
+            InboundService.ValidationResult validation = inboundService.validateForCreate(supplierName, warehouseId);
+            if (!validation.isSuccess()) {
+                setError(req, validation.getMessage());
+                redirect(resp, "/warehouse/inbound");
+                return;
+            }
+
+            LocalDate expectedDate = null;
+            if (expectedDateStr != null && !expectedDateStr.trim().isEmpty()) {
+                try {
+                    expectedDate = LocalDate.parse(expectedDateStr);
+                } catch (Exception ignored) {
+                }
+            }
+
+            try {
+                int inboundId = inboundService.createInbound(
+                        supplierName, warehouseId, expectedDate, notes,
+                        currentUserId != null ? currentUserId : 1);
+
+                if (inboundId > 0) {
+                    InboundOrder order = inboundService.findById(inboundId);
+                    if (order != null) {
+                        setSuccess(req, "Tạo phiếu nhập " + order.getInboundCode() + " thành công!");
+                    } else {
+                        setSuccess(req, "Tạo phiếu nhập thành công!");
+                    }
+                } else {
+                    setError(req, "Không thể tạo phiếu nhập. Vui lòng thử lại.");
+                }
+            } catch (Exception e) {
+                setError(req, "Lỗi cơ sở dữ liệu: " + e.getMessage());
+            }
+
+        } else if ("confirm".equals(action)) {
+            String inboundIdStr = req.getParameter("inboundId");
+            if (inboundIdStr == null || inboundIdStr.trim().isEmpty()) {
+                setError(req, "Thiếu ID phiếu nhập.");
+                redirect(resp, "/warehouse/inbound");
+                return;
+            }
+            try {
+                int inboundId = Integer.parseInt(inboundIdStr);
+                InboundService.TransitionResult result = inboundService.confirmInbound(inboundId);
+                if (result.isSuccess()) {
+                    setSuccess(req, result.getMessage());
+                } else {
+                    setError(req, result.getMessage());
+                }
+            } catch (NumberFormatException e) {
+                setError(req, "ID phiếu nhập không hợp lệ.");
+            }
+
+        } else if ("receive".equals(action)) {
+            String inboundIdStr = req.getParameter("inboundId");
+            String[] productIds = req.getParameterValues("productId");
+            String[] receivedQtys = req.getParameterValues("receivedQty");
+
+            if (inboundIdStr == null || inboundIdStr.trim().isEmpty()) {
+                setError(req, "Thiếu ID phiếu nhập.");
+                redirect(resp, "/warehouse/inbound");
                 return;
             }
 
             try {
-                int warehouseId = Integer.parseInt(warehouseIdStr);
-                InboundOrder order = new InboundOrder();
-                order.setSupplierName(supplierName.trim());
-                order.setWarehouseId(warehouseId);
-                order.setStatus(InboundOrder.STATUS_PENDING);
-                order.setCreatedBy(createdBy);
-                order.setNotes(isNullOrEmpty(notes) ? null : notes.trim());
-
-                if (!isNullOrEmpty(expectedDateStr)) {
-                    order.setExpectedDate(LocalDate.parse(expectedDateStr));
+                int inboundId = Integer.parseInt(inboundIdStr);
+                List<InboundService.ReceiptItem> items = new ArrayList<>();
+                if (productIds != null && receivedQtys != null) {
+                    for (int i = 0; i < productIds.length; i++) {
+                        InboundService.ReceiptItem item = new InboundService.ReceiptItem();
+                        item.setProductId(Integer.parseInt(productIds[i]));
+                        item.setReceivedQty(new BigDecimal(receivedQtys[i]));
+                        items.add(item);
+                    }
                 }
 
-                int inboundId = inboundDAO.insert(order);
-                if (inboundId > 0) {
-                    setSuccess(req, "Tạo phiếu nhập " + order.getInboundCode() + " thành công!");
+                InboundService.ReceiveResult result = inboundService.receiveGoods(
+                        inboundId, items, currentUserId != null ? currentUserId : 1);
+
+                if (result.isSuccess()) {
+                    setSuccess(req, result.getMessage());
                 } else {
-                    setError(req, "Không thể tạo phiếu nhập. Vui lòng thử lại.");
+                    setError(req, result.getMessage());
                 }
-            } catch (NumberFormatException e) {
-                setError(req, "ID kho không hợp lệ.");
-            }
-
-        } else if ("confirm".equals(action)) {
-            // ── Confirm inbound PO (PENDING → IN_PROGRESS) ─────────────
-            // Note: DB schema uses IN_PROGRESS; mapped from CONFIRMED workflow
-            String inboundIdStr = req.getParameter("inboundId");
-            if (!isNullOrEmpty(inboundIdStr)) {
-                try {
-                    int inboundId = Integer.parseInt(inboundIdStr);
-                    InboundOrder existing = inboundDAO.findById(inboundId);
-                    if (existing != null && InboundOrder.STATUS_PENDING.equals(existing.getStatus())) {
-                        boolean updated = inboundDAO.updateStatus(inboundId, InboundOrder.STATUS_IN_PROGRESS);
-                        if (updated) {
-                            setSuccess(req, "Xác nhận phiếu " + existing.getInboundCode() + " thành công!");
-                        } else {
-                            setError(req, "Không thể xác nhận phiếu nhập.");
-                        }
-                    } else {
-                        setError(req, "Phiếu nhập không tồn tại hoặc không ở trạng thái chờ xác nhận.");
-                    }
-                } catch (NumberFormatException e) {
-                    setError(req, "ID phiếu nhập không hợp lệ.");
-                }
-            }
-
-        } else if ("receive".equals(action)) {
-            // ── Receive goods (IN_PROGRESS → RECEIVED) ─────────────────
-            String inboundIdStr = req.getParameter("inboundId");
-            String[] productIds    = req.getParameterValues("productId");
-            String[] receivedQtys  = req.getParameterValues("receivedQty");
-
-            if (!isNullOrEmpty(inboundIdStr)) {
-                try {
-                    int inboundId = Integer.parseInt(inboundIdStr);
-                    InboundOrder existing = inboundDAO.findById(inboundId);
-
-                    if (existing == null) {
-                        setError(req, "Phiếu nhập không tồn tại.");
-                        doGet(req, resp);
-                        return;
-                    }
-
-                    if (!InboundOrder.STATUS_IN_PROGRESS.equals(existing.getStatus())) {
-                        setError(req, "Chỉ phiếu đã xác nhận mới có thể nhập kho.");
-                        doGet(req, resp);
-                        return;
-                    }
-
-                    LocalDateTime now = LocalDateTime.now();
-                    boolean allOk = true;
-
-                    if (productIds != null && receivedQtys != null) {
-                        for (int i = 0; i < productIds.length; i++) {
-                            try {
-                                int productId = Integer.parseInt(productIds[i]);
-                                BigDecimal receivedQty = new BigDecimal(receivedQtys[i]);
-                                if (receivedQty.compareTo(BigDecimal.ZERO) <= 0) continue;
-
-                                ReceiptNote receipt = new ReceiptNote();
-                                receipt.setInboundId(inboundId);
-                                receipt.setProductId(productId);
-                                receipt.setExpectedQty(BigDecimal.ZERO);
-                                receipt.setReceivedQty(receivedQty);
-                                receipt.setAcceptedQty(receivedQty);
-                                receipt.setRejectedQty(BigDecimal.ZERO);
-                                receipt.setReceivedAt(now);
-
-                                inboundDAO.insertReceipt(receipt);
-                                inventoryDAO.addInventory(productId, existing.getWarehouseId(), receivedQty);
-                            } catch (NumberFormatException e) {
-                                allOk = false;
-                            }
-                        }
-                    }
-
-                    inboundDAO.updateStatus(inboundId, InboundOrder.STATUS_RECEIVED);
-
-                    if (allOk) {
-                        setSuccess(req, "Nhập kho phiếu " + existing.getInboundCode() + " thành công! Tồn kho đã được cập nhật.");
-                    } else {
-                        setSuccess(req, "Nhập kho phiếu " + existing.getInboundCode() + " hoàn tất (một số dòng có lỗi).");
-                    }
-                } catch (NumberFormatException e) {
-                    setError(req, "Dữ liệu không hợp lệ.");
-                }
+            } catch (Exception e) {
+                setError(req, "Dữ liệu không hợp lệ: " + e.getMessage());
             }
         }
 
-        // POST-Redirect-GET
         redirect(resp, "/warehouse/inbound");
+    }
+
+    private Integer getCurrentUserId(HttpServletRequest req) {
+        try {
+            Object user = req.getSession(false) != null
+                    ? req.getSession(false).getAttribute("loggedInUser")
+                    : null;
+            if (user != null) {
+                return (Integer) user.getClass().getMethod("getUserId").invoke(user);
+            }
+        } catch (Exception ignored) {
+        }
+        return null;
     }
 }

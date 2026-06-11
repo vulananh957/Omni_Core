@@ -1,5 +1,6 @@
 package com.wms.dao;
 
+import com.wms.model.Product;
 import com.wms.model.SkuMapping;
 import com.wms.util.DBConnection;
 
@@ -273,5 +274,27 @@ public class SkuMappingDAO {
         m.setProductName(rs.getString("product_name"));
 
         return m;
+    }
+
+    /**
+     * Lấy tất cả thông tin Master SKU từ bảng skus để hiển thị trên form mapping.
+     */
+    public List<Product> findAllSkus() {
+        List<Product> list = new ArrayList<>();
+        String sql = "SELECT sku_id, sku_code, product_name FROM skus ORDER BY sku_code ASC";
+        try (Connection conn = DBConnection.getConnection();
+             PreparedStatement ps = conn.prepareStatement(sql);
+             ResultSet rs = ps.executeQuery()) {
+            while (rs.next()) {
+                Product p = new Product();
+                p.setProductId(rs.getInt("sku_id"));
+                p.setSkuCode(rs.getString("sku_code"));
+                p.setProductName(rs.getString("product_name"));
+                list.add(p);
+            }
+        } catch (SQLException e) {
+            LOGGER.log(Level.WARNING, "SkuMappingDAO: Failed to retrieve all master SKUs", e);
+        }
+        return list;
     }
 }

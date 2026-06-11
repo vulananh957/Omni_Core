@@ -1,12 +1,16 @@
 package com.wms.controller.warehouse;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.wms.controller.BaseController;
-import com.wms.dao.CategoryDAO;
-import com.wms.dao.ProductDAO;
 import com.wms.model.Category;
 import com.wms.model.Product;
 import com.wms.model.User;
+import com.wms.model.Warehouse;
+import com.wms.model.Zone;
+import com.wms.service.product.ProductService;
+import com.wms.service.warehouse.WarehouseService;
 import com.wms.util.AppConstants;
+
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
@@ -27,16 +31,37 @@ public class WarehouseMasterSKUServlet extends BaseController {
     private static final Logger LOGGER = Logger.getLogger(WarehouseMasterSKUServlet.class.getName());
     private static final String CONTEXT_PATH = "/warehouse/master-sku";
 
-    private final ProductDAO    productDAO  = new ProductDAO();
-    private final CategoryDAO   categoryDAO = new CategoryDAO();
+    private final ProductService productService = new ProductService();
+    private final WarehouseService warehouseService = new WarehouseService();
+    private final ObjectMapper objectMapper = new ObjectMapper();
 
     @Override
     protected void doGet(HttpServletRequest req, HttpServletResponse resp)
             throws ServletException, IOException {
 
-        List<?> products = productDAO.findAll();
-        consumeFlash(req);  // pull any session flash messages into request scope
-        req.setAttribute("products", products);
+        try {
+            List<Product> products = productService.findAll();
+            req.setAttribute("products", products);
+            req.setAttribute("productsJson", productService.toJson(products));
+
+            List<Warehouse> warehouses = warehouseService.findAllActive();
+            req.setAttribute("warehouses", warehouses);
+            req.setAttribute("warehousesJson", objectMapper.writeValueAsString(warehouses));
+
+            List<Zone> allZones = warehouseService.findAllZones();
+            req.setAttribute("zones", allZones);
+            req.setAttribute("zonesJson", objectMapper.writeValueAsString(allZones));
+        } catch (Exception e) {
+            LOGGER.warning("Failed to load products: " + e.getMessage());
+            req.setAttribute("products", java.util.List.<Product>of());
+            req.setAttribute("productsJson", "[]");
+            req.setAttribute("warehouses", java.util.List.<Warehouse>of());
+            req.setAttribute("warehousesJson", "[]");
+            req.setAttribute("zones", java.util.List.<Zone>of());
+            req.setAttribute("zonesJson", "[]");
+        }
+
+        consumeFlash(req);
         req.setAttribute("pageTitle",    "Danh Mục Master SKU");
         req.setAttribute("pageSubtitle", "Quản lý thông tin gốc sản phẩm — nguồn chuẩn đồng bộ đa kênh");
         req.setAttribute("currentPage",  "wh-master-sku");
@@ -65,12 +90,9 @@ public class WarehouseMasterSKUServlet extends BaseController {
         }
     }
 
-    // ── Create a new product SKU ──────────────────────────────────────────────
-
     private void handleCreate(HttpServletRequest req, HttpServletResponse resp) throws IOException {
         String skuCode      = req.getParameter("skuCode");
         String productName  = req.getParameter("productName");
-        String categoryName = req.getParameter("categoryName");
         String dimensions   = req.getParameter("dimensions");
         String weightStr    = req.getParameter("weight");
         String minStockStr  = req.getParameter("minStock");
@@ -85,14 +107,11 @@ public class WarehouseMasterSKUServlet extends BaseController {
         Product product = new Product();
         product.setSkuCode(skuCode.trim());
         product.setProductName(productName.trim());
-        product.setStatus(Product.STATUS_PENDING);
         product.setUnit("Cái");
 
-        // Resolve category name → category ID
-        Integer categoryId = resolveCategoryId(categoryName);
+        Integer categoryId = productService.resolveCategoryId(req.getParameter("categoryName"));
         product.setCategoryId(categoryId);
 
-        // Parse optional numeric fields
         if (!isNullOrEmpty(dimensions)) {
             product.setAttributesText(dimensions.trim());
         }
@@ -106,25 +125,24 @@ public class WarehouseMasterSKUServlet extends BaseController {
             try { product.setMaxStock(Double.parseDouble(maxStockStr.trim())); } catch (NumberFormatException ignored) {}
         }
 
-        // Attach current user as creator
-        User loggedInUser = (User) req.getSession(false) != null
-                ? (User) req.getSession(false).getAttribute(AppConstants.SESSION_USER)
-                : null;
-        if (loggedInUser != null) {
-            product.setCreatedBy(loggedInUser.getUserId());
-        }
+        User loggedInUser = (User) ((req.getSession(false) != null)
+                ? req.getSession(false).getAttribute(AppConstants.SESSION_USER) : null);
+        Integer createdBy = (loggedInUser != null) ? loggedInUser.getUserId() : null;
 
-        boolean created = productDAO.insert(product);
-        if (created) {
-            setFlashSuccess(req, "Đã tạo SKU " + skuCode.trim() + " thành công! Đang chờ phê duyệt.");
-        } else {
-            setFlashError(req, "Không thể tạo SKU. Vui lòng kiểm tra lại Mã SKU hoặc thử lại.");
+        try {
+            boolean created = productService.createProduct(product, createdBy);
+            if (created) {
+                setFlashSuccess(req, "Đã tạo SKU " + skuCode.trim() + " thành công! Đang chờ phê duyệt.");
+            } else {
+                setFlashError(req, "Không thể tạo SKU. Vui lòng kiểm tra lại Mã SKU hoặc thử lại.");
+            }
+        } catch (Exception e) {
+            LOGGER.severe("Error creating product: " + e.getMessage());
+            setFlashError(req, "Lỗi cơ sở dữ liệu: " + e.getMessage());
         }
 
         redirect(resp, CONTEXT_PATH);
     }
-
-    // ── Edit an existing product SKU ─────────────────────────────────────────
 
     private void handleEdit(HttpServletRequest req, HttpServletResponse resp) throws IOException {
         String productIdStr = req.getParameter("productId");
@@ -149,52 +167,31 @@ public class WarehouseMasterSKUServlet extends BaseController {
             return;
         }
 
-        Product existing = productDAO.findById(productId);
-        if (existing == null) {
-            setFlashError(req, "Không tìm thấy sản phẩm với ID: " + productId);
-            redirect(resp, CONTEXT_PATH);
-            return;
-        }
-
-        // Enforce restriction: Only edit when PENDING
-        if (!Product.STATUS_PENDING.equals(existing.getStatus())) {
-            setFlashError(req, "Chỉ cho phép chỉnh sửa sản phẩm ở trạng thái Chờ duyệt.");
-            redirect(resp, CONTEXT_PATH);
-            return;
-        }
-
-        // Apply editable fields
-        if (!isNullOrEmpty(productName)) {
-            existing.setProductName(productName.trim());
-        }
-        if (!isNullOrEmpty(dimensions)) {
-            existing.setAttributesText(dimensions.trim());
-        }
+        Product updates = new Product();
+        if (!isNullOrEmpty(productName)) updates.setProductName(productName.trim());
+        if (!isNullOrEmpty(dimensions)) updates.setAttributesText(dimensions.trim());
         if (!isNullOrEmpty(weightStr)) {
-            try { existing.setWeightKg(Double.parseDouble(weightStr.trim())); } catch (NumberFormatException ignored) {}
+            try { updates.setWeightKg(Double.parseDouble(weightStr.trim())); } catch (NumberFormatException ignored) {}
         }
         if (!isNullOrEmpty(minStockStr)) {
-            try { existing.setMinStock(Double.parseDouble(minStockStr.trim())); } catch (NumberFormatException ignored) {}
+            try { updates.setMinStock(Double.parseDouble(minStockStr.trim())); } catch (NumberFormatException ignored) {}
         }
         if (!isNullOrEmpty(maxStockStr)) {
-            try { existing.setMaxStock(Double.parseDouble(maxStockStr.trim())); } catch (NumberFormatException ignored) {}
+            try { updates.setMaxStock(Double.parseDouble(maxStockStr.trim())); } catch (NumberFormatException ignored) {}
         }
 
-        boolean updated = productDAO.update(existing);
-        if (updated) {
-            setFlashSuccess(req, "Đã cập nhật SKU " + existing.getSkuCode() + " thành công!");
+        ProductService.UpdateResult result = productService.updateProduct(productId, updates);
+        if (result.isSuccess()) {
+            setFlashSuccess(req, "Đã cập nhật SKU thành công!");
         } else {
-            setFlashError(req, "Không thể cập nhật SKU. Vui lòng thử lại.");
+            setFlashError(req, result.getMessage());
         }
 
         redirect(resp, CONTEXT_PATH);
     }
 
-    // ── Delete a pending product SKU ─────────────────────────────────────────
-
     private void handleDelete(HttpServletRequest req, HttpServletResponse resp) throws IOException {
         String productIdStr = req.getParameter("productId");
-
         if (isNullOrEmpty(productIdStr)) {
             setFlashError(req, "Thiếu ID sản phẩm cần xóa.");
             redirect(resp, CONTEXT_PATH);
@@ -210,44 +207,13 @@ public class WarehouseMasterSKUServlet extends BaseController {
             return;
         }
 
-        Product existing = productDAO.findById(productId);
-        if (existing == null) {
-            setFlashError(req, "Không tìm thấy sản phẩm với ID: " + productId);
-            redirect(resp, CONTEXT_PATH);
-            return;
-        }
-
-        // Enforce restriction: Only delete when PENDING
-        if (!Product.STATUS_PENDING.equals(existing.getStatus())) {
-            setFlashError(req, "Chỉ cho phép xóa sản phẩm ở trạng thái Chờ duyệt.");
-            redirect(resp, CONTEXT_PATH);
-            return;
-        }
-
-        boolean deleted = productDAO.delete(productId);
-        if (deleted) {
-            setFlashSuccess(req, "Đã xóa thành công sản phẩm SKU " + existing.getSkuCode() + "!");
+        ProductService.DeleteResult result = productService.deleteProduct(productId);
+        if (result.isSuccess()) {
+            setFlashSuccess(req, "Đã xóa thành công sản phẩm!");
         } else {
-            setFlashError(req, "Không thể xóa sản phẩm. Vui lòng thử lại.");
+            setFlashError(req, result.getMessage());
         }
 
         redirect(resp, CONTEXT_PATH);
     }
-
-    // ── Helper: resolve category name to category ID ──────────────────────────
-
-    private Integer resolveCategoryId(String categoryName) {
-        if (isNullOrEmpty(categoryName)) return null;
-        String trimmed = categoryName.trim();
-        List<Category> categories = categoryDAO.findAll();
-        for (Category c : categories) {
-            if (trimmed.equalsIgnoreCase(c.getCategoryName())) {
-                return c.getCategoryId();
-            }
-        }
-        // Category not found — return null (product saved without category)
-        LOGGER.warning("WarehouseMasterSKUServlet: Category not found for name='" + trimmed + "'");
-        return null;
-    }
 }
-

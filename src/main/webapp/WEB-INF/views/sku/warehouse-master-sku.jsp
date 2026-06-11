@@ -646,10 +646,9 @@
     <div class="select-wrap">
         <select id="skuCategorySelect">
             <option>Tất cả</option>
-            <option>Vở & Sổ chép</option>
-            <option>Phụ kiện cá nhân</option>
-            <option>Dụng cụ viết & Vẽ</option>
-            <option>Thiết bị văn phòng tiện ích</option>
+            <c:forEach var="c" items="${categories}">
+                <option><c:out value="${c.categoryName}"/></option>
+            </c:forEach>
         </select>
         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></svg>
     </div>
@@ -729,10 +728,9 @@
                 <label class="form-label" for="create-category">Danh mục</label>
                 <div class="select-wrap" style="width: 100%;">
                     <select class="form-input" id="create-category" style="width: 100%; appearance: none; padding-right: 36px;">
-                        <option>Vở & Sổ chép</option>
-                        <option selected>Phụ kiện cá nhân</option>
-                        <option>Dụng cụ viết & Vẽ</option>
-                        <option>Thiết bị văn phòng tiện ích</option>
+                        <c:forEach var="c" items="${categories}">
+                            <option><c:out value="${c.categoryName}"/></option>
+                        </c:forEach>
                     </select>
                     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="position: absolute; right: 12px; top: 50%; transform: translateY(-50%); width: 14px; height: 14px; color: rgba(16, 55, 92, 0.4); pointer-events: none;"><polyline points="6 9 12 15 18 9"></polyline></svg>
                 </div>
@@ -1155,7 +1153,7 @@ if (btnCreateSubmit) {
         submitPostAction('create', {
             skuCode: skuVal,
             productName: nameVal,
-            categoryName: createCatInput.value.trim() || 'Vở & Sổ chép',
+            categoryName: createCatInput.value ? createCatInput.value.trim() : '',
             dimensions: createDimInput.value.trim() || 'N/A',
             weight: createWgtInput.value.trim() || '0',
             minStock: parseInt(createMinInput.value) || 0,
@@ -1318,7 +1316,9 @@ function padZero(n) { return n < 10 ? '0' + n : n; }
 function clearCreateForm() {
     createSkuInput.value = '';
     createNameInput.value = '';
-    createCatInput.value = 'Phụ kiện cá nhân';
+    if (createCatInput.options.length > 0) {
+        createCatInput.selectedIndex = 0;
+    }
     createDimInput.value = '';
     createWgtInput.value = '';
     createMinInput.value = '50';

@@ -34,8 +34,8 @@ public class WarehouseDocumentsServlet extends BaseController {
         }
 
         // Page metadata for the layout shell
-        req.setAttribute("pageTitle",    "So Kho");
-        req.setAttribute("pageSubtitle", "Quan ly phieu kho — luu nhap, trinh duyet va xac nhan hoan hang");
+        req.setAttribute("pageTitle",    "Sổ Kho");
+        req.setAttribute("pageSubtitle", "Quản lý phiếu kho — lưu nhập, trình duyệt và xác nhận hoàn hàng");
         req.setAttribute("currentPage",  "wh-documents");
 
         // Set the body content page fragment

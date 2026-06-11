@@ -459,4 +459,33 @@ public class ProductDAO {
         }
         return null;
     }
+
+    /**
+     * Gets the next daily sequence number for a category.
+     * Searches for existing SKUs with format: {CODE}-{DATE}-***
+     *
+     * @param categoryId The category ID.
+     * @param dateStr Date string in yyyyMMdd format.
+     * @return Next sequence number (1-based).
+     */
+    public int getNextDailySequence(int categoryId, String dateStr) throws SQLException {
+        String prefixPattern = "%-" + dateStr + "-%";
+        String sql = "SELECT sku_code FROM products WHERE category_id = ? AND sku_code LIKE ? ORDER BY sku_code DESC LIMIT 1";
+
+        try (Connection conn = DBConnection.getConnection();
+             PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setInt(1, categoryId);
+            ps.setString(2, prefixPattern);
+
+            try (ResultSet rs = ps.executeQuery()) {
+                if (rs.next()) {
+                    String lastSku = rs.getString("sku_code");
+                    // Extract sequence from "CODE-YYYYMMDD-001" format
+                    String seqStr = lastSku.substring(lastSku.lastIndexOf("-") + 1);
+                    return Integer.parseInt(seqStr) + 1;
+                }
+            }
+        }
+        return 1; // First product of the day
+    }
 }

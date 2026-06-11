@@ -88,12 +88,18 @@ CREATE TABLE IF NOT EXISTS zones (
 CREATE TABLE IF NOT EXISTS categories (
     category_id   INT AUTO_INCREMENT PRIMARY KEY,
     parent_id     INT DEFAULT NULL,
+    category_code VARCHAR(10)  NOT NULL UNIQUE COMMENT 'Ma dinh danh 3-4 ky tu, viet HOA, bat bien sau khi tao',
     category_name VARCHAR(100) NOT NULL,
     description   VARCHAR(255) DEFAULT NULL,
     level_depth   INT DEFAULT 0,
-    active        TINYINT(1) NOT NULL DEFAULT 1,
+    is_immutable  TINYINT(1) NOT NULL DEFAULT 0 COMMENT '1 = da lock, khong cho sua category_code',
+    active        TINYINT(1) NOT NULL DEFAULT 1 COMMENT '1 = dang hoat dong, 0 = ngung hoat dong',
+    created_at    DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at    DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     FOREIGN KEY (parent_id) REFERENCES categories(category_id) ON DELETE SET NULL,
-    INDEX idx_cat_parent (parent_id)
+    INDEX idx_cat_parent (parent_id),
+    INDEX idx_cat_active (active),
+    INDEX idx_cat_code (category_code)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 -- Products (ERD: products)

@@ -835,7 +835,14 @@
         <div class="modal-body">
             <div class="form-group">
                 <label class="form-label" for="create-sku">Mã SKU *</label>
-                <input class="form-input" type="text" id="create-sku" placeholder="VD: SKU-2026-001"/>
+                <div style="display: flex; gap: 8px; align-items: stretch;">
+                    <input class="form-input" type="text" id="create-sku" placeholder="VD: EYE-20250611-001" style="flex: 1;"/>
+                    <button type="button" class="btn-toolbar" id="btnAutoGenSku" title="Tu dong tao SKU" style="white-space: nowrap; padding: 0 12px;">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 3 21 3 21 8"/><line x1="4" y1="20" x2="21" y2="3"/><polyline points="21 16 21 21 16 21"/><line x1="15" y1="15" x2="21" y2="21"/><line x1="4" y1="4" x2="9" y2="9"/></svg>
+                        Auto
+                    </button>
+                </div>
+                <input type="hidden" id="create-category-id" value=""/>
             </div>
             <div class="form-group">
                 <label class="form-label" for="create-name">Tên sản phẩm *</label>
@@ -1266,6 +1273,12 @@ window.selectPickerCategory = function (categoryName) {
     if (hiddenInput) {
         hiddenInput.value = categoryName;
     }
+    // Also set hidden category ID for SKU generation
+    var catIdInput = document.getElementById('create-category-id');
+    if (catIdInput) {
+        var catObj = DB_CATEGORIES.find(function(c) { return c.categoryName === categoryName; });
+        catIdInput.value = catObj ? catObj.categoryId : '';
+    }
     renderPickerTree();
 };
 
@@ -1397,6 +1410,43 @@ var btnViewCloseBtn = document.getElementById('viewModalCloseBtn');
         });
     }
 });
+
+/* Auto Generate SKU Button */
+var btnAutoGen = document.getElementById('btnAutoGenSku');
+if (btnAutoGen) {
+    btnAutoGen.addEventListener('click', function () {
+        var catIdInput = document.getElementById('create-category-id');
+        var catId = catIdInput ? catIdInput.value : '';
+        if (!catId) {
+            alert('Vui long chon danh muc truoc!');
+            return;
+        }
+        btnAutoGen.disabled = true;
+        btnAutoGen.innerHTML = '...';
+        fetch('${pageContext.request.contextPath}/warehouse/sku/generate?categoryId=' + catId)
+            .then(function(resp) { return resp.json(); })
+            .then(function(data) {
+                if (data.sku) {
+                    createSkuInput.value = data.sku;
+                    createSkuInput.style.color = 'var(--emerald)';
+                    createSkuInput.style.fontWeight = '700';
+                    setTimeout(function() {
+                        createSkuInput.style.color = '';
+                        createSkuInput.style.fontWeight = '';
+                    }, 2000);
+                } else {
+                    alert('Loi: ' + (data.error || 'Khong the tao SKU tu dong.'));
+                }
+            })
+            .catch(function() {
+                alert('Loi mang khi tao SKU tu dong.');
+            })
+            .finally(function() {
+                btnAutoGen.disabled = false;
+                btnAutoGen.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 3 21 3 21 8"/><line x1="4" y1="20" x2="21" y2="3"/><polyline points="21 16 21 21 16 21"/><line x1="15" y1="15" x2="21" y2="21"/><line x1="4" y1="4" x2="9" y2="9"/></svg> Auto';
+            });
+    });
+}
 
 /* Create Submit */
 if (btnCreateSubmit) {

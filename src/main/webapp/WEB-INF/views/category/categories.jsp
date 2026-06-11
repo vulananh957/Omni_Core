@@ -10,9 +10,11 @@
 
     String categoryMessage = (String) session.getAttribute("categoryMessage");
     Boolean categorySuccess = (Boolean) session.getAttribute("categorySuccess");
+    Boolean categoryDeactivated = (Boolean) session.getAttribute("categoryDeactivated");
     if (categoryMessage != null) {
         session.removeAttribute("categoryMessage");
         session.removeAttribute("categorySuccess");
+        session.removeAttribute("categoryDeactivated");
     }
 %>
 
@@ -376,6 +378,14 @@
         height: 34px !important;
         cursor: pointer;
         padding: 4px 12px !important;
+    }
+
+    /* ─── Locked code input (immutable) ─── */
+    .locked-code {
+        background: #f3f4f6 !important;
+        color: #6b7280 !important;
+        cursor: not-allowed;
+        border: 1px dashed #9ca3af !important;
     }
 
     .btn-action-sm-inline {
@@ -851,16 +861,7 @@
     'use strict';
 
     /* ─── Server-side data ─────────────────────────────────── */
-    var serverCategories = [
-        <c:forEach var="cat" items="${categories}" varStatus="st">
-            {
-                id: ${cat.categoryId},
-                name: "${cat.categoryName.replace("\"", "\\\"")}",
-                parentId: ${cat.parentId != null ? cat.parentId : 'null'},
-                description: <c:choose><c:when test="${cat.description != null}">"${cat.description.replace("\"", "\\\"")}"</c:when><c:otherwise>null</c:otherwise></c:choose>
-            }<c:if test="${!st.last}">,</c:if>
-        </c:forEach>
-    ];
+    var serverCategories = JSON.parse("<c:out value='${categoriesJson}' escapeXml='false'/>");
 
     var categories = serverCategories.slice();
 
@@ -910,7 +911,14 @@
 
     /* Show server-side flash message on page load */
     <c:if test="${not empty categoryMessage}">
+        <c:choose>
+            <c:when test="${categoryDeactivated == true}">
+        showToast("${categoryMessage}", "info");
+            </c:when>
+            <c:otherwise>
         showToast("${categoryMessage}", "${categorySuccess == true ? 'success' : 'error'}");
+            </c:otherwise>
+        </c:choose>
     </c:if>
     /* ─── Helper Functions for Hierarchy and Levels ─────────── */
     function getCategoryLevel(catId) {
@@ -988,13 +996,15 @@
     function buildInlineCreateFormHtml(parentId) {
         var idSuffix = parentId === null ? 'root' : parentId;
         var rowClass = parentId === null ? 'inline-create-form' : 'inline-create-form new-node-row';
+        var isRoot = parentId === null;
         
         return '<div class="tree-node-wrapper">' +
             '<form class="' + rowClass + '" onsubmit="WMS_SUBMIT_INLINE_CREATE(event, ' + (parentId === null ? 'null' : parentId) + ')">' +
             (parentId === null ? '' : '<div class="bullet-dot" style="opacity: 0; flex-shrink: 0;"></div>') +
             '<svg class="folder-icon" style="color: #cbd5e1; flex-shrink: 0;" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>' +
+            '<input type="text" class="inline-input" style="width: 70px; font-weight: 700; text-transform: uppercase;" id="createCode_' + idSuffix + '" maxlength="4" placeholder="Mã..." required title="Mã định danh 3-4 ký tự (VD: EYE)" oninput="this.value = this.value.toUpperCase().replace(/[^A-Z0-9]/g, \'\')" />' +
             '<input type="text" class="inline-input name-input" id="createName_' + idSuffix + '" required placeholder="Tên danh mục mới..." />' +
-            '<input type="text" class="inline-input desc-input" id="createDesc_' + idSuffix + '" placeholder="Mô tả (không bắt buộc)..." />' +
+            '<input type="text" class="inline-input desc-input" id="createDesc_' + idSuffix + '" placeholder="Mô tả..." />' +
             '<button type="submit" class="btn-action-sm-inline save" title="Lưu danh mục">' +
             '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>' +
             '</button>' +
@@ -1060,16 +1070,20 @@
         }
 
         // Inline Delete Confirmation Row
-        if (activeForm.mode === 'delete' && activeForm.selectedId === node.id) {
+        if (activeForm.mode === 'delete' && activeForm.selectedId === node.id) { 
+            var deleteMsg = 'Xác nhận xóa danh mục <strong>' + escapeHtml(node.name) + '</strong>';
+            if (node.isImmutable) {
+                deleteMsg += '<br><span style="color: #dc2626; font-weight: 500;">Danh mục đã có sản phẩm. Chỉ có thể ngừng hoạt động.</span>';
+            }
             return '<div class="tree-node-wrapper">' +
                 '<div class="tree-row delete-confirm-row">' +
                 '<svg style="width: 18px; height: 18px; color: #dc2626; flex-shrink: 0;" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>' +
-                '<span style="font-size: 13px; color: #991b1b; font-weight: 600;">' +
-                'Xác nhận xóa danh mục <strong>' + escapeHtml(node.name) + '</strong> cùng tất cả con của nó?' +
-                '</span>' +
+                '<span style="font-size: 13px; color: #991b1b; font-weight: 600;">' + deleteMsg + '</span>' +
                 '<div style="margin-left: auto; display: flex; gap: 8px;">' +
-                '<button type="button" class="btn-inline-danger-confirm" onclick="WMS_CONFIRM_DELETE(' + node.id + ')">Xóa</button>' +
-                '<button type="button" class="btn-inline-cancel" onclick="WMS_CANCEL_ACTION()">Hủy</button>' +
+                (node.isImmutable 
+                    ? '<button type="button" class="btn-inline-danger-confirm" style="background: #f59e0b;" onclick="WMS_DEACTIVATE(' + node.id + ')">Ngung hoat dong</button>'
+                    : '<button type="button" class="btn-inline-danger-confirm" onclick="WMS_CONFIRM_DELETE(' + node.id + ')">Xoa</button>') +
+                '<button type="button" class="btn-inline-cancel" onclick="WMS_CANCEL_ACTION()">Huy</button>' +
                 '</div>' +
                 '</div>' +
                 childrenHtml +
@@ -1079,21 +1093,24 @@
         // Inline Edit Form Row
         if (activeForm.mode === 'edit' && activeForm.selectedId === node.id) {
             var parentSelectOptions = buildParentSelectOptions(node.id, node.parentId);
+            var codeReadonly = node.isImmutable ? 'readonly disabled' : '';
+            var codeClass = node.isImmutable ? 'inline-input locked-code' : 'inline-input';
             
             return '<div class="tree-node-wrapper">' +
                 '<form class="inline-edit-form" onsubmit="WMS_SUBMIT_INLINE_EDIT(event, ' + node.id + ')">' +
                 toggleBtn +
                 folderSvg +
-                '<input type="text" class="inline-input name-input" id="editName_' + node.id + '" value="' + escapeHtml(node.name) + '" required placeholder="Tên danh mục..." />' +
-                '<input type="text" class="inline-input desc-input" id="editDesc_' + node.id + '" value="' + escapeHtml(node.description || '') + '" placeholder="Mô tả danh mục..." />' +
+                '<input type="text" class="' + codeClass + '" style="width: 70px; font-weight: 700; text-transform: uppercase;" id="editCode_' + node.id + '" value="' + escapeHtml(node.code) + '" ' + codeReadonly + ' placeholder="Ma..." title="' + (node.isImmutable ? 'Ma da bi khoa' : 'Ma dinh danh 3-4 ky tu') + '" ' + (node.isImmutable ? '' : 'oninput="this.value = this.value.toUpperCase().replace(/[^A-Z0-9]/g, \'\')"') + ' />' +
+                '<input type="text" class="inline-input name-input" id="editName_' + node.id + '" value="' + escapeHtml(node.name) + '" required placeholder="Ten danh muc..." />' +
+                '<input type="text" class="inline-input desc-input" id="editDesc_' + node.id + '" value="' + escapeHtml(node.description || '') + '" placeholder="Mo ta danh muc..." />' +
                 '<div style="display: flex; align-items: center; gap: 8px;">' +
                 '<span style="font-size: 11.5px; color: rgba(16, 55, 92, 0.6); font-weight: 600; white-space: nowrap;">Cha:</span>' +
                 '<select class="inline-input parent-select" id="editParent_' + node.id + '">' + parentSelectOptions + '</select>' +
                 '</div>' +
-                '<button type="submit" class="btn-action-sm-inline save" title="Lưu thay đổi">' +
+                '<button type="submit" class="btn-action-sm-inline save" title="Luu thay doi">' +
                 '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>' +
                 '</button>' +
-                '<button type="button" class="btn-action-sm-inline cancel" onclick="WMS_CANCEL_ACTION()" title="Hủy bỏ">' +
+                '<button type="button" class="btn-action-sm-inline cancel" onclick="WMS_CANCEL_ACTION()" title="Huy bo">' +
                 '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>' +
                 '</button>' +
                 '</form>' +
@@ -1103,6 +1120,8 @@
 
         // Standard View Row
         var descSpan = node.description ? '<span style="font-size: 11.5px; color: rgba(16, 55, 92, 0.45); margin-left: 8px; font-weight: normal;">— ' + escapeHtml(node.description) + '</span>' : '';
+        var codeBadge = '<span class="cat-code-badge" style="font-size: 11px; font-weight: 700; color: var(--orange); background: rgba(16, 55, 92, 0.08); padding: 2px 6px; border-radius: 4px; margin-left: 8px;">' + escapeHtml(node.code) + '</span>';
+        var statusBadge = node.active ? '' : '<span style="font-size: 10px; font-weight: 600; color: #dc2626; background: #fef2f2; padding: 2px 6px; border-radius: 4px; margin-left: 6px;">Ngung</span>';
         
         return '<div class="tree-node-wrapper">' +
             '<div class="' + rowClass + '">' +
@@ -1110,14 +1129,16 @@
             folderSvg +
             '<div class="node-title-wrap">' +
             '<span class="node-name">' + escapeHtml(node.name) + '</span>' +
+            codeBadge +
+            statusBadge +
             descSpan +
             '</div>' +
             '<div class="node-actions">' +
             addSubBtn +
-            '<button class="btn-action-sm" onclick="WMS_EDIT_NODE(' + node.id + ')" title="Chỉnh sửa">' +
+            '<button class="btn-action-sm" onclick="WMS_EDIT_NODE(' + node.id + ')" title="Chinh sua">' +
             '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>' +
             '</button>' +
-            '<button class="btn-action-sm del" onclick="WMS_DEL_NODE(' + node.id + ')" title="Xóa danh mục">' +
+            '<button class="btn-action-sm del" onclick="WMS_DEL_NODE(' + node.id + ')" title="Xoa danh muc">' +
             '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>' +
             '</button>' +
             '</div>' +
@@ -1207,19 +1228,26 @@
     window.WMS_SUBMIT_INLINE_CREATE = function (event, parentId) {
         event.preventDefault();
         var idSuffix = parentId === null ? 'root' : parentId;
+        var codeInput = document.getElementById('createCode_' + idSuffix);
         var nameInput = document.getElementById('createName_' + idSuffix);
         var descInput = document.getElementById('createDesc_' + idSuffix);
-        if (!nameInput) return;
+        if (!codeInput || !nameInput) return;
 
+        var code = codeInput.value.trim().toUpperCase();
         var name = nameInput.value.trim();
+        if (!code || code.length < 3) {
+            showToast('Ma dinh danh phai tu 3-4 ky tu!', 'error');
+            return;
+        }
         if (!name) {
-            showToast('Vui lòng nhập tên danh mục!', 'error');
+            showToast('Vui long nhap ten danh muc!', 'error');
             return;
         }
 
         var description = descInput ? descInput.value.trim() : '';
         var params = new URLSearchParams();
         params.append('action', 'create');
+        params.append('categoryCode', code);
         params.append('categoryName', name);
         if (parentId !== null) {
             params.append('parentId', parentId);
@@ -1255,6 +1283,7 @@
 
     window.WMS_SUBMIT_INLINE_EDIT = function (event, nodeId) {
         event.preventDefault();
+        var codeInput = document.getElementById('editCode_' + nodeId);
         var nameInput = document.getElementById('editName_' + nodeId);
         var descInput = document.getElementById('editDesc_' + nodeId);
         var parentSelect = document.getElementById('editParent_' + nodeId);
@@ -1262,7 +1291,19 @@
 
         var name = nameInput.value.trim();
         if (!name) {
-            showToast('Vui lòng nhập tên danh mục!', 'error');
+            showToast('Vui long nhap ten danh muc!', 'error');
+            return;
+        }
+
+        // Lay code tu input hoac tu node goc (neu disabled)
+        var code = codeInput ? codeInput.value.trim().toUpperCase() : '';
+        if (codeInput && codeInput.disabled) {
+            // Neu disabled, lay tu node goc
+            var node = categories.find(function (c) { return c.id === nodeId; });
+            code = node ? node.code : '';
+        }
+        if (!code || code.length < 3) {
+            showToast('Ma dinh danh phai tu 3-4 ky tu!', 'error');
             return;
         }
 
@@ -1272,6 +1313,7 @@
         var params = new URLSearchParams();
         params.append('action', 'update');
         params.append('categoryId', nodeId);
+        params.append('categoryCode', code);
         params.append('categoryName', name);
         if (parentVal && parentVal !== 'none') {
             params.append('parentId', parentVal);
@@ -1302,6 +1344,28 @@
             submitBtn.disabled = false;
             submitBtn.innerHTML = originalText;
             showToast('Đã xảy ra lỗi kết nối!', 'error');
+        });
+    };
+
+    window.WMS_DEACTIVATE = function (nodeId) {
+        var params = new URLSearchParams();
+        params.append('action', 'deactivate');
+        params.append('categoryId', nodeId);
+
+        fetch('${pageContext.request.contextPath}/business/categories', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+            body: params.toString()
+        })
+        .then(function (resp) {
+            if (resp.redirected) {
+                window.location.href = resp.url;
+            } else {
+                showToast('Da xay ra loi khi ngung hoat dong danh muc!', 'error');
+            }
+        })
+        .catch(function () {
+            showToast('Da xay ra loi khi ngung hoat dong danh muc!', 'error');
         });
     };
 

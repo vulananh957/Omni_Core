@@ -232,6 +232,10 @@ public class SchemaInitListener implements ServletContextListener {
                 "CREATE TABLE categories (category_id INT AUTO_INCREMENT PRIMARY KEY, parent_id INT DEFAULT NULL, category_name VARCHAR(100) NOT NULL, level_depth INT DEFAULT 0, active TINYINT(1) NOT NULL DEFAULT 1) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
             DatabaseMetaData md = conn.getMetaData();
             addColumnIfMissing(conn, md, "categories", "description", "VARCHAR(255) DEFAULT NULL");
+            addColumnIfMissing(conn, md, "categories", "category_code", "VARCHAR(10) DEFAULT NULL");
+            addColumnIfMissing(conn, md, "categories", "is_immutable", "TINYINT(1) NOT NULL DEFAULT 0");
+            addColumnIfMissing(conn, md, "categories", "created_at", "DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP");
+            addColumnIfMissing(conn, md, "categories", "updated_at", "DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP");
         }
     }
 

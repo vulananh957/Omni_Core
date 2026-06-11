@@ -313,9 +313,9 @@
         </svg>
         <select class="filter-select" id="whFilter">
             <option value="Tất cả">Tất cả kho</option>
-            <option value="WH-HCM-01">WH-HCM-01</option>
-            <option value="WH-HCM-07">WH-HCM-07</option>
-            <option value="WH-HN-HK">WH-HN-HK</option>
+            <c:forEach var="w" items="${warehouses}">
+                <option value="${w.warehouseCode}">${w.warehouseCode}</option>
+            </c:forEach>
         </select>
     </div>
 
@@ -371,7 +371,15 @@
     'use strict';
 
     // Data will come from backend. For now, empty array.
-    var inventoryList = ${inventoryListJson != null ? inventoryListJson : '[]'};
+    var inventoryList = [];
+    try {
+        var rawInventoryJson = '<c:out value="${inventoryListJson}" escapeXml="false"/>';
+        if (rawInventoryJson && rawInventoryJson.trim()) {
+            inventoryList = JSON.parse(rawInventoryJson);
+        }
+    } catch (e) {
+        inventoryList = [];
+    }
 
     // DOM
     var criticalCountEl  = document.getElementById('criticalCountEl');

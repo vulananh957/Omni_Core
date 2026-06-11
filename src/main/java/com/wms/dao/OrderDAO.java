@@ -2,6 +2,7 @@ package com.wms.dao;
 
 import com.wms.model.Order;
 import com.wms.model.OrderItem;
+import com.wms.model.Product;
 import com.wms.util.DBConnection;
 
 import java.sql.Connection;
@@ -37,9 +38,9 @@ public class OrderDAO {
                            + "LEFT JOIN order_shipping_details sd ON o.order_id = sd.order_id "
                            + "LEFT JOIN users u ON o.customer_id = u.user_id "
                            + "ORDER BY o.created_at DESC LIMIT 100";
-        String sqlItems = "SELECT s.sku_code, s.product_name, oi.qty, oi.unit_price " +
+        String sqlItems = "SELECT p.product_id, p.sku_code, p.product_name, oi.qty, oi.unit_price " +
                           "FROM order_items oi " +
-                          "JOIN skus s ON oi.sku_id = s.sku_id " +
+                          "JOIN products p ON oi.product_id = p.product_id " +
                           "WHERE oi.order_id = ?";
 
         try (Connection conn = DBConnection.getConnection();
@@ -110,6 +111,7 @@ public class OrderDAO {
                         List<OrderItem> items = new ArrayList<>();
                         while (rsItems.next()) {
                             OrderItem item = new OrderItem();
+                            item.setProductId(rsItems.getInt("product_id"));
                             item.setSkuCode(rsItems.getString("sku_code"));
                             item.setProductName(rsItems.getString("product_name"));
                             item.setQuantity(rsItems.getInt("qty"));
@@ -224,5 +226,113 @@ public class OrderDAO {
             LOGGER.log(Level.SEVERE, "OrderDAO: Failed to update order dispute", e);
         }
         return false;
+    }
+
+    /**
+     * Returns top-selling products by total revenue for the dashboard.
+     */
+    public List<Product> getTopProducts(int limit) {
+        List<Product> list = new ArrayList<>();
+        String sql =
+            "SELECT p.product_id, p.sku_code, p.product_name, SUM(oi.qty * oi.unit_price) AS total_revenue, COUNT(DISTINCT o.order_id) AS order_count " +
+            "FROM order_items oi " +
+            "JOIN products p ON oi.product_id = p.product_id " +
+            "JOIN orders o ON oi.order_id = o.order_id " +
+            "WHERE o.status NOT IN ('CANCELLED','REJECTED') " +
+            "GROUP BY p.product_id, p.sku_code, p.product_name " +
+            "ORDER BY total_revenue DESC LIMIT ?";
+
+        try (Connection conn = DBConnection.getConnection();
+             PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setInt(1, limit);
+            try (ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) {
+                    Product p = new Product();
+                    p.setProductId(rs.getInt("product_id"));
+                    p.setSkuCode(rs.getString("sku_code"));
+                    p.setProductName(rs.getString("product_name"));
+                    list.add(p);
+                }
+            }
+        } catch (SQLException e) {
+            LOGGER.log(Level.WARNING, "OrderDAO.getTopProducts: failed", e);
+        }
+        return list;
+    }
+
+    public Order findByOrderCode(String orderCode) {
+        String sql = "SELECT o.order_id, o.order_code, o.customer_id, o.warehouse_id, w.warehouse_name, "
+                   + "o.channel, o.status, o.total_amount, o.note, o.created_by, o.created_at, "
+                   + "o.tracking_no, o.review_note, "
+                   + "sd.recipient_name, sd.shipping_address, u.phone AS customer_phone, u.full_name AS customer_name "
+                   + "FROM orders o "
+                   + "LEFT JOIN warehouses w ON o.warehouse_id = w.warehouse_id "
+                   + "LEFT JOIN order_shipping_details sd ON o.order_id = sd.order_id "
+                   + "LEFT JOIN users u ON o.customer_id = u.user_id "
+                   + "WHERE o.order_code = ?";
+        try (Connection conn = DBConnection.getConnection();
+             PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setString(1, orderCode);
+            try (ResultSet rs = ps.executeQuery()) {
+                if (rs.next()) {
+                    Order order = new Order();
+                    order.setOrderId(rs.getInt("order_id"));
+                    order.setOrderCode(rs.getString("order_code"));
+                    int customerId = rs.getInt("customer_id");
+                    order.setCustomerId(rs.wasNull() ? null : customerId);
+                    order.setWarehouseId(rs.getInt("warehouse_id"));
+                    order.setWarehouseName(rs.getString("warehouse_name"));
+                    order.setChannel(detectChannel(rs.getString("channel"), rs.getString("note"), rs.getString("tracking_no")));
+                    order.setStatus(rs.getString("status"));
+                    order.setTotalAmount(rs.getDouble("total_amount"));
+                    int createdBy = rs.getInt("created_by");
+                    order.setCreatedBy(rs.wasNull() ? null : createdBy);
+                    Timestamp ca = rs.getTimestamp("created_at");
+                    if (ca != null) order.setCreatedAt(ca.toLocalDateTime());
+                    order.setTrackingNo(rs.getString("tracking_no"));
+                    order.setReviewNote(rs.getString("review_note"));
+                    String recipientName = rs.getString("recipient_name");
+                    String userFullName = rs.getString("customer_name");
+                    String finalCustomerName = (recipientName != null && !recipientName.trim().isEmpty())
+                            ? recipientName
+                            : ((userFullName != null && !userFullName.trim().isEmpty()) ? userFullName : "Khách hàng");
+                    order.setCustomerName(finalCustomerName);
+                    String customerPhone = rs.getString("customer_phone");
+                    order.setCustomerPhone(customerPhone != null ? customerPhone : "Chưa có SĐT");
+                    String shippingAddress = rs.getString("shipping_address");
+                    order.setCustomerAddress(shippingAddress != null ? shippingAddress : "Chưa có địa chỉ");
+                    return order;
+                }
+            }
+        } catch (SQLException e) {
+            LOGGER.log(Level.WARNING, "OrderDAO.findByOrderCode: failed for " + orderCode, e);
+        }
+        return null;
+    }
+
+    public List<OrderItem> findItemsByOrderId(int orderId) {
+        List<OrderItem> items = new ArrayList<>();
+        String sql = "SELECT oi.product_id, p.sku_code, p.product_name, oi.qty, oi.unit_price "
+                   + "FROM order_items oi "
+                   + "JOIN products p ON oi.product_id = p.product_id "
+                   + "WHERE oi.order_id = ?";
+        try (Connection conn = DBConnection.getConnection();
+             PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setInt(1, orderId);
+            try (ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) {
+                    OrderItem item = new OrderItem();
+                    item.setProductId(rs.getInt("product_id"));
+                    item.setSkuCode(rs.getString("sku_code"));
+                    item.setProductName(rs.getString("product_name"));
+                    item.setQuantity(rs.getInt("qty"));
+                    item.setUnitPrice(rs.getDouble("unit_price"));
+                    items.add(item);
+                }
+            }
+        } catch (SQLException e) {
+            LOGGER.log(Level.WARNING, "OrderDAO.findItemsByOrderId: failed for orderId=" + orderId, e);
+        }
+        return items;
     }
 }

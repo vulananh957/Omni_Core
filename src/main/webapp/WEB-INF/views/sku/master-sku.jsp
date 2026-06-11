@@ -1,5 +1,6 @@
 <%@ page language="java" contentType="text/html; charset=UTF-8" pageEncoding="UTF-8" %>
 <%@ taglib prefix="c" uri="jakarta.tags.core" %>
+<%@ taglib prefix="fn" uri="jakarta.tags.functions" %>
 <%@ page import="com.wms.model.Product" %>
 <%@ page import="java.util.List" %>
 <%@ page import="com.fasterxml.jackson.databind.ObjectMapper" %>
@@ -949,8 +950,8 @@
 <script>
 // Expose JSTL session user details to client-side
 window.WMS_USER = {
-    fullName: "${not empty loggedInUser.fullName ? loggedInUser.fullName : 'Guest'}",
-    role: "${not empty loggedInUser.role ? loggedInUser.role : 'Guest'}"
+    fullName: "${fn:escapeXml(not empty loggedInUser.fullName ? loggedInUser.fullName : 'Guest')}",
+    role: "${fn:escapeXml(not empty loggedInUser.role ? loggedInUser.role : 'Guest')}"
 };
 
 function showToast(message, isError) {
@@ -973,8 +974,8 @@ function showToast(message, isError) {
 
 // Check for flash messages from Servlet
 (function() {
-    var errorMsg = "${errorMessage}";
-    var successMsg = "${successMessage}";
+    var errorMsg = "${fn:escapeXml(errorMessage)}";
+    var successMsg = "${fn:escapeXml(successMessage)}";
     if (errorMsg && errorMsg.trim() !== "" && errorMsg.indexOf('errorMessage') === -1) {
         showToast(errorMsg, true);
     } else if (successMsg && successMsg.trim() !== "" && successMsg.indexOf('successMessage') === -1) {

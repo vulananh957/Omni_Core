@@ -59,6 +59,7 @@ public class SchemaInitListener implements ServletContextListener {
             ensureScrapRecordsTable();
             ensureStockTransfers();
             ensureStocktakes();
+            ensureIndexes();
             seedDefaultData();
             LOGGER.info("SchemaInitListener: Schema initialisation completed successfully.");
         } catch (Exception e) {
@@ -84,6 +85,48 @@ public class SchemaInitListener implements ServletContextListener {
                     LOGGER.info("SchemaInitListener: Created '" + tableName + "' table.");
                 }
             }
+        }
+    }
+
+    // ── Helper: create index if not exists ──
+    // MySQL does not support CREATE INDEX IF NOT EXISTS, so we check via SHOW INDEX first.
+
+    private void createIndexIfNotExists(Connection conn, String tableName, String indexName, String createSql) {
+        try (ResultSet rs = conn.createStatement().executeQuery(
+                "SHOW INDEX FROM " + tableName + " WHERE Key_name = '" + indexName + "'")) {
+            if (!rs.next()) {
+                try (Statement st = conn.createStatement()) {
+                    st.executeUpdate(createSql);
+                    LOGGER.info("SchemaInitListener: Created index '" + indexName + "' on '" + tableName + "'.");
+                }
+            }
+        } catch (SQLException e) {
+            LOGGER.log(Level.WARNING, "SchemaInitListener: Could not create index '" + indexName + "': " + e.getMessage());
+        }
+    }
+
+    /**
+     * Creates performance indexes for commonly-queried columns.
+     * Runs idempotently — skips any index that already exists.
+     */
+    private void ensureIndexes() throws SQLException {
+        try (Connection conn = DBConnection.getConnection()) {
+            createIndexIfNotExists(conn, "inventory_ledger", "idx_ledger_sku_wh_time",
+                "CREATE INDEX idx_ledger_sku_wh_time ON inventory_ledger (product_id, warehouse_id, timestamp)");
+            createIndexIfNotExists(conn, "inventory_ledger", "idx_ledger_sku_type",
+                "CREATE INDEX idx_ledger_sku_type ON inventory_ledger (product_id, transaction_type)");
+            createIndexIfNotExists(conn, "orders", "idx_orders_customer_date",
+                "CREATE INDEX idx_orders_customer_date ON orders (customer_id, created_at)");
+            createIndexIfNotExists(conn, "orders", "idx_orders_status_channel",
+                "CREATE INDEX idx_orders_status_channel ON orders (order_status, channel_id)");
+            createIndexIfNotExists(conn, "inbound_orders", "idx_inbound_status_date",
+                "CREATE INDEX idx_inbound_status_date ON inbound_orders (status, created_at)");
+            createIndexIfNotExists(conn, "outbound_orders", "idx_outbound_status_date",
+                "CREATE INDEX idx_outbound_status_date ON outbound_orders (status, created_at)");
+            createIndexIfNotExists(conn, "product_default_zones", "idx_pdz_product",
+                "CREATE INDEX idx_pdz_product ON product_default_zones (product_id)");
+            createIndexIfNotExists(conn, "channels", "idx_channels_platform",
+                "CREATE INDEX idx_channels_platform ON channels (platform)");
         }
     }
 

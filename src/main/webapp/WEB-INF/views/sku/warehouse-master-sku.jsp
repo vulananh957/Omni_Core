@@ -1,5 +1,6 @@
 <%@ page language="java" contentType="text/html; charset=UTF-8" pageEncoding="UTF-8" %>
 <%@ taglib prefix="c" uri="jakarta.tags.core" %>
+<%@ taglib prefix="fn" uri="jakarta.tags.functions" %>
 
 <style>
     /* ─── Metric & Grid Layouts ─── */
@@ -667,7 +668,7 @@
         <select id="skuWarehouseFilter">
             <option value="">Tat ca kho</option>
             <c:forEach var="w" items="${warehouses}">
-                <option value="${w.warehouseId}">${w.warehouseName}</option>
+                <option value="${w.warehouseId}"><c:out value="${w.warehouseName}"/></option>
             </c:forEach>
         </select>
         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></svg>
@@ -892,8 +893,8 @@
 <script>
 // Expose JSTL session user details to client-side
 window.WMS_USER = {
-    fullName: "${not empty loggedInUser.fullName ? loggedInUser.fullName : 'Guest'}",
-    role: "${not empty loggedInUser.role ? loggedInUser.role : 'Guest'}"
+    fullName: "${fn:escapeXml(not empty loggedInUser.fullName ? loggedInUser.fullName : 'Guest')}",
+    role: "${fn:escapeXml(not empty loggedInUser.role ? loggedInUser.role : 'Guest')}"
 };
 
 function submitPostAction(action, params) {

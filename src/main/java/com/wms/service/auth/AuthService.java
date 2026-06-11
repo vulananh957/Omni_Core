@@ -37,30 +37,42 @@ public class AuthService {
     /**
      * Authenticates a user with username + plain-text password.
      *
-     * @return the User if credentials are valid and account is active; null otherwise.
+     * @return the User if credentials are valid and account is active; never null.
+     * @throws AuthException with a distinct Reason so the caller can show the right message.
      */
     public User authenticate(String username, String rawPassword) {
         try {
             Optional<User> optional = userDAO.findByUsername(username);
             if (optional.isEmpty()) {
                 LOGGER.info("Login failed: user not found — " + username);
-                return null;
+                throw new AuthException(AuthException.Reason.NOT_FOUND,
+                        "Tài khoản không tồn tại.");
             }
 
             User user = optional.get();
 
+            if (!user.isActive()) {
+                LOGGER.info("Login failed: account locked — " + username);
+                throw new AuthException(AuthException.Reason.ACCOUNT_LOCKED,
+                        "Tài khoản của bạn đã bị khóa. Vui lòng liên hệ quản trị hệ thống.");
+            }
+
             if (!BCrypt.checkpw(rawPassword, user.getPasswordHash())) {
                 LOGGER.info("Login failed: wrong password for — " + username);
-                return null;
+                throw new AuthException(AuthException.Reason.WRONG_PASSWORD,
+                        "Tên đăng nhập hoặc mật khẩu không đúng.");
             }
 
             user.setPasswordHash(null);
             LOGGER.info("Login success: " + username + " [" + user.getRole() + "]");
             return user;
 
+        } catch (AuthException e) {
+            throw e;
         } catch (SQLException e) {
             LOGGER.log(Level.SEVERE, "Database error during authentication.", e);
-            return null;
+            throw new AuthException(AuthException.Reason.NOT_FOUND,
+                    "Đã xảy ra lỗi hệ thống khi đăng nhập.");
         }
     }
 

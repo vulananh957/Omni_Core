@@ -2,6 +2,8 @@ package com.wms.dao;
 
 import com.wms.model.User;
 import com.wms.util.DBConnection;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.sql.*;
 import java.time.LocalDateTime;
@@ -18,6 +20,8 @@ import java.util.Optional;
  */
 public class UserDAO {
 
+    private static final Logger log = LoggerFactory.getLogger(UserDAO.class);
+
     /**
      * Default constructor. Schema setup is handled by SchemaInitListener.
      */
@@ -28,7 +32,7 @@ public class UserDAO {
 
     private static final String SQL_FIND_BY_USERNAME = "SELECT u.*, r.role_id FROM users u "
             + "LEFT JOIN roles r ON u.role = r.role_name "
-            + "WHERE (u.username = ? OR u.email = ? OR u.phone = ?) AND u.active = 1";
+            + "WHERE (u.username = ? OR u.email = ? OR u.phone = ?)";
 
     private static final String SQL_FIND_BY_EMAIL = "SELECT u.*, r.role_id FROM users u "
             + "LEFT JOIN roles r ON u.role = r.role_name "
@@ -190,7 +194,13 @@ public class UserDAO {
                 ps.setNull(9, java.sql.Types.INTEGER);
             }
 
-            return ps.executeUpdate() > 0;
+            boolean success = ps.executeUpdate() > 0;
+            if (success) {
+                log.info("User created: username={} role={}", user.getUsername(), user.getRole());
+            } else {
+                log.warn("User insert returned 0 rows: username={}", user.getUsername());
+            }
+            return success;
         }
     }
 
@@ -210,7 +220,11 @@ public class UserDAO {
             }
             ps.setInt(7, user.getUserId());
 
-            return ps.executeUpdate() > 0;
+            boolean success = ps.executeUpdate() > 0;
+            if (success) {
+                log.info("User updated: userId={} role={}", user.getUserId(), user.getRole());
+            }
+            return success;
         }
     }
 
@@ -220,7 +234,11 @@ public class UserDAO {
              PreparedStatement ps = conn.prepareStatement(sql)) {
             ps.setInt(1, active ? 1 : 0);
             ps.setInt(2, userId);
-            return ps.executeUpdate() > 0;
+            boolean success = ps.executeUpdate() > 0;
+            if (success) {
+                log.info("User status toggled: userId={} active={}", userId, active);
+            }
+            return success;
         }
     }
 

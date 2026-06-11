@@ -277,17 +277,17 @@ public class SkuMappingDAO {
     }
 
     /**
-     * Lấy tất cả thông tin Master SKU từ bảng skus để hiển thị trên form mapping.
+     * Lấy tất cả APPROVED Master SKU từ bảng products để hiển thị trên form mapping.
      */
     public List<Product> findAllSkus() {
         List<Product> list = new ArrayList<>();
-        String sql = "SELECT sku_id, sku_code, product_name FROM skus ORDER BY sku_code ASC";
+        String sql = "SELECT product_id, sku_code, product_name FROM products WHERE status = 'APPROVED' ORDER BY sku_code ASC";
         try (Connection conn = DBConnection.getConnection();
              PreparedStatement ps = conn.prepareStatement(sql);
              ResultSet rs = ps.executeQuery()) {
             while (rs.next()) {
                 Product p = new Product();
-                p.setProductId(rs.getInt("sku_id"));
+                p.setProductId(rs.getInt("product_id"));
                 p.setSkuCode(rs.getString("sku_code"));
                 p.setProductName(rs.getString("product_name"));
                 list.add(p);

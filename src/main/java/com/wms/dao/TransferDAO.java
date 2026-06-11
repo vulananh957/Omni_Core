@@ -6,6 +6,7 @@ import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.sql.Statement;
 import java.sql.Timestamp;
 import java.util.ArrayList;
 import java.util.List;
@@ -156,6 +157,71 @@ public class TransferDAO {
             LOGGER.log(Level.WARNING, "TransferDAO.findItemsByTransferId: failed for id=" + transferId, e);
         }
         return list;
+    }
+
+    /**
+     * Inserts a new stock transfer record and returns the generated transfer_id.
+     */
+    public int insert(Transfer t) throws SQLException {
+        String sql = "INSERT INTO stock_transfers "
+            + "(transfer_code, from_warehouse_id, to_warehouse_id, created_by, status, note, created_at) "
+            + "VALUES (?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)";
+
+        try (Connection conn = DBConnection.getConnection();
+             PreparedStatement ps = conn.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)) {
+            ps.setString(1, t.getTransferCode());
+            ps.setInt(2, t.getFromWarehouseId());
+            ps.setInt(3, t.getToWarehouseId());
+            ps.setInt(4, t.getCreatedBy());
+            ps.setString(5, t.getStatus() != null ? t.getStatus() : Transfer.STATUS_DRAFT);
+            ps.setString(6, t.getNote());
+
+            int affected = ps.executeUpdate();
+            if (affected == 0) {
+                throw new SQLException("Creating transfer failed, no rows affected.");
+            }
+
+            int transferId;
+            try (ResultSet keys = ps.getGeneratedKeys()) {
+                if (keys.next()) {
+                    transferId = keys.getInt(1);
+                } else {
+                    throw new SQLException("Creating transfer failed, no ID obtained.");
+                }
+            }
+            return transferId;
+        }
+    }
+
+    /**
+     * Inserts a transfer item row.
+     */
+    public void insertItem(TransferItem ti) throws SQLException {
+        String sql = "INSERT INTO stock_transfer_items "
+            + "(transfer_id, product_id, shipped_qty, received_qty) "
+            + "VALUES (?, ?, ?, ?)";
+
+        try (Connection conn = DBConnection.getConnection();
+             PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setInt(1, ti.getTransferId());
+            ps.setInt(2, ti.getProductId());
+            ps.setBigDecimal(3, ti.getShippedQty());
+            ps.setBigDecimal(4, ti.getReceivedQty());
+            ps.executeUpdate();
+        }
+    }
+
+    /**
+     * Updates the status of a stock transfer.
+     */
+    public void updateStatus(int transferId, String status) throws SQLException {
+        String sql = "UPDATE stock_transfers SET status = ?, completed_at = CURRENT_TIMESTAMP WHERE transfer_id = ?";
+        try (Connection conn = DBConnection.getConnection();
+             PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setString(1, status);
+            ps.setInt(2, transferId);
+            ps.executeUpdate();
+        }
     }
 
     /**

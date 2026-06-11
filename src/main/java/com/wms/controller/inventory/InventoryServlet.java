@@ -30,8 +30,8 @@ public class InventoryServlet extends BaseController {
         }
 
         // Page metadata for the layout shell
-        req.setAttribute("pageTitle",    "Ton Kho");
-        req.setAttribute("pageSubtitle", "Quan ly ton kho vat ly theo tung mat hang va kho bai");
+        req.setAttribute("pageTitle",    "Tồn Kho");
+        req.setAttribute("pageSubtitle", "Quản lý tồn kho vật lý theo từng mặt hàng và kho bãi");
         req.setAttribute("currentPage",  "inventory");
 
         // Inventory data — empty until backend is implemented

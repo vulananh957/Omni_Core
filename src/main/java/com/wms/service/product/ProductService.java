@@ -6,10 +6,14 @@ import com.wms.dao.CategoryDAO;
 import com.wms.dao.ProductDAO;
 import com.wms.model.Category;
 import com.wms.model.Product;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.util.List;
 
 public class ProductService {
+
+    private static final Logger log = LoggerFactory.getLogger(ProductService.class);
 
     private final ProductDAO productDAO = new ProductDAO();
     private final CategoryDAO categoryDAO = new CategoryDAO();
@@ -31,6 +35,10 @@ public class ProductService {
         return productDAO.findPendingApproval();
     }
 
+    public List<Product> findApproved() {
+        return productDAO.findApproved();
+    }
+
     public List<Category> findAllCategories() {
         return categoryDAO.findAll();
     }
@@ -45,15 +53,23 @@ public class ProductService {
         }
         product.setStatus(Product.STATUS_PENDING);
         product.setCreatedBy(createdByUserId);
-        return productDAO.insert(product);
+        boolean success = productDAO.insert(product);
+        if (success) {
+            log.info("Product created: name={} sku={} userId={}", product.getProductName(), product.getSkuCode(), createdByUserId);
+        } else {
+            log.error("Product create failed: name={} sku={}", product.getProductName(), product.getSkuCode());
+        }
+        return success;
     }
 
     public UpdateResult updateProduct(int productId, Product updates) {
         Product existing = productDAO.findById(productId);
         if (existing == null) {
+            log.warn("Update product failed: not found productId={}", productId);
             return UpdateResult.failure("Sản phẩm không tồn tại.");
         }
         if (!Product.STATUS_PENDING.equals(existing.getStatus())) {
+            log.warn("Update product rejected: wrong status productId={} status={}", productId, existing.getStatus());
             return UpdateResult.failure("Chỉ sản phẩm ở trạng thái PENDING mới có thể chỉnh sửa.");
         }
 
@@ -78,23 +94,29 @@ public class ProductService {
 
         boolean success = productDAO.update(existing);
         if (!success) {
+            log.error("Product update DAO failed: productId={}", productId);
             return UpdateResult.failure("Không thể cập nhật sản phẩm.");
         }
+        log.info("Product updated: productId={}", productId);
         return UpdateResult.success();
     }
 
     public DeleteResult deleteProduct(int productId) {
         Product existing = productDAO.findById(productId);
         if (existing == null) {
+            log.warn("Delete product failed: not found productId={}", productId);
             return DeleteResult.failure("Sản phẩm không tồn tại.");
         }
         if (!Product.STATUS_PENDING.equals(existing.getStatus())) {
+            log.warn("Delete product rejected: wrong status productId={} status={}", productId, existing.getStatus());
             return DeleteResult.failure("Chỉ sản phẩm ở trạng thái PENDING mới có thể xóa.");
         }
         boolean success = productDAO.delete(productId);
         if (!success) {
+            log.error("Product delete DAO failed: productId={}", productId);
             return DeleteResult.failure("Không thể xóa sản phẩm.");
         }
+        log.info("Product deleted: productId={}", productId);
         return DeleteResult.success();
     }
 
@@ -109,6 +131,26 @@ public class ProductService {
             }
         }
         return null;
+    }
+
+    public boolean approveProductWithZones(int productId, int approvedBy, List<Product.LocationConfig> configs) {
+        boolean ok = productDAO.approveProductWithZones(productId, approvedBy, configs);
+        if (ok) {
+            log.info("Product approved with zones: productId={} approvedBy={}", productId, approvedBy);
+        } else {
+            log.error("Product approve with zones failed: productId={}", productId);
+        }
+        return ok;
+    }
+
+    public boolean rejectProduct(int productId, String reason) {
+        boolean ok = productDAO.reject(productId, reason);
+        if (ok) {
+            log.info("Product rejected: productId={} reason={}", productId, reason);
+        } else {
+            log.error("Product reject failed: productId={}", productId);
+        }
+        return ok;
     }
 
     public static class UpdateResult {

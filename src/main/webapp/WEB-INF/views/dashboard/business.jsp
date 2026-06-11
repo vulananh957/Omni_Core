@@ -133,10 +133,9 @@
             <div class="chart-card__sub" id="chartSubLabel">Doanh thu (nghìn VNĐ) — 30 ngày gần nhất</div>
         </div>
         <div class="legend">
-            <div class="legend-item"><div class="legend-dot" style="background:#EE4D2D"></div><span class="legend-label">Shopee</span></div>
-            <div class="legend-item"><div class="legend-dot" style="background:#69C9D0"></div><span class="legend-label">TikTok</span></div>
-            <div class="legend-item"><div class="legend-dot" style="background:#0F146D"></div><span class="legend-label">Lazada</span></div>
-            <div class="legend-item"><div class="legend-dot" style="background:#EB8317"></div><span class="legend-label">Website</span></div>
+            <c:forEach var="ch" items="${channels}">
+                <div class="legend-item"><div class="legend-dot" style="background:#69C9D0"></div><span class="legend-label">${ch.channelName}</span></div>
+            </c:forEach>
         </div>
     </div>
     <div class="chart-wrap" id="lineChartWrap">
@@ -253,10 +252,24 @@
     };
 
 /* ─── Config ─────────────────────────────────────────────── */
-var CHANNEL_COLORS = { Shopee:'#EE4D2D', TikTok:'#69C9D0', Lazada:'#0F146D', Website:'#EB8317' };
-var CHANNELS = ['Shopee','TikTok','Lazada','Website'];
+var CHANNEL_COLORS = {};
+var CHANNELS = [];
+try {
+    var rawChJson = '<c:out value="${channelsJson}" escapeXml="false"/>';
+    if (rawChJson && rawChJson.trim() && rawChJson.indexOf('channelsJson') === -1) {
+        var chData = JSON.parse(rawChJson);
+        CHANNELS = chData.map(function(c) { return c.channelName; });
+        chData.forEach(function(c) {
+            CHANNEL_COLORS[c.channelName] = '#69C9D0';
+        });
+    }
+} catch (e) {}
+if (CHANNELS.length === 0) {
+    CHANNELS = ['Shopee','TikTok','Lazada','Website'];
+    CHANNEL_COLORS = { Shopee:'#EE4D2D', TikTok:'#69C9D0', Lazada:'#0F146D', Website:'#EB8317' };
+}
 var PERIOD_DAYS = { '7ngay':7, '30ngay':30, '3thang':90, '6thang':180, '1nam':365 };
-var PERIOD_LABELS = { '7ngay':'7 ngày', '30ngay':'30 ngày', '3thang':'3 tháng', '6thang':'6 tháng', '1nam':'1 năm' };
+var PERIOD_LABELS = { '7ngay':'7 ngay', '30ngay':'30 ngay', '3thang':'3 thang', '6thang':'6 thang', '1nam':'1 nam' };
 var TICK_INTERVALS = { '7ngay':0, '30ngay':4, '3thang':14, '6thang':29, '1nam':59 };
 
 // Bind backend data (passed from servlet) or fall back to empty

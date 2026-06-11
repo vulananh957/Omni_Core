@@ -333,4 +333,222 @@ public class WarehouseDAO {
             }
         }
     }
+
+    /**
+     * Inserts a new physical inventory check record.
+     */
+    public void insertInventoryCheck(String checkCode, int warehouseId, int userId, String note) {
+        String sql = "INSERT INTO physical_inventories (check_code, warehouse_id, created_by, status) VALUES (?, ?, ?, 'DRAFT')";
+        try (Connection conn = DBConnection.getConnection();
+             PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setString(1, checkCode);
+            ps.setInt(2, warehouseId);
+            ps.setInt(3, userId);
+            ps.executeUpdate();
+        } catch (SQLException e) {
+            LOGGER.log(Level.SEVERE, "insertInventoryCheck failed", e);
+            throw new RuntimeException("insertInventoryCheck failed", e);
+        }
+    }
+
+    /**
+     * Parses items JSON and inserts physical inventory check line items.
+     * Expected JSON format: [{productId: int, systemQty: double}, ...]
+     */
+    public void insertInventoryCheckItems(String checkCode, String itemsJson) {
+        if (itemsJson == null || itemsJson.trim().isEmpty()) return;
+        Connection conn = null;
+        PreparedStatement psSel = null;
+        PreparedStatement psIns = null;
+        try {
+            conn = DBConnection.getConnection();
+            conn.setAutoCommit(false);
+
+            // Get the checkId from checkCode
+            String sqlSel = "SELECT inventory_check_id FROM physical_inventories WHERE check_code = ?";
+            psSel = conn.prepareStatement(sqlSel);
+            psSel.setString(1, checkCode);
+            int checkId = -1;
+            try (ResultSet rs = psSel.executeQuery()) {
+                if (rs.next()) checkId = rs.getInt("inventory_check_id");
+            }
+
+            if (checkId == -1) {
+                conn.rollback();
+                return;
+            }
+
+            // Parse JSON items and insert
+            com.fasterxml.jackson.databind.ObjectMapper mapper = new com.fasterxml.jackson.databind.ObjectMapper();
+            List<?> items = mapper.readValue(itemsJson, List.class);
+
+            String sqlIns = "INSERT INTO physical_inventory_details (inventory_check_id, product_id, system_qty) VALUES (?, ?, ?)";
+            psIns = conn.prepareStatement(sqlIns);
+            for (Object item : items) {
+                java.util.Map<?, ?> m = (java.util.Map<?, ?>) item;
+                int productId = ((Number) m.get("productId")).intValue();
+                double systemQty = m.get("systemQty") != null ? ((Number) m.get("systemQty")).doubleValue() : 0;
+                psIns.setInt(1, checkId);
+                psIns.setInt(2, productId);
+                psIns.setDouble(3, systemQty);
+                psIns.addBatch();
+            }
+            psIns.executeBatch();
+            conn.commit();
+        } catch (Exception e) {
+            LOGGER.log(Level.SEVERE, "insertInventoryCheckItems failed", e);
+            if (conn != null) try { conn.rollback(); } catch (SQLException ex) {}
+            throw new RuntimeException("insertInventoryCheckItems failed", e);
+        } finally {
+            DBConnection.closeQuietly(psSel, psIns);
+            closeConnectionQuietly(conn);
+        }
+    }
+
+    /**
+     * Updates inventory check detail rows with actual count results.
+     * Expected JSON format: [{checkDetailId: int, actualQty: double, countedBy: int}, ...]
+     */
+    public void updateInventoryCheckResults(int checkId, String resultsJson) {
+        if (resultsJson == null || resultsJson.trim().isEmpty()) return;
+        Connection conn = null;
+        PreparedStatement psSel = null;
+        PreparedStatement psUpd = null;
+        try {
+            conn = DBConnection.getConnection();
+            conn.setAutoCommit(false);
+
+            // Update status to IN_PROGRESS
+            String sqlStatus = "UPDATE physical_inventories SET status = 'IN_PROGRESS' WHERE inventory_check_id = ?";
+            try (PreparedStatement ps = conn.prepareStatement(sqlStatus)) {
+                ps.setInt(1, checkId);
+                ps.executeUpdate();
+            }
+
+            // Get the check's warehouse_id
+            String sqlWh = "SELECT warehouse_id FROM physical_inventories WHERE inventory_check_id = ?";
+            psSel = conn.prepareStatement(sqlWh);
+            psSel.setInt(1, checkId);
+            int warehouseId = -1;
+            try (ResultSet rs = psSel.executeQuery()) {
+                if (rs.next()) warehouseId = rs.getInt("warehouse_id");
+            }
+
+            // Update detail items
+            String sqlUpd = "UPDATE physical_inventory_details SET actual_qty = ?, delta_qty = ?, "
+                + "counted_by = ?, counted_at = CURRENT_TIMESTAMP WHERE check_detail_id = ?";
+            psUpd = conn.prepareStatement(sqlUpd);
+
+            com.fasterxml.jackson.databind.ObjectMapper mapper = new com.fasterxml.jackson.databind.ObjectMapper();
+            List<?> items = mapper.readValue(resultsJson, List.class);
+
+            for (Object item : items) {
+                java.util.Map<?, ?> m = (java.util.Map<?, ?>) item;
+                int detailId = ((Number) m.get("checkDetailId")).intValue();
+                double actualQty = m.get("actualQty") != null ? ((Number) m.get("actualQty")).doubleValue() : 0;
+                double delta = actualQty; // delta = actual - system (system is already in DB)
+                int countedBy = m.get("countedBy") != null ? ((Number) m.get("countedBy")).intValue() : 1;
+
+                psUpd.setDouble(1, actualQty);
+                psUpd.setDouble(2, delta);
+                psUpd.setInt(3, countedBy);
+                psUpd.setInt(4, detailId);
+                psUpd.addBatch();
+            }
+            psUpd.executeBatch();
+            conn.commit();
+        } catch (Exception e) {
+            LOGGER.log(Level.SEVERE, "updateInventoryCheckResults failed", e);
+            if (conn != null) try { conn.rollback(); } catch (SQLException ex) {}
+            throw new RuntimeException("updateInventoryCheckResults failed", e);
+        } finally {
+            DBConnection.closeQuietly(psSel, psUpd);
+            closeConnectionQuietly(conn);
+        }
+    }
+
+    /**
+     * Applies inventory adjustments by updating the inventory table and ledger.
+     * Called after manager approves the inventory check.
+     * Expected JSON format: [{productId: int, delta: double}, ...]
+     */
+    public void applyInventoryAdjustments(int checkId, String adjustmentsJson, int userId) {
+        if (adjustmentsJson == null || adjustmentsJson.trim().isEmpty()) return;
+        Connection conn = null;
+        PreparedStatement psWh = null;
+        PreparedStatement psUpd = null;
+        PreparedStatement psLedger = null;
+        try {
+            conn = DBConnection.getConnection();
+            conn.setAutoCommit(false);
+
+            // Get the check's warehouse_id
+            String sqlWh = "SELECT warehouse_id FROM physical_inventories WHERE inventory_check_id = ?";
+            psWh = conn.prepareStatement(sqlWh);
+            psWh.setInt(1, checkId);
+            int warehouseId = -1;
+            try (ResultSet rs = psWh.executeQuery()) {
+                if (rs.next()) warehouseId = rs.getInt("warehouse_id");
+            }
+            if (warehouseId == -1) throw new RuntimeException("Inventory check not found");
+
+            // Parse adjustments
+            com.fasterxml.jackson.databind.ObjectMapper mapper = new com.fasterxml.jackson.databind.ObjectMapper();
+            List<?> items = mapper.readValue(adjustmentsJson, List.class);
+
+            for (Object item : items) {
+                java.util.Map<?, ?> m = (java.util.Map<?, ?>) item;
+                int productId = ((Number) m.get("productId")).intValue();
+                double delta = m.get("delta") != null ? ((Number) m.get("delta")).doubleValue() : 0;
+                if (delta == 0) continue;
+
+                // Upsert inventory
+                String sqlUpsert = "INSERT INTO inventory (product_id, warehouse_id, qty_on_hand, holding, qty_available) "
+                    + "VALUES (?, ?, ?, 0, ?) ON DUPLICATE KEY UPDATE qty_on_hand = qty_on_hand + ?, qty_available = qty_available + ?";
+                psUpd = conn.prepareStatement(sqlUpsert);
+                psUpd.setInt(1, productId);
+                psUpd.setInt(2, warehouseId);
+                psUpd.setDouble(3, delta);
+                psUpd.setDouble(4, delta);
+                psUpd.setDouble(5, delta);
+                psUpd.setDouble(6, delta);
+                psUpd.executeUpdate();
+                psUpd.close();
+
+                // Get inventory_id
+                int invId = 0;
+                String sqlGetId = "SELECT inventory_id FROM inventory WHERE product_id = ? AND warehouse_id = ?";
+                try (PreparedStatement psG = conn.prepareStatement(sqlGetId)) {
+                    psG.setInt(1, productId);
+                    psG.setInt(2, warehouseId);
+                    try (ResultSet rs = psG.executeQuery()) {
+                        if (rs.next()) invId = rs.getInt("inventory_id");
+                    }
+                }
+
+                // Insert ledger entry
+                String sqlLedger = "INSERT INTO inventory_ledger (inventory_id, product_id, warehouse_id, transaction_type, "
+                    + "ref_document_id, qty_change, avail_change, created_by, note) VALUES (?, ?, ?, 'ADJUSTMENT', ?, ?, ?, ?, 'Kiểm kê cân đối tồn kho')";
+                psLedger = conn.prepareStatement(sqlLedger);
+                psLedger.setInt(1, invId);
+                psLedger.setInt(2, productId);
+                psLedger.setInt(3, warehouseId);
+                psLedger.setInt(4, checkId);
+                psLedger.setDouble(5, delta);
+                psLedger.setDouble(6, delta);
+                psLedger.setInt(7, userId);
+                psLedger.executeUpdate();
+                psLedger.close();
+            }
+
+            conn.commit();
+        } catch (Exception e) {
+            LOGGER.log(Level.SEVERE, "applyInventoryAdjustments failed", e);
+            if (conn != null) try { conn.rollback(); } catch (SQLException ex) {}
+            throw new RuntimeException("applyInventoryAdjustments failed", e);
+        } finally {
+            DBConnection.closeQuietly(psWh, psUpd, psLedger);
+            closeConnectionQuietly(conn);
+        }
+    }
 }

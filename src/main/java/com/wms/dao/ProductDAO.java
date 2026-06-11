@@ -9,39 +9,50 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Timestamp;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
 /**
  * ProductDAO — Data Access Object for managing master SKU product records.
+ *
+ * Optimizations applied:
+ * - All SELECTs share a single private builder method to eliminate code duplication.
+ * - Default zones are fetched in a single batch query (instead of per-product),
+ *   eliminating the N+1 query problem when loading product lists.
  */
 public class ProductDAO {
 
     private static final Logger LOGGER = Logger.getLogger(ProductDAO.class.getName());
+
+    private static final String SELECT_CORE =
+        "SELECT p.*, c.category_name, u.full_name AS creator_name, "
+        + "u2.full_name AS approver_name, "
+        + "COALESCE(i.qty_on_hand, 0) AS qty_on_hand "
+        + "FROM products p "
+        + "LEFT JOIN categories c ON p.category_id = c.category_id "
+        + "LEFT JOIN users u ON p.created_by = u.user_id "
+        + "LEFT JOIN users u2 ON p.approved_by = u2.user_id "
+        + "LEFT JOIN (SELECT product_id, SUM(qty_on_hand) AS qty_on_hand FROM inventory GROUP BY product_id) i ON p.product_id = i.product_id";
 
     public ProductDAO() {
     }
 
     /**
      * Retrieves all products ordered by product_id descending.
-     *
-     * @return A list of all products.
+     * Zones are fetched in a single batch query — no N+1 problem.
      */
     public List<Product> findAll() {
+        Map<Integer, List<Product.LocationConfig>> zonesMap = batchFindDefaultZones();
         List<Product> list = new ArrayList<>();
-        String sql = "SELECT p.*, c.category_name, u.full_name AS creator_name, u2.full_name AS approver_name, "
-                   + "(SELECT COALESCE(SUM(qty_on_hand), 0) FROM inventory WHERE product_id = p.product_id) AS qty_on_hand "
-                   + "FROM products p "
-                   + "LEFT JOIN categories c ON p.category_id = c.category_id "
-                   + "LEFT JOIN users u ON p.created_by = u.user_id "
-                   + "LEFT JOIN users u2 ON p.approved_by = u2.user_id "
-                   + "ORDER BY p.product_id DESC";
+        String sql = SELECT_CORE + " ORDER BY p.product_id DESC";
         try (Connection conn = DBConnection.getConnection();
              PreparedStatement ps = conn.prepareStatement(sql);
              ResultSet rs = ps.executeQuery()) {
             while (rs.next()) {
-                list.add(mapResultSetToProduct(rs));
+                list.add(mapRow(rs, zonesMap.getOrDefault(getProductId(rs), List.of())));
             }
         } catch (SQLException e) {
             LOGGER.log(Level.WARNING, "ProductDAO: Failed to find all products", e);
@@ -51,24 +62,16 @@ public class ProductDAO {
 
     /**
      * Finds a single product by its primary key.
-     *
-     * @param productId The product ID to look up.
-     * @return The Product object, or null if not found.
      */
     public Product findById(int productId) {
-        String sql = "SELECT p.*, c.category_name, u.full_name AS creator_name, u2.full_name AS approver_name, "
-                   + "(SELECT COALESCE(SUM(qty_on_hand), 0) FROM inventory WHERE product_id = p.product_id) AS qty_on_hand "
-                   + "FROM products p "
-                   + "LEFT JOIN categories c ON p.category_id = c.category_id "
-                   + "LEFT JOIN users u ON p.created_by = u.user_id "
-                   + "LEFT JOIN users u2 ON p.approved_by = u2.user_id "
-                   + "WHERE p.product_id = ?";
+        List<Product.LocationConfig> zones = findDefaultZonesByProductId(productId);
+        String sql = SELECT_CORE + " WHERE p.product_id = ?";
         try (Connection conn = DBConnection.getConnection();
              PreparedStatement ps = conn.prepareStatement(sql)) {
             ps.setInt(1, productId);
             try (ResultSet rs = ps.executeQuery()) {
                 if (rs.next()) {
-                    return mapResultSetToProduct(rs);
+                    return mapRow(rs, zones);
                 }
             }
         } catch (SQLException e) {
@@ -79,38 +82,25 @@ public class ProductDAO {
 
     /**
      * Finds all products belonging to a specific category.
-     *
-     * @param categoryId The category ID to filter by.
-     * @return A list of matching products.
      */
     public List<Product> findByCategory(Integer categoryId) {
+        Map<Integer, List<Product.LocationConfig>> zonesMap = batchFindDefaultZones();
         List<Product> list = new ArrayList<>();
-        String sql;
-        PreparedStatement ps;
-        try (Connection conn = DBConnection.getConnection()) {
-            if (categoryId == null) {
-                sql = "SELECT p.*, c.category_name, u.full_name AS creator_name, u2.full_name AS approver_name, "
-                    + "(SELECT COALESCE(SUM(qty_on_hand), 0) FROM inventory WHERE product_id = p.product_id) AS qty_on_hand "
-                    + "FROM products p "
-                    + "LEFT JOIN categories c ON p.category_id = c.category_id "
-                    + "LEFT JOIN users u ON p.created_by = u.user_id "
-                    + "LEFT JOIN users u2 ON p.approved_by = u2.user_id "
-                    + "WHERE p.category_id IS NULL ORDER BY p.product_id DESC";
-                ps = conn.prepareStatement(sql);
-            } else {
-                sql = "SELECT p.*, c.category_name, u.full_name AS creator_name, u2.full_name AS approver_name, "
-                    + "(SELECT COALESCE(SUM(qty_on_hand), 0) FROM inventory WHERE product_id = p.product_id) AS qty_on_hand "
-                    + "FROM products p "
-                    + "LEFT JOIN categories c ON p.category_id = c.category_id "
-                    + "LEFT JOIN users u ON p.created_by = u.user_id "
-                    + "LEFT JOIN users u2 ON p.approved_by = u2.user_id "
-                    + "WHERE p.category_id = ? ORDER BY p.product_id DESC";
-                ps = conn.prepareStatement(sql);
+        String whereClause;
+        if (categoryId == null) {
+            whereClause = " WHERE p.category_id IS NULL";
+        } else {
+            whereClause = " WHERE p.category_id = ?";
+        }
+        String sql = SELECT_CORE + whereClause + " ORDER BY p.product_id DESC";
+        try (Connection conn = DBConnection.getConnection();
+             PreparedStatement ps = conn.prepareStatement(sql)) {
+            if (categoryId != null) {
                 ps.setInt(1, categoryId);
             }
             try (ResultSet rs = ps.executeQuery()) {
                 while (rs.next()) {
-                    list.add(mapResultSetToProduct(rs));
+                    list.add(mapRow(rs, zonesMap.getOrDefault(getProductId(rs), List.of())));
                 }
             }
         } catch (SQLException e) {
@@ -121,24 +111,17 @@ public class ProductDAO {
 
     /**
      * Finds all products with status = PENDING (pending approval).
-     *
-     * @return A list of pending products.
      */
     public List<Product> findPendingApproval() {
+        Map<Integer, List<Product.LocationConfig>> zonesMap = batchFindDefaultZones();
         List<Product> list = new ArrayList<>();
-        String sql = "SELECT p.*, c.category_name, u.full_name AS creator_name, u2.full_name AS approver_name, "
-                   + "(SELECT COALESCE(SUM(qty_on_hand), 0) FROM inventory WHERE product_id = p.product_id) AS qty_on_hand "
-                   + "FROM products p "
-                   + "LEFT JOIN categories c ON p.category_id = c.category_id "
-                   + "LEFT JOIN users u ON p.created_by = u.user_id "
-                   + "LEFT JOIN users u2 ON p.approved_by = u2.user_id "
-                   + "WHERE p.status = ? ORDER BY p.product_id DESC";
+        String sql = SELECT_CORE + " WHERE p.status = ? ORDER BY p.product_id DESC";
         try (Connection conn = DBConnection.getConnection();
              PreparedStatement ps = conn.prepareStatement(sql)) {
             ps.setString(1, Product.STATUS_PENDING);
             try (ResultSet rs = ps.executeQuery()) {
                 while (rs.next()) {
-                    list.add(mapResultSetToProduct(rs));
+                    list.add(mapRow(rs, zonesMap.getOrDefault(getProductId(rs), List.of())));
                 }
             }
         } catch (SQLException e) {
@@ -149,24 +132,17 @@ public class ProductDAO {
 
     /**
      * Finds all approved products.
-     *
-     * @return A list of approved products.
      */
     public List<Product> findApproved() {
+        Map<Integer, List<Product.LocationConfig>> zonesMap = batchFindDefaultZones();
         List<Product> list = new ArrayList<>();
-        String sql = "SELECT p.*, c.category_name, u.full_name AS creator_name, u2.full_name AS approver_name, "
-                   + "(SELECT COALESCE(SUM(qty_on_hand), 0) FROM inventory WHERE product_id = p.product_id) AS qty_on_hand "
-                   + "FROM products p "
-                   + "LEFT JOIN categories c ON p.category_id = c.category_id "
-                   + "LEFT JOIN users u ON p.created_by = u.user_id "
-                   + "LEFT JOIN users u2 ON p.approved_by = u2.user_id "
-                   + "WHERE p.status = ? ORDER BY p.product_id DESC";
+        String sql = SELECT_CORE + " WHERE p.status = ? ORDER BY p.product_id DESC";
         try (Connection conn = DBConnection.getConnection();
              PreparedStatement ps = conn.prepareStatement(sql)) {
             ps.setString(1, Product.STATUS_APPROVED);
             try (ResultSet rs = ps.executeQuery()) {
                 while (rs.next()) {
-                    list.add(mapResultSetToProduct(rs));
+                    list.add(mapRow(rs, zonesMap.getOrDefault(getProductId(rs), List.of())));
                 }
             }
         } catch (SQLException e) {
@@ -176,11 +152,31 @@ public class ProductDAO {
     }
 
     /**
-     * Inserts a new product into the database.
-     *
-     * @param product The product model instance to insert.
-     * @return true if successful, false otherwise.
+     * Batch-fetches all product-to-zone mappings in a single query,
+     * then builds a Map(productId -> zones list). This eliminates N queries
+     * when loading N products — only 1 extra query is needed regardless of list size.
      */
+    private Map<Integer, List<Product.LocationConfig>> batchFindDefaultZones() {
+        Map<Integer, List<Product.LocationConfig>> map = new HashMap<>();
+        String sql = "SELECT product_id, warehouse_id, zone_id FROM product_default_zones";
+        try (Connection conn = DBConnection.getConnection();
+             PreparedStatement ps = conn.prepareStatement(sql);
+             ResultSet rs = ps.executeQuery()) {
+            while (rs.next()) {
+                int pid = rs.getInt("product_id");
+                String locId = String.valueOf(rs.getInt("warehouse_id"));
+                String zoneId = String.valueOf(rs.getInt("zone_id"));
+                map.computeIfAbsent(pid, k -> new ArrayList<>())
+                   .add(new Product.LocationConfig(locId, zoneId));
+            }
+        } catch (SQLException e) {
+            LOGGER.log(Level.WARNING, "ProductDAO: batchFindDefaultZones failed", e);
+        }
+        return map;
+    }
+
+    // ── Mutating operations ────────────────────────────────────────
+
     public boolean insert(Product product) {
         String sql = "INSERT INTO products (sku_code, product_name, category_id, barcode, unit, "
                 + "min_stock, max_stock, status, attributes_text, weight_kg, created_by) "
@@ -210,21 +206,13 @@ public class ProductDAO {
             } else {
                 ps.setNull(11, java.sql.Types.INTEGER);
             }
-
-            int rowsAffected = ps.executeUpdate();
-            return rowsAffected > 0;
+            return ps.executeUpdate() > 0;
         } catch (SQLException e) {
             LOGGER.log(Level.WARNING, "ProductDAO: Failed to insert product " + product.getSkuCode(), e);
             return false;
         }
     }
 
-    /**
-     * Updates an existing product.
-     *
-     * @param product The product with updated field values.
-     * @return true if the update succeeded, false otherwise.
-     */
     public boolean update(Product product) {
         String sql = "UPDATE products SET "
                 + "sku_code = ?, product_name = ?, category_id = ?, barcode = ?, unit = ?, "
@@ -252,7 +240,6 @@ public class ProductDAO {
                 ps.setNull(10, java.sql.Types.DECIMAL);
             }
             ps.setInt(11, product.getProductId());
-
             return ps.executeUpdate() > 0;
         } catch (SQLException e) {
             LOGGER.log(Level.WARNING, "ProductDAO: Failed to update product " + product.getProductId(), e);
@@ -260,13 +247,6 @@ public class ProductDAO {
         }
     }
 
-    /**
-     * Approves a product — sets status to APPROVED and records approver + timestamp.
-     *
-     * @param productId  The product ID to approve.
-     * @param approvedBy The user ID of the approver.
-     * @return true if the update succeeded, false otherwise.
-     */
     public boolean approve(int productId, int approvedBy) {
         String sql = "UPDATE products SET "
                 + "status = ?, approved_at = CURRENT_TIMESTAMP, approved_by = ?, updated_at = CURRENT_TIMESTAMP "
@@ -283,13 +263,6 @@ public class ProductDAO {
         }
     }
 
-    /**
-     * Rejects a product — sets status to REJECTED.
-     *
-     * @param productId The product ID to reject.
-     * @param reviewNote The reason for rejection.
-     * @return true if the update succeeded, false otherwise.
-     */
     public boolean reject(int productId, String reviewNote) {
         String sql = "UPDATE products SET "
                 + "status = ?, review_note = ?, updated_at = CURRENT_TIMESTAMP "
@@ -310,6 +283,10 @@ public class ProductDAO {
         return reject(productId, null);
     }
 
+    /**
+     * Convenience method for single-product zone lookup.
+     * Prefer {@link #batchFindDefaultZones()} when loading multiple products.
+     */
     public List<Product.LocationConfig> findDefaultZonesByProductId(int productId) {
         List<Product.LocationConfig> list = new ArrayList<>();
         String sql = "SELECT warehouse_id, zone_id FROM product_default_zones WHERE product_id = ?";
@@ -318,9 +295,9 @@ public class ProductDAO {
             ps.setInt(1, productId);
             try (ResultSet rs = ps.executeQuery()) {
                 while (rs.next()) {
-                    String locId = String.valueOf(rs.getInt("warehouse_id"));
-                    String zoneId = String.valueOf(rs.getInt("zone_id"));
-                    list.add(new Product.LocationConfig(locId, zoneId));
+                    list.add(new Product.LocationConfig(
+                        String.valueOf(rs.getInt("warehouse_id")),
+                        String.valueOf(rs.getInt("zone_id"))));
                 }
             }
         } catch (SQLException e) {
@@ -338,7 +315,6 @@ public class ProductDAO {
             conn = DBConnection.getConnection();
             conn.setAutoCommit(false);
 
-            // 1. Approve product
             String approveSql = "UPDATE products SET status = ?, approved_at = CURRENT_TIMESTAMP, approved_by = ?, updated_at = CURRENT_TIMESTAMP WHERE product_id = ?";
             psApprove = conn.prepareStatement(approveSql);
             psApprove.setString(1, Product.STATUS_APPROVED);
@@ -346,13 +322,11 @@ public class ProductDAO {
             psApprove.setInt(3, productId);
             psApprove.executeUpdate();
 
-            // 2. Clear old default zones
             String deleteSql = "DELETE FROM product_default_zones WHERE product_id = ?";
             psDelete = conn.prepareStatement(deleteSql);
             psDelete.setInt(1, productId);
             psDelete.executeUpdate();
 
-            // 3. Insert new default zones
             if (configs != null && !configs.isEmpty()) {
                 String insertSql = "INSERT INTO product_default_zones (product_id, warehouse_id, zone_id) VALUES (?, ?, ?)";
                 psInsert = conn.prepareStatement(insertSql);
@@ -386,12 +360,6 @@ public class ProductDAO {
         }
     }
 
-    /**
-     * Deletes a product by its primary key.
-     *
-     * @param productId The ID of the product to delete.
-     * @return true if successful, false otherwise.
-     */
     public boolean delete(int productId) {
         String sql = "DELETE FROM products WHERE product_id = ?";
         try (Connection conn = DBConnection.getConnection();
@@ -404,10 +372,17 @@ public class ProductDAO {
         }
     }
 
+    // ── Row mapping helpers ─────────────────────────────────────────
+
+    private int getProductId(ResultSet rs) throws SQLException {
+        return rs.getInt("product_id");
+    }
+
     /**
-     * Maps a ResultSet row to a Product object.
+     * Maps a ResultSet row to a Product. Default zones are injected from the
+     * pre-built map (passed in) instead of being fetched per-row — eliminating N+1.
      */
-    private Product mapResultSetToProduct(ResultSet rs) throws SQLException {
+    private Product mapRow(ResultSet rs, List<Product.LocationConfig> zones) throws SQLException {
         Product product = new Product();
         product.setProductId(rs.getInt("product_id"));
         product.setSkuCode(rs.getString("sku_code"));
@@ -436,53 +411,52 @@ public class ProductDAO {
             product.setUpdatedAt(updatedAt.toLocalDateTime());
         }
 
-        // Populate joined and transient fields
-        try {
-            product.setCategoryName(rs.getString("category_name"));
-        } catch (SQLException e) {
-            // column not present
-        }
-        try {
-            int createdBy = rs.getInt("created_by");
-            product.setCreatedBy(rs.wasNull() ? null : createdBy);
-        } catch (SQLException e) {
-            // column not present
-        }
-        try {
-            product.setCreatorName(rs.getString("creator_name"));
-        } catch (SQLException e) {
-            // column not present
-        }
-        try {
-            product.setAttributesText(rs.getString("attributes_text"));
-        } catch (SQLException e) {
-            // column not present
-        }
-        try {
-            double w = rs.getDouble("weight_kg");
-            product.setWeightKg(rs.wasNull() ? null : w);
-        } catch (SQLException e) {
-            // column not present
-        }
-        try {
-            product.setReviewNote(rs.getString("review_note"));
-        } catch (SQLException e) {
-            // column not present
-        }
-        try {
-            product.setQtyOnHand(rs.getDouble("qty_on_hand"));
-        } catch (SQLException e) {
-            // column not present
-        }
-        try {
-            product.setApproverName(rs.getString("approver_name"));
-        } catch (SQLException e) {
-            // column not present
-        }
+        // Joined and transient fields — use safe getters to avoid SQLException on missing columns
+        product.setCategoryName(getString(rs, "category_name"));
+        product.setCreatorName(getString(rs, "creator_name"));
+        product.setApproverName(getString(rs, "approver_name"));
+        product.setAttributesText(getString(rs, "attributes_text"));
+        product.setReviewNote(getString(rs, "review_note"));
 
-        // Load default zones for SKU
-        product.setLocationConfigs(findDefaultZonesByProductId(product.getProductId()));
+        double w = rs.getDouble("weight_kg");
+        product.setWeightKg(rs.wasNull() ? null : w);
+
+        double qoh = rs.getDouble("qty_on_hand");
+        product.setQtyOnHand(qoh);
+
+        int createdBy = rs.getInt("created_by");
+        product.setCreatedBy(rs.wasNull() ? null : createdBy);
+
+        // Inject pre-fetched zones — no extra DB query here
+        product.setLocationConfigs(zones);
 
         return product;
+    }
+
+    private String getString(ResultSet rs, String col) {
+        try {
+            return rs.getString(col);
+        } catch (SQLException e) {
+            return null;
+        }
+    }
+
+    /**
+     * Finds a product by its SKU code.
+     */
+    public Product findBySkuCode(String skuCode) {
+        String sql = SELECT_CORE + " WHERE p.sku_code = ?";
+        try (Connection conn = DBConnection.getConnection();
+             PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setString(1, skuCode);
+            try (ResultSet rs = ps.executeQuery()) {
+                if (rs.next()) {
+                    return mapRow(rs, null);
+                }
+            }
+        } catch (SQLException e) {
+            LOGGER.log(Level.WARNING, "ProductDAO.findBySkuCode: failed for " + skuCode, e);
+        }
+        return null;
     }
 }

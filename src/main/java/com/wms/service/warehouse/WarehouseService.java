@@ -2,7 +2,9 @@ package com.wms.service.warehouse;
 
 import com.wms.dao.ProductDAO;
 import com.wms.dao.TransferDAO;
+import com.wms.dao.UserDAO;
 import com.wms.dao.WarehouseDAO;
+import com.wms.model.User;
 import com.wms.model.Warehouse;
 import com.wms.model.Zone;
 import org.slf4j.Logger;
@@ -16,11 +18,72 @@ public class WarehouseService {
     private static final Logger log = LoggerFactory.getLogger(WarehouseService.class);
 
     private final WarehouseDAO warehouseDAO = new WarehouseDAO();
+    private final UserDAO userDAO = new UserDAO();
 
     public List<Warehouse> findAll() throws SQLException {
         return warehouseDAO.findAll();
     }
 
+    public List<Warehouse> findAllActive() throws SQLException {
+        List<Warehouse> all = warehouseDAO.findAll();
+        return all.stream()
+                .filter(Warehouse::isActive)
+                .collect(java.util.stream.Collectors.toList());
+    }
+
+    public List<Zone> findAllZones() throws SQLException {
+        List<Warehouse> warehouses = warehouseDAO.findAll();
+        return warehouses.stream()
+                .flatMap(w -> w.getZones() != null ? w.getZones().stream() : java.util.stream.Stream.empty())
+                .collect(java.util.stream.Collectors.toList());
+    }
+
+    public List<Zone> findZonesByWarehouseId(int warehouseId) throws SQLException {
+        Warehouse w = warehouseDAO.findById(warehouseId);
+        if (w != null && w.getZones() != null) {
+            return w.getZones();
+        }
+        return java.util.Collections.emptyList();
+    }
+
+    public List<User> findByRoles(String... roles) {
+        try {
+            return userDAO.findByRoles(roles);
+        } catch (SQLException e) {
+            log.warn("findByRoles failed for roles={}", java.util.Arrays.toString(roles), e);
+            return List.of();
+        }
+    }
+
+    public void createInventoryCheck(String checkCode, int warehouseId, int userId, String note, String itemsJson) {
+        try {
+            com.wms.dao.WarehouseDAO dao = new com.wms.dao.WarehouseDAO();
+            dao.insertInventoryCheck(checkCode, warehouseId, userId, note);
+            if (itemsJson != null && !itemsJson.trim().isEmpty()) {
+                dao.insertInventoryCheckItems(checkCode, itemsJson);
+            }
+        } catch (Exception e) {
+            throw new RuntimeException("Không thể tạo phiếu kiểm kê: " + e.getMessage(), e);
+        }
+    }
+
+    public void submitInventoryCheckResults(int checkId, String resultsJson) {
+        try {
+            com.wms.dao.WarehouseDAO dao = new com.wms.dao.WarehouseDAO();
+            dao.updateInventoryCheckResults(checkId, resultsJson);
+        } catch (Exception e) {
+            throw new RuntimeException("Không thể cập nhật kết quả kiểm kê: " + e.getMessage(), e);
+        }
+    }
+
+    public void adjustInventoryFromCheck(int checkId, String adjustmentsJson, int userId) {
+        try {
+            com.wms.dao.WarehouseDAO dao = new com.wms.dao.WarehouseDAO();
+            dao.applyInventoryAdjustments(checkId, adjustmentsJson, userId);
+        } catch (Exception e) {
+            throw new RuntimeException("Không thể điều chỉnh tồn kho: " + e.getMessage(), e);
+        }
+    }
     public Warehouse findById(int warehouseId) throws SQLException {
         return warehouseDAO.findById(warehouseId);
     }

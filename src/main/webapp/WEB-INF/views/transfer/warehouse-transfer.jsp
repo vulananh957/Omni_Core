@@ -775,32 +775,47 @@
 
         var srcWHId  = fSrcWH.value;
         var dstWHId  = fDstWH.value;
-        var srcWH    = DB_WAREHOUSES.find(function (w) { return String(w.id) === srcWHId; });
-        var dstWH    = DB_WAREHOUSES.find(function (w) { return String(w.id) === dstWHId; });
+        if (!srcWHId) { alert('Vui lòng chọn kho xuất!'); return; }
+        if (!dstWHId) { alert('Vui lòng chọn kho nhận!'); return; }
+        if (srcWHId === dstWHId) { alert('Kho xuất và kho nhận phải khác nhau!'); return; }
 
-        var now = new Date();
-        var nowStr = now.getFullYear() + '-' +
-                     String(now.getMonth()+1).padStart(2,'0') + '-' +
-                     String(now.getDate()).padStart(2,'0') + ' ' +
-                     String(now.getHours()).padStart(2,'0') + ':' +
-                     String(now.getMinutes()).padStart(2,'0');
+        var srcWH = DB_WAREHOUSES.find(function (w) { return String(w.id) === srcWHId; });
+        var dstWH = DB_WAREHOUSES.find(function (w) { return String(w.id) === dstWHId; });
 
-        localTransfers.unshift({
-            id:        'TR-L-' + String(Date.now()).slice(-6),
-            sku:       sku,
-            skuName:   fSkuName.value.trim(),
-            qty:       qty,
-            fromWH:    srcWH ? srcWH.name : (srcWHId || '—'),
-            toWH:      dstWH ? dstWH.name : (dstWHId || '—'),
-            status:    isSubmit ? 'pending' : 'draft',
-            createdAt: nowStr,
-            note:      fNote.value.trim() || null,
-            createdBy: 'Nhân viên kho'
+        var payload = {
+            action: 'create',
+            fromWarehouseId: parseInt(srcWHId, 10),
+            toWarehouseId:   parseInt(dstWHId, 10),
+            sku:             sku,
+            qty:             qty,
+            note:            fNote.value.trim()
+        };
+
+        var btn = isSubmit
+            ? document.getElementById('wtBtnSubmit')
+            : document.getElementById('wtBtnDraft');
+        btn.disabled = true;
+
+        fetch(window.location.pathname, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        })
+        .then(function(res) { return res.json(); })
+        .then(function(data) {
+            btn.disabled = false;
+            if (data.success) {
+                createOvl.style.display = 'none';
+                fSku.value = ''; fSkuName.value = ''; fQty.value = 1; fNote.value = '';
+                location.reload();
+            } else {
+                alert('Lỗi: ' + (data.message || 'Không thể tạo phiếu chuyển kho.'));
+            }
+        })
+        .catch(function(err) {
+            btn.disabled = false;
+            alert('Có lỗi mạng xảy ra khi tạo phiếu chuyển kho.');
         });
-
-        createOvl.style.display = 'none';
-        fSku.value = ''; fSkuName.value = ''; fQty.value = 1; fNote.value = '';
-        render();
     }
 
     document.getElementById('wtBtnDraft').addEventListener('click', function () { doCreate(false); });
@@ -810,7 +825,20 @@
     function openDetail(t) {
         detailDoc = t;
         var r = t._raw || t;
-        var items = Array.isArray(r.items) ? r.items : [];
+        var items;
+
+        if (Array.isArray(r.items) && r.items.length > 0) {
+            items = r.items;
+        } else if (r.sku) {
+            items = [{
+                sku:         r.sku,
+                name:        r.skuName || r.sku,
+                shippedQty:  r.qty,
+                receivedQty: 0
+            }];
+        } else {
+            items = [];
+        }
         var totalRequested = 0;
         var totalReceived = 0;
 

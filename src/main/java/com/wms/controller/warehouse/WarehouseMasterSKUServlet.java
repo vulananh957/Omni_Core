@@ -1,10 +1,14 @@
 package com.wms.controller.warehouse;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.wms.controller.BaseController;
 import com.wms.model.Category;
 import com.wms.model.Product;
 import com.wms.model.User;
+import com.wms.model.Warehouse;
+import com.wms.model.Zone;
 import com.wms.service.product.ProductService;
+import com.wms.service.warehouse.WarehouseService;
 import com.wms.util.AppConstants;
 
 import jakarta.servlet.ServletException;
@@ -28,6 +32,8 @@ public class WarehouseMasterSKUServlet extends BaseController {
     private static final String CONTEXT_PATH = "/warehouse/master-sku";
 
     private final ProductService productService = new ProductService();
+    private final WarehouseService warehouseService = new WarehouseService();
+    private final ObjectMapper objectMapper = new ObjectMapper();
 
     @Override
     protected void doGet(HttpServletRequest req, HttpServletResponse resp)
@@ -36,8 +42,23 @@ public class WarehouseMasterSKUServlet extends BaseController {
         try {
             List<Product> products = productService.findAll();
             req.setAttribute("products", products);
+            req.setAttribute("productsJson", productService.toJson(products));
+
+            List<Warehouse> warehouses = warehouseService.findAllActive();
+            req.setAttribute("warehouses", warehouses);
+            req.setAttribute("warehousesJson", objectMapper.writeValueAsString(warehouses));
+
+            List<Zone> allZones = warehouseService.findAllZones();
+            req.setAttribute("zones", allZones);
+            req.setAttribute("zonesJson", objectMapper.writeValueAsString(allZones));
         } catch (Exception e) {
             LOGGER.warning("Failed to load products: " + e.getMessage());
+            req.setAttribute("products", java.util.List.<Product>of());
+            req.setAttribute("productsJson", "[]");
+            req.setAttribute("warehouses", java.util.List.<Warehouse>of());
+            req.setAttribute("warehousesJson", "[]");
+            req.setAttribute("zones", java.util.List.<Zone>of());
+            req.setAttribute("zonesJson", "[]");
         }
 
         consumeFlash(req);

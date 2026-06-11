@@ -1,5 +1,6 @@
 package com.wms.controller.warehouse;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.wms.controller.BaseController;
 import com.wms.dao.TransferDAO;
 import com.wms.model.Product;
@@ -10,6 +11,7 @@ import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
+import java.math.BigDecimal;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -22,6 +24,7 @@ import java.util.Map;
 public class WarehouseTransferServlet extends BaseController {
 
     private final TransferService transferService = new TransferService();
+    private final ObjectMapper objectMapper = new ObjectMapper();
 
     @Override
     protected void doGet(HttpServletRequest req, HttpServletResponse resp)
@@ -31,7 +34,6 @@ public class WarehouseTransferServlet extends BaseController {
             List<TransferDAO.Transfer> transfers = transferService.findAll();
             req.setAttribute("transfers", transfers);
 
-            // Build transfer→items map for the detail view
             Map<Integer, List<TransferDAO.TransferItem>> transferItemsMap = new HashMap<>();
             for (TransferDAO.Transfer t : transfers) {
                 List<TransferDAO.TransferItem> items = transferService.findItemsByTransferId(t.getTransferId());
@@ -56,5 +58,49 @@ public class WarehouseTransferServlet extends BaseController {
 
         req.getRequestDispatcher("/WEB-INF/views/layout/warehouse-layout.jsp")
            .forward(req, resp);
+    }
+
+    @Override
+    protected void doPost(HttpServletRequest req, HttpServletResponse resp)
+            throws ServletException, IOException {
+
+        req.setCharacterEncoding("UTF-8");
+        resp.setContentType("application/json; charset=UTF-8");
+
+        try {
+            var body = objectMapper.readTree(req.getInputStream());
+            String action = body.has("action") ? body.get("action").asText() : "";
+
+            if ("create".equals(action)) {
+                int fromWarehouseId = body.get("fromWarehouseId").asInt();
+                int toWarehouseId   = body.get("toWarehouseId").asInt();
+                String sku  = body.get("sku").asText();
+                int qty     = body.get("qty").asInt();
+                String note = body.has("note") ? body.get("note").asText() : "";
+
+                Integer userId = (Integer) req.getSession().getAttribute("userId");
+                int creatorId = userId != null ? userId : 1;
+
+                TransferDAO.Transfer created =
+                    transferService.createTransfer(fromWarehouseId, toWarehouseId,
+                            creatorId, note, sku, BigDecimal.valueOf(qty));
+
+                Map<String, Object> result = new HashMap<>();
+                result.put("success", true);
+                result.put("transferId", created.getTransferId());
+                result.put("transferCode", created.getTransferCode());
+                resp.getWriter().write(objectMapper.writeValueAsString(result));
+
+            } else if ("receive".equals(action)) {
+                int transferId = body.get("transferId").asInt();
+                transferService.markReceived(transferId);
+                resp.getWriter().write("{\"success\":true}");
+
+            } else {
+                resp.getWriter().write("{\"success\":false,\"message\":\"Hành động không hợp lệ.\"}");
+            }
+        } catch (Exception e) {
+            resp.getWriter().write("{\"success\":false,\"message\":\"Lỗi: " + e.getMessage() + "\"}");
+        }
     }
 }

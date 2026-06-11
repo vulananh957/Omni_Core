@@ -163,6 +163,22 @@ CREATE TABLE IF NOT EXISTS channel_products (
     INDEX idx_cp_external (channel_sku_code)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
+-- SKU-to-channel mapping (ERD: sku_mappings)
+CREATE TABLE IF NOT EXISTS sku_mappings (
+    mapping_id    INT AUTO_INCREMENT PRIMARY KEY,
+    sku_id        INT NOT NULL,
+    channel_id    INT NOT NULL,
+    external_sku  VARCHAR(100),
+    seller_sku    VARCHAR(100),
+    sync_status   ENUM('SYNCED','PENDING','ERROR') DEFAULT 'PENDING',
+    last_sync_at  DATETIME,
+    created_at    DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at    DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    FOREIGN KEY (sku_id)    REFERENCES skus(sku_id),
+    FOREIGN KEY (channel_id) REFERENCES channels(channel_id),
+    UNIQUE KEY uq_sku_channel (sku_id, channel_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
 -- Webhook event log (ERD: webhook_logs)
 CREATE TABLE IF NOT EXISTS webhook_logs (
     log_id      INT AUTO_INCREMENT PRIMARY KEY,
@@ -676,3 +692,39 @@ INSERT IGNORE INTO categories (category_name, level_depth) VALUES
     ('Dien Tu', 0),
     ('My Pham', 0),
     ('Sach', 0);
+
+-- ============================================================
+-- Indexes for Performance Optimization
+-- ============================================================
+
+-- inventory_ledger: range scans by sku+warehouse+time (inventory dashboard, stock history)
+CREATE INDEX idx_ledger_sku_wh_time
+    ON inventory_ledger (product_id, warehouse_id, timestamp);
+
+-- inventory_ledger: filter by transaction type per sku (e.g., all INBOUND for a SKU)
+CREATE INDEX idx_ledger_sku_type
+    ON inventory_ledger (product_id, transaction_type);
+
+-- orders: filter by customer + date range (customer order history)
+CREATE INDEX idx_orders_customer_date
+    ON orders (customer_id, created_at);
+
+-- orders: filter by status + channel (dashboard KPIs, order queue)
+CREATE INDEX idx_orders_status_channel
+    ON orders (order_status, channel_id);
+
+-- inbound_orders: filter by status + date (inbound processing queue)
+CREATE INDEX idx_inbound_status_date
+    ON inbound_orders (status, created_at);
+
+-- outbound_orders: filter by status + date (outbound processing queue)
+CREATE INDEX idx_outbound_status_date
+    ON outbound_orders (status, created_at);
+
+-- product_default_zones: lookup zones by product (N+1 fix: fetch all in 1 query)
+CREATE INDEX idx_pdz_product
+    ON product_default_zones (product_id);
+
+-- channels: quick lookup by platform (Lazada/Shopee filter)
+CREATE INDEX idx_channels_platform
+    ON channels (platform);

@@ -14,11 +14,14 @@ import java.security.SecureRandom;
 import java.util.concurrent.TimeUnit;
 
 /**
- * PasswordChangeOtpServlet — Handles OTP verification for password change requests.
+ * PasswordChangeOtpServlet — Handles OTP verification for password change
+ * requests.
  * 
  * Flow:
- * 1. GET  /password-change-otp — send OTP to user's email and show verification form
- * 2. POST /password-change-otp?action=verify — verify OTP and proceed with password change
+ * 1. GET /password-change-otp — send OTP to user's email and show verification
+ * form
+ * 2. POST /password-change-otp?action=verify — verify OTP and proceed with
+ * password change
  */
 public class PasswordChangeOtpServlet extends BaseController {
 
@@ -233,9 +236,11 @@ public class PasswordChangeOtpServlet extends BaseController {
     }
 
     private String maskEmail(String email) {
-        if (isNullOrEmpty(email)) return "";
+        if (isNullOrEmpty(email))
+            return "";
         int atIndex = email.indexOf('@');
-        if (atIndex < 2) return "***";
+        if (atIndex < 2)
+            return "***";
         String localPart = email.substring(0, atIndex);
         String domainPart = email.substring(atIndex);
         if (localPart.length() <= 3) {
@@ -245,7 +250,8 @@ public class PasswordChangeOtpServlet extends BaseController {
     }
 
     private String getProfileUrl(String role) {
-        if (role == null) return "/login";
+        if (role == null)
+            return "/login";
         switch (role) {
             case "ADMIN":
                 return "/admin/profile";

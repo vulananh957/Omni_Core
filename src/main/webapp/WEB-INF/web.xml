@@ -8,11 +8,33 @@
     <display-name>B2C Omnichannel WMS Hub</display-name>
 
     <!-- ======================================================
+         CONTEXT LISTENERS
+    ====================================================== -->
+    <!-- Installs JUL-to-SLF4J bridge so LazadaOrderService logs go through Logback -->
+    <listener>
+        <listener-class>com.wms.listener.LoggingInitListener</listener-class>
+    </listener>
+    <!-- Runs DB schema initialisation on first deployment -->
+    <listener>
+        <listener-class>com.wms.listener.SchemaInitListener</listener-class>
+    </listener>
+
+    <!-- ======================================================
          CONTEXT PARAMETERS
     ====================================================== -->
     <context-param>
         <param-name>app.name</param-name>
         <param-value>WMS Hub - Grocery</param-value>
+    </context-param>
+
+    <!-- Lazada Auto-Sync Scheduler config (read by LazadaSyncScheduler listener) -->
+    <context-param>
+        <param-name>lazada.sync.enabled</param-name>
+        <param-value>true</param-value>
+    </context-param>
+    <context-param>
+        <param-name>lazada.sync.interval.minutes</param-name>
+        <param-value>5</param-value>
     </context-param>
 
     <!-- ======================================================

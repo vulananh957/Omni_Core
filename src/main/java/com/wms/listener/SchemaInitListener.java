@@ -59,6 +59,7 @@ public class SchemaInitListener implements ServletContextListener {
             ensureScrapRecordsTable();
             ensureStockTransfers();
             ensureStocktakes();
+            ensureIndexes();
             seedDefaultData();
             LOGGER.info("SchemaInitListener: Schema initialisation completed successfully.");
         } catch (Exception e) {
@@ -87,6 +88,48 @@ public class SchemaInitListener implements ServletContextListener {
         }
     }
 
+    // ── Helper: create index if not exists ──
+    // MySQL does not support CREATE INDEX IF NOT EXISTS, so we check via SHOW INDEX first.
+
+    private void createIndexIfNotExists(Connection conn, String tableName, String indexName, String createSql) {
+        try (ResultSet rs = conn.createStatement().executeQuery(
+                "SHOW INDEX FROM " + tableName + " WHERE Key_name = '" + indexName + "'")) {
+            if (!rs.next()) {
+                try (Statement st = conn.createStatement()) {
+                    st.executeUpdate(createSql);
+                    LOGGER.info("SchemaInitListener: Created index '" + indexName + "' on '" + tableName + "'.");
+                }
+            }
+        } catch (SQLException e) {
+            LOGGER.log(Level.WARNING, "SchemaInitListener: Could not create index '" + indexName + "': " + e.getMessage());
+        }
+    }
+
+    /**
+     * Creates performance indexes for commonly-queried columns.
+     * Runs idempotently — skips any index that already exists.
+     */
+    private void ensureIndexes() throws SQLException {
+        try (Connection conn = DBConnection.getConnection()) {
+            createIndexIfNotExists(conn, "inventory_ledger", "idx_ledger_sku_wh_time",
+                "CREATE INDEX idx_ledger_sku_wh_time ON inventory_ledger (product_id, warehouse_id, timestamp)");
+            createIndexIfNotExists(conn, "inventory_ledger", "idx_ledger_sku_type",
+                "CREATE INDEX idx_ledger_sku_type ON inventory_ledger (product_id, transaction_type)");
+            createIndexIfNotExists(conn, "orders", "idx_orders_customer_date",
+                "CREATE INDEX idx_orders_customer_date ON orders (customer_id, created_at)");
+            createIndexIfNotExists(conn, "orders", "idx_orders_status_channel",
+                "CREATE INDEX idx_orders_status_channel ON orders (order_status, channel_id)");
+            createIndexIfNotExists(conn, "inbound_orders", "idx_inbound_status_date",
+                "CREATE INDEX idx_inbound_status_date ON inbound_orders (status, created_at)");
+            createIndexIfNotExists(conn, "outbound_orders", "idx_outbound_status_date",
+                "CREATE INDEX idx_outbound_status_date ON outbound_orders (status, created_at)");
+            createIndexIfNotExists(conn, "product_default_zones", "idx_pdz_product",
+                "CREATE INDEX idx_pdz_product ON product_default_zones (product_id)");
+            createIndexIfNotExists(conn, "channels", "idx_channels_platform",
+                "CREATE INDEX idx_channels_platform ON channels (platform)");
+        }
+    }
+
     private void addColumnIfMissing(Connection conn, DatabaseMetaData md,
                                    String table, String column, String definition)
             throws SQLException {
@@ -106,6 +149,17 @@ public class SchemaInitListener implements ServletContextListener {
         try (Connection conn = DBConnection.getConnection()) {
             Statement st = conn.createStatement();
 
+            // Default warehouse
+            st.executeUpdate("INSERT IGNORE INTO warehouses (warehouse_code, warehouse_name, address) "
+                    + "VALUES ('WH-01','Kho Ha Noi','So 1 Duong ABC, Ha Noi')");
+
+            // Default categories
+            st.executeUpdate("INSERT IGNORE INTO categories (category_id, category_name) VALUES "
+                    + "(1, 'Vở & Sổ chép'),"
+                    + "(2, 'Phụ kiện cá nhân'),"
+                    + "(3, 'Dụng cụ viết & Vẽ'),"
+                    + "(4, 'Thiết bị văn phòng tiện ích')");
+
             // Default roles
             st.executeUpdate("INSERT IGNORE INTO roles (role_name, description) VALUES "
                     + "('ADMIN','Quan tri he thong'),"
@@ -123,13 +177,67 @@ public class SchemaInitListener implements ServletContextListener {
             // Default admin user
             st.executeUpdate("INSERT IGNORE INTO users (username, password_hash, full_name, email, phone, role) VALUES "
                     + "('quanpm','$2a$12$ezv1v4fjwnwMSYQ4DvPHN./NuNfVdwEzGbHuUvlbsabeCZqrLkzxe',"
-                    + "'Nguyen Anh Lam','lamna@example.com','0987654321','WAREHOUSE_STAFF')");
-            st.executeUpdate("UPDATE users SET full_name = 'Nguyen Anh Lam', email = 'lamna@example.com', phone = '0987654321', role = 'WAREHOUSE_STAFF' "
+                    + "'Phạm Minh Quân','pmq07072005@gmail.com','0987654321','ADMIN')");
+            st.executeUpdate("UPDATE users SET full_name = 'Phạm Minh Quân', email = 'pmq07072005@gmail.com', phone = '0987654321', role = 'ADMIN' "
                     + "WHERE username = 'quanpm'");
 
             // Assign admin to warehouse 1
             st.executeUpdate("INSERT IGNORE INTO user_warehouse_assignments (user_id, warehouse_id, is_primary) "
                     + "SELECT user_id, 1, 1 FROM users WHERE username = 'quanpm'");
+
+            // Default SKUs
+            st.executeUpdate("INSERT IGNORE INTO skus (sku_code, product_name, category, unit, min_stock, active) VALUES "
+                    + "('SKU-001', 'Sữa tươi Vinamilk 180ml', 'Thực Phẩm', 'Cái', 10, 1),"
+                    + "('SKU-002', 'Nồi chiên không dầu Philips', 'Đồ Gia Dụng', 'Cái', 5, 1),"
+                    + "('SKU-003', 'Tai nghe Sony WH-1000XM4', 'Điện Tử', 'Cái', 2, 1)");
+
+            // Check if orders exist
+            try (ResultSet rsOrdersCount = st.executeQuery("SELECT COUNT(*) FROM orders")) {
+                if (rsOrdersCount.next() && rsOrdersCount.getInt(1) == 0) {
+                    // Seed orders
+                    st.executeUpdate("INSERT INTO orders (order_code, warehouse_id, channel, status, total_amount, note, created_at, updated_at) VALUES "
+                            + "('ORD-98231', 1, 'ONLINE', 'PENDING', 24000.00, 'Khách đặt qua Shopee', NOW() - INTERVAL 2 HOUR, NOW() - INTERVAL 2 HOUR),"
+                            + "('ORD-12948', 1, 'ONLINE', 'PICKING', 1500000.00, 'Xác nhận nhanh', NOW() - INTERVAL 1 DAY, NOW() - INTERVAL 12 HOUR),"
+                            + "('ORD-48291', 1, 'ONLINE', 'PACKED', 2500000.00, 'Đóng kỹ chống sốc', NOW() - INTERVAL 1 DAY, NOW() - INTERVAL 10 HOUR),"
+                            + "('ORD-57291', 1, 'ONLINE', 'RETURNED', 24000.00, 'Khách trả hàng quay đầu', NOW() - INTERVAL 3 DAY, NOW() - INTERVAL 1 DAY)");
+
+                    // Get the generated order IDs
+                    int id1 = -1, id2 = -1, id3 = -1, id4 = -1;
+                    try (ResultSet rs = st.executeQuery("SELECT order_id, order_code FROM orders")) {
+                        while (rs.next()) {
+                            String code = rs.getString("order_code");
+                            int id = rs.getInt("order_id");
+                            if ("ORD-98231".equals(code)) id1 = id;
+                            else if ("ORD-12948".equals(code)) id2 = id;
+                            else if ("ORD-48291".equals(code)) id3 = id;
+                            else if ("ORD-57291".equals(code)) id4 = id;
+                        }
+                    }
+
+                    // Get SKU IDs
+                    int skuId1 = 1, skuId2 = 2, skuId3 = 3;
+                    try (ResultSet rs = st.executeQuery("SELECT sku_id, sku_code FROM skus")) {
+                        while (rs.next()) {
+                            String code = rs.getString("sku_code");
+                            int id = rs.getInt("sku_id");
+                            if ("SKU-001".equals(code)) skuId1 = id;
+                            else if ("SKU-002".equals(code)) skuId2 = id;
+                            else if ("SKU-003".equals(code)) skuId3 = id;
+                        }
+                    }
+
+                    // Seed order items
+                    if (id1 != -1) st.executeUpdate("INSERT INTO order_items (order_id, sku_id, qty, unit_price) VALUES (" + id1 + ", " + skuId1 + ", 2, 12000.00)");
+                    if (id2 != -1) st.executeUpdate("INSERT INTO order_items (order_id, sku_id, qty, unit_price) VALUES (" + id2 + ", " + skuId2 + ", 1, 1500000.00)");
+                    if (id3 != -1) st.executeUpdate("INSERT INTO order_items (order_id, sku_id, qty, unit_price) VALUES (" + id3 + ", " + skuId3 + ", 1, 2500000.00)");
+                    if (id4 != -1) st.executeUpdate("INSERT INTO order_items (order_id, sku_id, qty, unit_price) VALUES (" + id4 + ", " + skuId1 + ", 2, 12000.00)");
+
+                    // Seed custom column values for mock orders
+                    if (id2 != -1) st.executeUpdate("UPDATE orders SET tracking_no = 'LZE-8762312', review_note = 'Đã xác nhận và chuyển kho Hà Nội chuẩn bị hàng.' WHERE order_id = " + id2);
+                    if (id3 != -1) st.executeUpdate("UPDATE orders SET tracking_no = 'TKT-9281734', review_note = 'Đóng gói hoàn tất, chờ bưu tá lấy hàng.' WHERE order_id = " + id3);
+                    if (id4 != -1) st.executeUpdate("UPDATE orders SET tracking_no = 'VTP-1928374', rma_reason = 'Sản phẩm bị bóp méo khi vận chuyển', rma_physical_status = 'Đã nhập Zone Khiếu Nại', rma_platform_status = 'Chờ xử lý' WHERE order_id = " + id4);
+                }
+            }
 
             LOGGER.info("SchemaInitListener: Seed data applied.");
         }

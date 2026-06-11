@@ -2,9 +2,9 @@ package com.wms.controller.admin;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.wms.dao.ChannelDAO;
 import com.wms.model.Channel;
-import com.wms.service.AuthService;
+import com.wms.service.auth.AuthService;
+import com.wms.service.sales.ChannelService;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServlet;
 import jakarta.servlet.http.HttpServletRequest;
@@ -27,7 +27,7 @@ public class LazadaAuthCallbackServlet extends HttpServlet {
     private static final Logger LOGGER = Logger.getLogger(LazadaAuthCallbackServlet.class.getName());
 
     private final AuthService authService = new AuthService();
-    private final ChannelDAO channelDAO = new ChannelDAO();
+    private final ChannelService channelService = new ChannelService();
     private final ObjectMapper objectMapper = new ObjectMapper();
 
     @Override
@@ -63,7 +63,15 @@ public class LazadaAuthCallbackServlet extends HttpServlet {
             return;
         }
 
-        Channel channel = channelDAO.findById(channelId);
+        Channel channel;
+        try {
+            channel = channelService.findById(channelId);
+        } catch (Exception e) {
+            LOGGER.warning("Lazada auth callback: channel not found for id: " + channelId);
+            response.sendRedirect(request.getContextPath() + "/admin/channels?status=error&message=channel_not_found");
+            return;
+        }
+
         if (channel == null) {
             LOGGER.warning("Lazada auth callback: channel not found for id: " + channelId);
             response.sendRedirect(request.getContextPath() + "/admin/channels?status=error&message=channel_not_found");
@@ -71,7 +79,8 @@ public class LazadaAuthCallbackServlet extends HttpServlet {
         }
 
         try {
-            LOGGER.info("Initiating token exchange for channel '" + channel.getChannelName() + "' (ID: " + channelId + ")");
+            LOGGER.info(
+                    "Initiating token exchange for channel '" + channel.getChannelName() + "' (ID: " + channelId + ")");
             String jsonResponse = authService.getAccessToken(channel, code);
 
             JsonNode rootNode = objectMapper.readTree(jsonResponse);
@@ -93,10 +102,11 @@ public class LazadaAuthCallbackServlet extends HttpServlet {
                 return;
             }
 
-            boolean dbUpdated = channelDAO.updateLazadaTokens(channelId, accessToken, refreshToken);
+            boolean dbUpdated = channelService.updateLazadaTokens(channelId, accessToken, refreshToken);
 
             if (dbUpdated) {
-                LOGGER.info("Tokens successfully saved for channel '" + channel.getChannelName() + "' (ID: " + channelId + ")");
+                LOGGER.info("Tokens successfully saved for channel '" + channel.getChannelName() + "' (ID: " + channelId
+                        + ")");
                 response.sendRedirect(request.getContextPath() + "/admin/channels?status=success");
             } else {
                 LOGGER.severe("Failed to update tokens in the database for channel ID: " + channelId);
@@ -104,7 +114,8 @@ public class LazadaAuthCallbackServlet extends HttpServlet {
             }
 
         } catch (Exception e) {
-            LOGGER.log(Level.SEVERE, "Unexpected error processing Lazada auth callback for channel ID: " + channelId, e);
+            LOGGER.log(Level.SEVERE, "Unexpected error processing Lazada auth callback for channel ID: " + channelId,
+                    e);
             response.sendRedirect(request.getContextPath() + "/admin/channels?status=error&message=system_error");
         } finally {
             if (session != null) {

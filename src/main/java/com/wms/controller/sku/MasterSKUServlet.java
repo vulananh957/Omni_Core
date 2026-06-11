@@ -28,7 +28,7 @@ public class MasterSKUServlet extends BaseController {
     private static final Logger LOGGER = Logger.getLogger(MasterSKUServlet.class.getName());
     private final ProductService productService = new ProductService();
     private final WarehouseService warehouseService = new WarehouseService();
-    private final ObjectMapper objectMapper = new ObjectMapper();
+    private final ObjectMapper objectMapper = com.wms.util.JsonUtil.getMapper();
 
     @Override
     protected void doGet(HttpServletRequest req, HttpServletResponse resp)

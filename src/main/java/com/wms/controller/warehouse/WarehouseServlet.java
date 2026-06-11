@@ -20,7 +20,7 @@ public class WarehouseServlet extends BaseController {
 
     private static final String CONTEXT_PATH = "/business/warehouses";
     private final WarehouseService warehouseService = new WarehouseService();
-    private final ObjectMapper objectMapper = new ObjectMapper();
+    private final ObjectMapper objectMapper = com.wms.util.JsonUtil.getMapper();
 
     @Override
     protected void doGet(HttpServletRequest req, HttpServletResponse resp)

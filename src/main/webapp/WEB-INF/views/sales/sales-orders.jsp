@@ -1263,21 +1263,21 @@
                             <c:set var="totalQty" value="${totalQty + item.quantity}" />
                         </c:forEach>
                         {
-                            "id": "${order.orderCode}",
-                            "channel": "${order.channel == 'ONLINE' ? 'Lazada' : order.channel}",
-                            "customerName": "Khách hàng #${order.customerId != null ? order.customerId : 'N/A'}",
+                            "id": "${fn:escapeXml(order.orderCode)}",
+                            "channel": "${order.channel == 'ONLINE' ? 'Lazada' : fn:escapeXml(order.channel)}",
+                            "customerName": "Khach hang #${order.customerId != null ? order.customerId : 'N/A'}",
                             "customerPhone": "090xxxxxxx",
                             "totalItems": ${totalQty},
                             "totalAmount": ${order.totalAmount},
                             "status": "${order.status == 'PENDING' ? 'pending_review' : (order.status == 'CONFIRMED' ? 'confirmed' : (order.status == 'PACKING' ? 'packing' : (order.status == 'PACKED' ? 'packed' : (order.status == 'SHIPPED' ? 'shipping' : (order.status == 'DELIVERED' ? 'delivered' : (order.status == 'COMPLETED' ? 'completed' : (order.status == 'RETURNED' ? 'returned' : (order.status == 'DISPUTED' ? 'disputed' : (order.status == 'DISPUTE_SUCCESS' ? 'dispute_success' : (order.status == 'CANCELLED' ? 'cancelled' : order.status.toLowerCase()))))))))))}",
-                            "warehouse": "${order.warehouseName != null ? order.warehouseName : 'Chưa chỉ định kho'}",
-                            "trackingNo": "${order.trackingNo != null ? order.trackingNo : ''}",
-                            "reviewNote": "${order.reviewNote != null ? order.reviewNote : ''}",
-                            "rmaReason": "${order.rmaReason != null ? order.rmaReason : ''}",
-                            "rmaPhysicalStatus": "${order.rmaPhysicalStatus != null ? order.rmaPhysicalStatus : ''}",
-                            "rmaPlatformStatus": "${order.rmaPlatformStatus != null ? order.rmaPlatformStatus : ''}",
-                            "disputeEvidenceVideo": "${order.disputeEvidenceVideo != null ? order.disputeEvidenceVideo : ''}",
-                            "disputeNote": "${order.disputeNote != null ? order.disputeNote : ''}",
+                            "warehouse": "${fn:escapeXml(order.warehouseName)}",
+                            "trackingNo": "${fn:escapeXml(order.trackingNo)}",
+                            "reviewNote": "${fn:escapeXml(order.reviewNote)}",
+                            "rmaReason": "${fn:escapeXml(order.rmaReason)}",
+                            "rmaPhysicalStatus": "${fn:escapeXml(order.rmaPhysicalStatus)}",
+                            "rmaPlatformStatus": "${fn:escapeXml(order.rmaPlatformStatus)}",
+                            "disputeEvidenceVideo": "${fn:escapeXml(order.disputeEvidenceVideo)}",
+                            "disputeNote": "${fn:escapeXml(order.disputeNote)}",
                             "createdAt": "${order.createdAt}",
                             "items": [
                                 <c:forEach var="item" items="${order.items}" varStatus="itemStatus">
@@ -2205,7 +2205,7 @@
                                                                     </svg>
                                                                     <c:choose>
                                                                         <c:when test="${order.channel == 'ONLINE'}">Lazada</c:when>
-                                                                        <c:otherwise>${order.channel}</c:otherwise>
+                                                                        <c:otherwise><c:out value="${order.channel}"/></c:otherwise>
                                                                     </c:choose>
                                                                 </span>
                                                             </td>
@@ -2282,8 +2282,7 @@
                                                                             d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
                                                                         <polyline points="9 22 9 12 15 12 15 22" />
                                                                     </svg>
-                                                                    ${order.warehouseName != null ? order.warehouseName
-                                                                    : 'Chưa chỉ định kho'}
+                                                                    ${order.warehouseName != null ? fn:escapeXml(order.warehouseName) : 'Chua chi dinh kho'}
                                                                 </div>
                                                             </td>
                                                             <td style="text-align:center"

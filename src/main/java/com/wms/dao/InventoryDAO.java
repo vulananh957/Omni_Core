@@ -100,9 +100,10 @@ public class InventoryDAO {
      * @param productId    The ID of the product.
      * @param warehouseId The ID of the warehouse.
      * @param quantity    The quantity to add (must be > 0).
+     * @param userId      The ID of the user performing the operation.
      * @return true if the inventory was updated successfully, false otherwise.
      */
-    public boolean addInventory(int productId, int warehouseId, BigDecimal quantity) {
+    public boolean addInventory(int productId, int warehouseId, BigDecimal quantity, int userId) {
         if (quantity == null || quantity.compareTo(BigDecimal.ZERO) <= 0) {
             throw new IllegalArgumentException("Quantity to add must be greater than zero.");
         }
@@ -157,7 +158,7 @@ public class InventoryDAO {
             psLedger.setInt(3, warehouseId);
             psLedger.setBigDecimal(4, quantity);
             psLedger.setBigDecimal(5, quantity);
-            psLedger.setInt(6, 1); // created_by: default system user
+            psLedger.setInt(6, userId);
             psLedger.executeUpdate();
 
             conn.commit();

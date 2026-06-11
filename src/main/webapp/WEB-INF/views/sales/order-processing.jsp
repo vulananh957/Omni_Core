@@ -1,5 +1,6 @@
 <%@ page language="java" contentType="text/html; charset=UTF-8" pageEncoding="UTF-8" isELIgnored="false" %>
 <%@ taglib prefix="c" uri="jakarta.tags.core" %>
+<%@ taglib prefix="fn" uri="jakarta.tags.functions" %>
 
 <%-- ══════════════════════════════════════════════════════════════════
      Sales Staff — Xử Lý Đơn Hàng (Order Processing)
@@ -857,22 +858,22 @@
         <c:set var="totalQty" value="${totalQty + item.quantity}"/>
     </c:forEach>
     {
-        "id": "${order.orderCode}",
-        "channel": "${order.channel == 'ONLINE' ? 'Lazada' : order.channel}",
-        "customerName": "Khách hàng #${order.customerId != null ? order.customerId : 'N/A'}",
+        "id": "${fn:escapeXml(order.orderCode)}",
+        "channel": "${order.channel == 'ONLINE' ? 'Lazada' : fn:escapeXml(order.channel)}",
+        "customerName": "Khach hang #${order.customerId != null ? order.customerId : 'N/A'}",
         "customerPhone": "090xxxxxxx",
-        "customerAddress": "Số 123 Đường Láng, Đống Đa, Hà Nội",
+        "customerAddress": "So 123 Duong Lang, Dong Da, Ha Noi",
         "totalItems": ${totalQty},
         "totalAmount": ${order.totalAmount},
         "status": "${order.status == 'PENDING' ? 'pending_review' : (order.status == 'CONFIRMED' ? 'confirmed' : (order.status == 'PICKING' ? 'confirmed' : (order.status == 'PACKED' ? 'packed' : (order.status == 'SHIPPED' ? 'shipping' : (order.status == 'DELIVERED' ? 'delivered' : (order.status == 'COMPLETED' ? 'completed' : (order.status == 'RETURNED' ? 'returned' : (order.status == 'DISPUTED' ? 'disputed' : (order.status == 'DISPUTE_SUCCESS' ? 'dispute_success' : (order.status == 'CANCELLED' ? 'cancelled' : order.status.toLowerCase()))))))))))}",
-        "warehouse": "${order.warehouseName != null ? order.warehouseName : 'Chưa chỉ định kho'}",
-        "trackingNo": "${order.trackingNo != null ? order.trackingNo : ''}",
-        "reviewNote": "${order.reviewNote != null ? order.reviewNote : ''}",
-        "rmaReason": "${order.rmaReason != null ? order.rmaReason : ''}",
-        "rmaPhysicalStatus": "${order.rmaPhysicalStatus != null ? order.rmaPhysicalStatus : ''}",
-        "rmaPlatformStatus": "${order.rmaPlatformStatus != null ? order.rmaPlatformStatus : ''}",
-        "disputeEvidenceVideo": "${order.disputeEvidenceVideo != null ? order.disputeEvidenceVideo : ''}",
-        "disputeNote": "${order.disputeNote != null ? order.disputeNote : ''}",
+        "warehouse": "${fn:escapeXml(order.warehouseName)}",
+        "trackingNo": "${fn:escapeXml(order.trackingNo)}",
+        "reviewNote": "${fn:escapeXml(order.reviewNote)}",
+        "rmaReason": "${fn:escapeXml(order.rmaReason)}",
+        "rmaPhysicalStatus": "${fn:escapeXml(order.rmaPhysicalStatus)}",
+        "rmaPlatformStatus": "${fn:escapeXml(order.rmaPlatformStatus)}",
+        "disputeEvidenceVideo": "${fn:escapeXml(order.disputeEvidenceVideo)}",
+        "disputeNote": "${fn:escapeXml(order.disputeNote)}",
         "createdAt": "${order.createdAt}",
         "updatedAt": "${order.updatedAt}",
         "items": [
@@ -2254,12 +2255,12 @@ function submitApprove(approve) {
                 if (approve) {
                     o.status = "confirmed";
                     o.warehouse = wh;
-                    o.reviewedBy = "${loggedInUser.fullName}";
+                    o.reviewedBy = "${fn:escapeXml(loggedInUser.fullName)}";
                     o.reviewNote = note || "Phê duyệt đơn hàng thành công và bàn giao chỉ định kho.";
                     o.qtyAllocated = true;
                 } else {
                     o.status = "cancelled";
-                    o.reviewedBy = "${loggedInUser.fullName}";
+                    o.reviewedBy = "${fn:escapeXml(loggedInUser.fullName)}";
                     o.reviewNote = note || "Từ chối duyệt đơn do phát hiện dấu hiệu gian lận hoặc thiếu thông tin.";
                     o.qtyAllocated = false;
                 }

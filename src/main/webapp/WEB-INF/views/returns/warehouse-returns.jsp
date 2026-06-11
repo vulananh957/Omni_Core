@@ -854,6 +854,13 @@
         rma.status = 'qc_done';
         rma.qcBy = 'Nhân viên QC';
         qcOverlay.style.display = 'none';
+
+        // Persist QC results to backend
+        submitPostAction('qc', {
+            returnId: selectedQCId,
+            itemsJson: JSON.stringify(rma.items)
+        });
+
         render();
     });
 
@@ -928,9 +935,10 @@
             return;
         }
 
-        // Determine next status: scrapped if ALL are defective, restocked otherwise
-        var allDefective = rma.items.every(function (i) { return i.qcDecision === 'defective'; });
-        rma.status = allDefective ? 'scrapped' : 'restocked';
+        // Persist apply to backend — backend will validate QC completeness
+        submitPostAction('apply', {
+            returnId: id
+        });
 
         render();
     };

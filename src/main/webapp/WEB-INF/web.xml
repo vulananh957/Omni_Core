@@ -10,10 +10,7 @@
     <!-- ======================================================
          CONTEXT LISTENERS
     ====================================================== -->
-    <!-- Installs JUL-to-SLF4J bridge so LazadaOrderService logs go through Logback -->
-    <listener>
-        <listener-class>com.wms.listener.LoggingInitListener</listener-class>
-    </listener>
+
     <!-- Runs DB schema initialisation on first deployment -->
     <listener>
         <listener-class>com.wms.listener.SchemaInitListener</listener-class>

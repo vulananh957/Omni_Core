@@ -57,6 +57,14 @@ public class ReturnService {
         return returnDAO.applyRestock(returnId, userId);
     }
 
+    /**
+     * Checks whether all items in a return have been inspected (no pending items).
+     * Used to gate the apply/restock action.
+     */
+    public boolean isQCComplete(int returnId) {
+        return returnDAO.isQCComplete(returnId);
+    }
+
     public static class ValidationResult {
         private final boolean success;
         private final String message;

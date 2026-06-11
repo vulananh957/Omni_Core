@@ -127,6 +127,13 @@ public class WarehouseReturnsServlet extends BaseController {
                     }
 
                     int returnId = Integer.parseInt(returnIdStr.trim());
+
+                    // Validate: block apply if any items are still pending QC
+                    if (!returnService.isQCComplete(returnId)) {
+                        setFlashError(req, "Không thể áp dụng: vẫn còn sản phẩm chưa kiểm tra QC. Vui lòng hoàn tất kiểm tra trước.");
+                        break;
+                    }
+
                     boolean success = returnService.applyRestock(returnId, userId);
                     if (success) {
                         setFlashSuccess(req, "Áp dụng kết quả hàng hoàn, cập nhật tồn kho thành công!");

@@ -153,13 +153,6 @@ public class SchemaInitListener implements ServletContextListener {
             st.executeUpdate("INSERT IGNORE INTO warehouses (warehouse_code, warehouse_name, address) "
                     + "VALUES ('WH-01','Kho Ha Noi','So 1 Duong ABC, Ha Noi')");
 
-            // Default categories
-            st.executeUpdate("INSERT IGNORE INTO categories (category_id, category_name) VALUES "
-                    + "(1, 'Vở & Sổ chép'),"
-                    + "(2, 'Phụ kiện cá nhân'),"
-                    + "(3, 'Dụng cụ viết & Vẽ'),"
-                    + "(4, 'Thiết bị văn phòng tiện ích')");
-
             // Default roles
             st.executeUpdate("INSERT IGNORE INTO roles (role_name, description) VALUES "
                     + "('ADMIN','Quan tri he thong'),"
@@ -185,12 +178,6 @@ public class SchemaInitListener implements ServletContextListener {
             st.executeUpdate("INSERT IGNORE INTO user_warehouse_assignments (user_id, warehouse_id, is_primary) "
                     + "SELECT user_id, 1, 1 FROM users WHERE username = 'quanpm'");
 
-            // Default SKUs
-            st.executeUpdate("INSERT IGNORE INTO skus (sku_code, product_name, category, unit, min_stock, active) VALUES "
-                    + "('SKU-001', 'Sữa tươi Vinamilk 180ml', 'Thực Phẩm', 'Cái', 10, 1),"
-                    + "('SKU-002', 'Nồi chiên không dầu Philips', 'Đồ Gia Dụng', 'Cái', 5, 1),"
-                    + "('SKU-003', 'Tai nghe Sony WH-1000XM4', 'Điện Tử', 'Cái', 2, 1)");
-
             // Check if orders exist
             try (ResultSet rsOrdersCount = st.executeQuery("SELECT COUNT(*) FROM orders")) {
                 if (rsOrdersCount.next() && rsOrdersCount.getInt(1) == 0) {
@@ -213,24 +200,6 @@ public class SchemaInitListener implements ServletContextListener {
                             else if ("ORD-57291".equals(code)) id4 = id;
                         }
                     }
-
-                    // Get SKU IDs
-                    int skuId1 = 1, skuId2 = 2, skuId3 = 3;
-                    try (ResultSet rs = st.executeQuery("SELECT sku_id, sku_code FROM skus")) {
-                        while (rs.next()) {
-                            String code = rs.getString("sku_code");
-                            int id = rs.getInt("sku_id");
-                            if ("SKU-001".equals(code)) skuId1 = id;
-                            else if ("SKU-002".equals(code)) skuId2 = id;
-                            else if ("SKU-003".equals(code)) skuId3 = id;
-                        }
-                    }
-
-                    // Seed order items
-                    if (id1 != -1) st.executeUpdate("INSERT INTO order_items (order_id, sku_id, qty, unit_price) VALUES (" + id1 + ", " + skuId1 + ", 2, 12000.00)");
-                    if (id2 != -1) st.executeUpdate("INSERT INTO order_items (order_id, sku_id, qty, unit_price) VALUES (" + id2 + ", " + skuId2 + ", 1, 1500000.00)");
-                    if (id3 != -1) st.executeUpdate("INSERT INTO order_items (order_id, sku_id, qty, unit_price) VALUES (" + id3 + ", " + skuId3 + ", 1, 2500000.00)");
-                    if (id4 != -1) st.executeUpdate("INSERT INTO order_items (order_id, sku_id, qty, unit_price) VALUES (" + id4 + ", " + skuId1 + ", 2, 12000.00)");
 
                     // Seed custom column values for mock orders
                     if (id2 != -1) st.executeUpdate("UPDATE orders SET tracking_no = 'LZE-8762312', review_note = 'Đã xác nhận và chuyển kho Hà Nội chuẩn bị hàng.' WHERE order_id = " + id2);

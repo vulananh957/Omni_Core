@@ -263,6 +263,13 @@ public class ReturnDAO {
             for (ReturnItem item : items) {
                 if ("pending".equalsIgnoreCase(item.getQcDecision())) {
                     hasPending = true;
+                    // Still insert a pending QC record so history is preserved
+                    psIns.setInt(1, returnId);
+                    psIns.setInt(2, item.getProductId());
+                    psIns.setString(3, "PENDING");
+                    psIns.setString(4, item.getQcNote());
+                    psIns.setInt(5, userId > 0 ? userId : 1);
+                    psIns.addBatch();
                     continue;
                 }
 
@@ -397,9 +404,9 @@ public class ReturnDAO {
             psScrap = conn.prepareStatement(sqlInsertScrap);
 
             for (ReturnItem item : qcItems) {
-                if ("PASS".equalsIgnoreCase(item.getQcDecision())) {
+                String decision = item.getQcDecision();
+                if ("PASS".equalsIgnoreCase(decision)) {
                     hasResalable = true;
-                    allDefective = false;
 
                     // A. Increment inventory (Auto Restock on Pass)
                     psInventory.setInt(1, item.getProductId());
@@ -431,8 +438,9 @@ public class ReturnDAO {
                     psLedger.setString(7, "Restock hàng hoàn trả (RMA #" + returnId + ")");
                     psLedger.executeUpdate();
 
-                } else {
+                } else if ("FAIL".equalsIgnoreCase(decision) || "defective".equalsIgnoreCase(decision)) {
                     // Defective -> Scrap
+                    allDefective = false;
                     psScrap.setInt(1, returnId);
                     psScrap.setInt(2, item.getProductId());
                     psScrap.setBigDecimal(3, item.getQty());
@@ -440,6 +448,10 @@ public class ReturnDAO {
                             item.getQcNote() != null && !item.getQcNote().isEmpty() ? item.getQcNote() : "Hàng lỗi QC");
                     psScrap.setInt(5, userId > 0 ? userId : 1);
                     psScrap.executeUpdate();
+
+                } else {
+                    // PENDING or unknown — skip (do NOT auto-scrpa or restock)
+                    continue;
                 }
             }
 
@@ -481,9 +493,30 @@ public class ReturnDAO {
                 try {
                     conn.setAutoCommit(true);
                     conn.close();
-                } catch (SQLException ignored) {
-                }
+                } catch (SQLException ignored) { /* ignore close errors */ }
             }
         }
+    }
+
+    /**
+     * Checks whether all items in a return order have been inspected (no pending
+     * items).
+     * Used to gate the apply/restock action.
+     */
+    public boolean isQCComplete(int returnId) {
+        String sql = "SELECT COUNT(*) AS pending_count FROM qc_records "
+                + "WHERE return_id = ? AND decision = 'PENDING'";
+        try (Connection conn = DBConnection.getConnection();
+                PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setInt(1, returnId);
+            try (ResultSet rs = ps.executeQuery()) {
+                if (rs.next()) {
+                    return rs.getInt("pending_count") == 0;
+                }
+            }
+        } catch (SQLException e) {
+            LOGGER.log(Level.WARNING, "ReturnDAO.isQCComplete: failed for returnId=" + returnId, e);
+        }
+        return false;
     }
 }

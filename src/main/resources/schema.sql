@@ -685,13 +685,7 @@ VALUES ('quanpm',
 INSERT IGNORE INTO user_warehouse_assignments (user_id, warehouse_id, is_primary)
 SELECT user_id, 1, 1 FROM users WHERE username = 'quanpm';
 
--- Default categories
-INSERT IGNORE INTO categories (category_name, level_depth) VALUES
-    ('Thuc Pham', 0),
-    ('Do Gia Dung', 0),
-    ('Dien Tu', 0),
-    ('My Pham', 0),
-    ('Sach', 0);
+-- Categories: managed via the app UI at /business/categories
 
 -- ============================================================
 -- Indexes for Performance Optimization

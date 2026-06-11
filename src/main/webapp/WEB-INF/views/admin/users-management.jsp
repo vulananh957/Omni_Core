@@ -111,7 +111,6 @@
                                     <!-- Username -->
                                     <td>
                                         <div style="font-weight: 700; color: var(--navy);"><c:out value="${user.username}" /></div>
-                                        <div style="font-size: 11px; color: rgba(16, 55, 92, 0.45); margin-top: 2px;">ID: ${user.userId}</div>
                                     </td>
 
                                     <!-- Full Name -->

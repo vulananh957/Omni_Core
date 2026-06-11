@@ -1,5 +1,6 @@
 <%@ page language="java" contentType="text/html; charset=UTF-8" pageEncoding="UTF-8" %>
 <%@ taglib prefix="c" uri="jakarta.tags.core" %>
+<%@ taglib prefix="fn" uri="jakarta.tags.functions" %>
 
 <style>
     /* ─── Variables & Base Theme overrides for isolation ─── */
@@ -1133,7 +1134,7 @@
         var rmaDoc = null;
 
         // Logged-in user fallback
-        var loggedInUserFullName = "${loggedInUser != null ? loggedInUser.fullName : 'Nguyễn Văn An'}";
+        var loggedInUserFullName = "${fn:escapeXml(not empty loggedInUser ? loggedInUser.fullName : 'Nguyen Van An')}";
 
         // DOM elements
         var docTableBody = document.getElementById('docTableBody');

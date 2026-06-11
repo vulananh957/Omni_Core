@@ -252,8 +252,9 @@
     .ic-modal-close:hover { color: var(--navy); }
     
     .ic-modal-body {
-        padding: 24px; overflow-y: auto; flex: 1;
+        padding: 24px; overflow-y: auto; flex: 1 1 0;
         display: flex; flex-direction: column; gap: 20px;
+        min-height: 0;
     }
     .ic-form-section-title {
         font-size: 11px; font-weight: 700; text-transform: uppercase;

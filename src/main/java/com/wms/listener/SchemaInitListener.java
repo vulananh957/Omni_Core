@@ -178,35 +178,6 @@ public class SchemaInitListener implements ServletContextListener {
             st.executeUpdate("INSERT IGNORE INTO user_warehouse_assignments (user_id, warehouse_id, is_primary) "
                     + "SELECT user_id, 1, 1 FROM users WHERE username = 'quanpm'");
 
-            // Check if orders exist
-            try (ResultSet rsOrdersCount = st.executeQuery("SELECT COUNT(*) FROM orders")) {
-                if (rsOrdersCount.next() && rsOrdersCount.getInt(1) == 0) {
-                    // Seed orders
-                    st.executeUpdate("INSERT INTO orders (order_code, warehouse_id, channel, status, total_amount, note, created_at, updated_at) VALUES "
-                            + "('ORD-98231', 1, 'ONLINE', 'PENDING', 24000.00, 'Khách đặt qua Shopee', NOW() - INTERVAL 2 HOUR, NOW() - INTERVAL 2 HOUR),"
-                            + "('ORD-12948', 1, 'ONLINE', 'PICKING', 1500000.00, 'Xác nhận nhanh', NOW() - INTERVAL 1 DAY, NOW() - INTERVAL 12 HOUR),"
-                            + "('ORD-48291', 1, 'ONLINE', 'PACKED', 2500000.00, 'Đóng kỹ chống sốc', NOW() - INTERVAL 1 DAY, NOW() - INTERVAL 10 HOUR),"
-                            + "('ORD-57291', 1, 'ONLINE', 'RETURNED', 24000.00, 'Khách trả hàng quay đầu', NOW() - INTERVAL 3 DAY, NOW() - INTERVAL 1 DAY)");
-
-                    // Get the generated order IDs
-                    int id1 = -1, id2 = -1, id3 = -1, id4 = -1;
-                    try (ResultSet rs = st.executeQuery("SELECT order_id, order_code FROM orders")) {
-                        while (rs.next()) {
-                            String code = rs.getString("order_code");
-                            int id = rs.getInt("order_id");
-                            if ("ORD-98231".equals(code)) id1 = id;
-                            else if ("ORD-12948".equals(code)) id2 = id;
-                            else if ("ORD-48291".equals(code)) id3 = id;
-                            else if ("ORD-57291".equals(code)) id4 = id;
-                        }
-                    }
-
-                    // Seed custom column values for mock orders
-                    if (id2 != -1) st.executeUpdate("UPDATE orders SET tracking_no = 'LZE-8762312', review_note = 'Đã xác nhận và chuyển kho Hà Nội chuẩn bị hàng.' WHERE order_id = " + id2);
-                    if (id3 != -1) st.executeUpdate("UPDATE orders SET tracking_no = 'TKT-9281734', review_note = 'Đóng gói hoàn tất, chờ bưu tá lấy hàng.' WHERE order_id = " + id3);
-                    if (id4 != -1) st.executeUpdate("UPDATE orders SET tracking_no = 'VTP-1928374', rma_reason = 'Sản phẩm bị bóp méo khi vận chuyển', rma_physical_status = 'Đã nhập Zone Khiếu Nại', rma_platform_status = 'Chờ xử lý' WHERE order_id = " + id4);
-                }
-            }
 
             LOGGER.info("SchemaInitListener: Seed data applied.");
         }

@@ -447,7 +447,7 @@
     .modal-box {
         background: #fff;
         width: 100%;
-        max-width: 520px;
+        max-width: 680px;
         border-radius: var(--radius-card);
         box-shadow: 0 20px 25px -5px rgba(16, 55, 92, 0.15), 0 10px 10px -5px rgba(16, 55, 92, 0.1);
         transform: translateY(24px);
@@ -549,6 +549,123 @@
         display: grid;
         grid-template-columns: repeat(2, 1fr);
         gap: 12px;
+    }
+    
+    /* ─── Tree Picker Styles ─── */
+    .category-tree-picker-box {
+        background: #fff;
+        border: 1px solid var(--border);
+        border-radius: 6px;
+        padding: 12px 16px;
+        min-height: 180px;
+        max-height: 280px;
+        overflow-y: auto;
+    }
+    .tree-children-container {
+        padding-left: 20px;
+        margin-top: 0;
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+        position: relative;
+    }
+    .tree-node-wrapper {
+        position: relative;
+    }
+    .tree-children-container > .tree-node-wrapper::before {
+        content: '';
+        position: absolute;
+        top: 15px;
+        left: -10px;
+        width: 14px;
+        height: 1px;
+        border-top: 1px dashed rgba(16, 55, 92, 0.18);
+        z-index: 1;
+    }
+    .tree-children-container > .tree-node-wrapper::after {
+        content: '';
+        position: absolute;
+        left: -10px;
+        top: -15px;
+        width: 1px;
+        height: calc(100% + 15px);
+        border-left: 1px dashed rgba(16, 55, 92, 0.18);
+    }
+    .tree-children-container > .tree-node-wrapper:last-child::after {
+        height: 30px;
+    }
+    .tree-row {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        padding: 4px 8px;
+        background: transparent;
+        border: none;
+        border-radius: 4px;
+        transition: background 0.12s, color 0.12s;
+        min-height: 30px;
+        cursor: pointer;
+    }
+    .tree-row:hover {
+        background: rgba(16, 55, 92, 0.05);
+    }
+    .tree-row.selected {
+        background: rgba(16, 55, 92, 0.08);
+        border-left: 3px solid var(--orange);
+        padding-left: 5px; /* Offset for border */
+    }
+    .tree-row.selected .node-name {
+        font-weight: 700;
+        color: var(--navy);
+    }
+    .btn-toggle-chevron {
+        width: 18px;
+        height: 18px;
+        border-radius: 4px;
+        border: none;
+        background: none;
+        color: rgba(16, 55, 92, 0.40);
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        transition: color 0.15s, background 0.15s;
+        padding: 0;
+    }
+    .btn-toggle-chevron:hover {
+        color: rgba(16, 55, 92, 0.70);
+        background: rgba(16, 55, 92, 0.05);
+    }
+    .bullet-dot {
+        width: 18px;
+        height: 18px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+    .bullet-dot span {
+        width: 4px;
+        height: 4px;
+        border-radius: 50%;
+        background: rgba(16, 55, 92, 0.30);
+    }
+    .folder-icon {
+        width: 14px;
+        height: 14px;
+        flex-shrink: 0;
+    }
+    .folder-icon.level-1 {
+        color: var(--orange);
+    }
+    .folder-icon.level-2 {
+        color: #EB8317;
+    }
+    .folder-icon.level-3 {
+        color: rgba(16, 55, 92, 0.40);
+    }
+    .node-name {
+        font-size: 12.5px;
+        color: var(--navy);
     }
 </style>
 
@@ -725,15 +842,10 @@
                 <input class="form-input" type="text" id="create-name" placeholder="Ví dụ: Lược chải tóc gỡ rối - Màu hồng"/>
             </div>
             <div class="form-group">
-                <label class="form-label" for="create-category">Danh mục</label>
-                <div class="select-wrap" style="width: 100%;">
-                    <select class="form-input" id="create-category" style="width: 100%; appearance: none; padding-right: 36px;">
-                        <c:forEach var="c" items="${categories}">
-                            <option><c:out value="${c.categoryName}"/></option>
-                        </c:forEach>
-                    </select>
-                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="position: absolute; right: 12px; top: 50%; transform: translateY(-50%); width: 14px; height: 14px; color: rgba(16, 55, 92, 0.4); pointer-events: none;"><polyline points="6 9 12 15 18 9"></polyline></svg>
-                </div>
+                <label class="form-label" style="margin-bottom: 2px;">Danh mục hàng hóa * (Chọn trực tiếp từ sơ đồ cây bên dưới)</label>
+                <input type="text" class="form-input" id="selectedCategoryDisplay" readonly placeholder="Nhấp chọn danh mục từ sơ đồ cây..." style="cursor: default; font-weight: 600; background: #fff; border-color: var(--border);"/>
+                <input type="hidden" id="create-category" value=""/>
+                <div class="category-tree-picker-box" id="categoryTreePicker"></div>
             </div>
             <div class="form-grid">
                 <div class="form-group">
@@ -1063,6 +1175,101 @@ function escapeHtml(str) {
         .replace(/'/g, "&#039;");
 }
 
+var selectedPickerCategory = '';
+var expandedPickerNodes = {};
+
+function renderPickerTree() {
+    var pickerContainer = document.getElementById('categoryTreePicker');
+    if (!pickerContainer) return;
+
+    var roots = DB_CATEGORIES.filter(function (c) {
+        return c.parentId === null || c.parentId === 0 || c.parentId === 'null';
+    });
+
+    if (roots.length === 0) {
+        pickerContainer.innerHTML = '<div style="color: rgba(16, 55, 92, 0.4); text-align: center; padding: 24px;">Chưa có danh mục nào.</div>';
+        return;
+    }
+
+    function buildPickerNodeHtml(node, level) {
+        var children = DB_CATEGORIES.filter(function (c) { return c.parentId === node.categoryId; });
+        var hasChildren = children.length > 0;
+        
+        if (expandedPickerNodes[node.categoryId] === undefined) {
+            expandedPickerNodes[node.categoryId] = true; 
+        }
+        var isExpanded = !!expandedPickerNodes[node.categoryId];
+
+        var toggleBtn = '';
+        if (hasChildren) {
+            var chevronSvg = isExpanded ?
+                '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;"><polyline points="6 9 12 15 18 9"/></svg>' :
+                '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;"><polyline points="9 18 15 12 9 6"/></svg>';
+            toggleBtn = '<button class="btn-toggle-chevron" type="button" onclick="window.togglePickerNode(' + node.categoryId + ', event)">' + chevronSvg + '</button>';
+        } else {
+            toggleBtn = '<div class="bullet-dot"><span></span></div>';
+        }
+
+        var folderSvg = '';
+        var color = (level === 1) ? 'var(--orange)' : '#EB8317';
+        if (level >= 3) {
+            folderSvg = '<svg class="folder-icon level-3" style="color: rgba(16, 55, 92, 0.40); width:14px;height:14px;" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>';
+        } else if (hasChildren && isExpanded) {
+            folderSvg = '<svg class="folder-icon level-' + level + '" style="color: ' + color + '; width:14px;height:14px;" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/><path d="M2 10h20"/></svg>';
+        } else {
+            folderSvg = '<svg class="folder-icon level-' + level + '" style="color: ' + color + '; width:14px;height:14px;" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>';
+        }
+
+        var isSelected = selectedPickerCategory === node.categoryName;
+        var rowClass = isSelected ? 'tree-row selected' : 'tree-row';
+        if (level === 1) rowClass += ' root-row';
+
+        var checkmarkHtml = isSelected ? 
+            '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="#059669" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;margin-left:auto;"><polyline points="20 6 9 17 4 12"/></svg>' : '';
+
+        var childrenHtml = '';
+        if (isExpanded && hasChildren) {
+            childrenHtml = '<div class="tree-children-container">' + 
+                children.map(function (c) { return buildPickerNodeHtml(c, level + 1); }).join('') + 
+                '</div>';
+        }
+
+        return '<div class="tree-node-wrapper">' +
+            '<div class="' + rowClass + '" onclick="window.selectPickerCategory(\'' + escapeHtml(node.categoryName) + '\')">' +
+            toggleBtn +
+            folderSvg +
+            '<span class="node-name">' + escapeHtml(node.categoryName) + '</span>' +
+            checkmarkHtml +
+            '</div>' +
+            childrenHtml +
+            '</div>';
+    }
+
+    pickerContainer.innerHTML = roots.map(function (root) {
+        return buildPickerNodeHtml(root, 1);
+    }).join('');
+}
+
+window.togglePickerNode = function (nodeId, event) {
+    if (event) event.stopPropagation();
+    expandedPickerNodes[nodeId] = !expandedPickerNodes[nodeId];
+    renderPickerTree();
+};
+
+window.selectPickerCategory = function (categoryName) {
+    selectedPickerCategory = categoryName;
+    var selectText = document.getElementById('selectedCategoryDisplay');
+    if (selectText) {
+        selectText.value = categoryName;
+    }
+    var hiddenInput = document.getElementById('create-category');
+    if (hiddenInput) {
+        hiddenInput.value = categoryName;
+    }
+    renderPickerTree();
+};
+
+
 var search = '';
 var selectedCategory = 'Tất cả';
 var currentPage = 1;
@@ -1095,7 +1302,7 @@ if (catSelect && DB_CATEGORIES.length > 0) {
     catSelect.innerHTML = buildCategoryTreeOptions(DB_CATEGORIES, true);
 }
 if (createCatInput && DB_CATEGORIES.length > 0) {
-    createCatInput.innerHTML = buildCategoryTreeOptions(DB_CATEGORIES, false);
+    renderPickerTree();
 }
 
 /* Edit Modal Elements */
@@ -1141,6 +1348,9 @@ if (skuWarehouseFilter) {
 /* Modals toggle */
 if (btnCreateTrigger) {
     btnCreateTrigger.addEventListener('click', function () {
+        if (DB_CATEGORIES.length > 0 && !selectedPickerCategory) {
+            window.selectPickerCategory(DB_CATEGORIES[0].categoryName);
+        }
         createOverlay.classList.add('active');
     });
 }
@@ -1365,8 +1575,10 @@ function padZero(n) { return n < 10 ? '0' + n : n; }
 function clearCreateForm() {
     createSkuInput.value = '';
     createNameInput.value = '';
-    if (createCatInput.options.length > 0) {
-        createCatInput.selectedIndex = 0;
+    if (DB_CATEGORIES.length > 0) {
+        window.selectPickerCategory(DB_CATEGORIES[0].categoryName);
+    } else {
+        window.selectPickerCategory('');
     }
     createDimInput.value = '';
     createWgtInput.value = '';

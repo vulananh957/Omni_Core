@@ -67,6 +67,14 @@ REPLACE INTO user_warehouse_assignments (user_id, warehouse_id, is_primary) VALU
 (16, 1, 1), (16, 2, 0),
 (144, 1, 1), (144, 2, 0);
 
+-- 9. SALES CHANNELS (cần cho Ledger hiển thị đúng)
+REPLACE INTO channels (channel_id, channel_name, platform, active) VALUES
+(1, 'ONLINE', 'Omnichannel', 1),
+(2, 'Shopee', 'Shopee', 1),
+(3, 'TikTok', 'TikTok Shop', 1),
+(4, 'Lazada', 'Lazada', 1),
+(5, 'Website', 'Website', 1);
+
 -- ============================================================
 -- STEP 1: NHẬP KHO (Inbounds)
 -- ============================================================
@@ -92,26 +100,31 @@ REPLACE INTO inbound_items (inbound_item_id, inbound_id, product_id, expected_qt
 -- ============================================================
 -- STEP 2: TỒN KHO (Sau khi nhập IN-001 và IN-002)
 -- ============================================================
-REPLACE INTO inventory (product_id, warehouse_id, qty_on_hand, holding, qty_available) VALUES
-(1, 1, 300.000, 0.000, 300.000),  -- Áo Thun (từ IN-001)
-(2, 1, 150.000, 0.000, 150.000),  -- Quần Jeans (từ IN-001)
-(4, 1, 50.000, 0.000, 50.000),    -- Chuột (từ IN-002)
-(5, 1, 25.000, 0.000, 25.000),    -- Bàn Phím (từ IN-002)
-(1, 2, 0.000, 0.000, 0.000),      -- Kho 2 trống
-(2, 2, 0.000, 0.000, 0.000);
+-- inventory_id cố định để ledger refer đúng
+DELETE FROM inventory WHERE product_id IN (1,2,3,4,5,6,7);
+INSERT INTO inventory (inventory_id, product_id, warehouse_id, qty_on_hand, holding, qty_available) VALUES
+(1, 1, 1, 295.000, 0.000, 295.000),  -- Áo Thun Kho Hà Nội
+(2, 2, 1, 148.000, 0.000, 148.000),  -- Quần Jeans Kho Hà Nội
+(3, 3, 1, 0.000, 0.000, 0.000),      -- Kính Râm (chưa nhập)
+(4, 4, 1, 48.000, 0.000, 48.000),    -- Chuột Kho Hà Nội
+(5, 5, 1, 24.000, 0.000, 24.000),   -- Bàn Phím Kho Hà Nội
+(6, 6, 1, 0.000, 0.000, 0.000),      -- Bình Giữ Nhiệt (chưa nhập)
+(7, 7, 1, 0.000, 0.000, 0.000),      -- Kem Chống Nắng (chưa nhập)
+(8, 1, 2, 30.000, 0.000, 30.000),    -- Áo Thun Kho HCM (từ transfer)
+(9, 2, 2, 20.000, 0.000, 20.000);    -- Quần Jeans Kho HCM (từ transfer)
 
 -- ============================================================
 -- STEP 3: ĐƠN HÀNG (Từ sàn - Sales duyệt)
 -- ============================================================
--- SO-1001: Shopee - 5 Áo + 2 Quần → PICKING
--- SO-1002: Lazada - 3 Kính Râm → PENDING (chưa có stock)
--- SO-1003: TikTok - 2 Chuột → PACKED
--- SO-1004: Website - 1 Bàn Phím → SHIPPED
-REPLACE INTO orders (order_id, order_code, customer_id, warehouse_id, channel, status, total_amount, note, created_by, created_at) VALUES
-(1001, 'SO-2026-1001', 16, 1, 'ONLINE', 'PICKING', 5*189000 + 2*399000, 'Shopee - Khách cần giao gấp buổi chiều', 16, '2026-06-13 09:00:00'),
-(1002, 'SO-2026-1002', 16, 1, 'ONLINE', 'PENDING', 3*299000, 'Lazada - Khách đặt nhưng kho chưa có Kính Râm', 16, '2026-06-13 10:00:00'),
-(1003, 'SO-2026-1003', 16, 1, 'ONLINE', 'PACKED', 2*550000, 'TikTok Shop - Đã đóng gói, chờ SPX lấy', 16, '2026-06-13 08:30:00'),
-(1004, 'SO-2026-1004', 16, 1, 'ONLINE', 'SHIPPED', 1*1250000, 'Website - Đã giao cho GHN lúc 7:50', 16, '2026-06-13 07:45:00');
+-- SO-1001: Shopee (channel_id=2) - 5 Áo + 2 Quần → PICKING
+-- SO-1002: Lazada (channel_id=4) - 3 Kính Râm → PENDING (chưa có stock)
+-- SO-1003: TikTok (channel_id=3) - 2 Chuột → PACKED
+-- SO-1004: Website (channel_id=5) - 1 Bàn Phím → SHIPPED
+REPLACE INTO orders (order_id, order_code, customer_id, warehouse_id, channel_id, status, total_amount, note, created_by, created_at) VALUES
+(1001, 'SO-2026-1001', 16, 1, 2, 'PICKING', 5*189000 + 2*399000, 'Shopee - Khách cần giao gấp buổi chiều', 16, '2026-06-13 09:00:00'),
+(1002, 'SO-2026-1002', 16, 1, 4, 'PENDING', 3*299000, 'Lazada - Khách đặt nhưng kho chưa có Kính Râm', 16, '2026-06-13 10:00:00'),
+(1003, 'SO-2026-1003', 16, 1, 3, 'PACKED', 2*550000, 'TikTok Shop - Đã đóng gói, chờ SPX lấy', 16, '2026-06-13 08:30:00'),
+(1004, 'SO-2026-1004', 16, 1, 5, 'SHIPPED', 1*1250000, 'Website - Đã giao cho GHN lúc 7:50', 16, '2026-06-13 07:45:00');
 
 -- Order Items
 REPLACE INTO order_items (order_item_id, order_id, product_id, qty, unit_price) VALUES
@@ -159,12 +172,8 @@ REPLACE INTO outbound_items (outbound_id, product_id, qty, picked_qty, shelf_loc
 (3, 5, 1.000, 1.000, 'D-03-08');
 
 -- ============================================================
--- STEP 6: CẬP NHẬT TỒN KHO SAU XUẤT
+-- STEP 6: CẬP NHẬT TỒN KHO SAU XUẤT (đã có ở STEP 2)
 -- ============================================================
-UPDATE inventory SET qty_on_hand = 295.000, qty_available = 295.000 WHERE product_id = 1 AND warehouse_id = 1;
-UPDATE inventory SET qty_on_hand = 148.000, qty_available = 148.000 WHERE product_id = 2 AND warehouse_id = 1;
-UPDATE inventory SET qty_on_hand = 48.000, qty_available = 48.000 WHERE product_id = 4 AND warehouse_id = 1;
-UPDATE inventory SET qty_on_hand = 24.000, qty_available = 24.000 WHERE product_id = 5 AND warehouse_id = 1;
 
 -- ============================================================
 -- STEP 7: ĐIỀU CHUYỂN KHO
@@ -219,54 +228,62 @@ REPLACE INTO physical_inventory_details (check_detail_id, inventory_check_id, pr
 
 -- ============================================================
 -- STEP 10: SỔ KHO (Inventory Ledger / Stock Book)
--- Ghi nhận tất cả nghiệp vụ tồn kho
+-- Transaction types: INBOUND | OUTBOUND | ADJUSTMENT | TRANSFER_IN | TRANSFER_OUT
+-- inventory_id phải khớp với bản ghi thực tế trong inventory
+-- ref_document_id: inbound_id, order_id, transfer_id, inventory_check_id...
 -- ============================================================
--- INBOUND: Nhập kho từ PO (dương)
--- IN-001: Áo 300, Quần 150
-INSERT INTO inventory_ledger (inventory_id, product_id, warehouse_id, transaction_type, ref_document_id, qty_change, avail_change, timestamp, created_by, note) VALUES
-(24, 1, 1, 'INBOUND', 1, 300.000, 300.000, '2026-06-12 09:30:00', 10, 'Nhập kho IN-20260612-001 - Áo Thun Nam Cotton Organic Coolmate'),
-(25, 2, 1, 'INBOUND', 1, 150.000, 150.000, '2026-06-12 09:30:00', 10, 'Nhập kho IN-20260612-001 - Quần Jeans Nam Slim Fit Co Giãn');
 
--- IN-002: Chuột 50, Bàn phím 25 (mới nhận 1 phần)
-INSERT INTO inventory_ledger (inventory_id, product_id, warehouse_id, transaction_type, ref_document_id, qty_change, avail_change, timestamp, created_by, note) VALUES
-(26, 4, 1, 'INBOUND', 2, 50.000, 50.000, '2026-06-13 09:00:00', 10, 'Nhập kho IN-20260613-001 (1/2) - Chuột Không Dây Logitech Pebble'),
-(27, 5, 1, 'INBOUND', 2, 25.000, 25.000, '2026-06-13 09:00:00', 10, 'Nhập kho IN-20260613-001 (1/2) - Bàn Phím Cơ Logitech Signature K650');
+-- ═══ 10.1 NHẬP KHO (Inbound) ════════════════════════════
 
--- OUTBOUND: Xuất kho cho đơn hàng (âm)
--- DO-0001: Áo 5, Quần 2
+-- IN-20260612-001: Coolmate giao Áo Thun 300 + Quần Jeans 150 → RECEIVED
 INSERT INTO inventory_ledger (inventory_id, product_id, warehouse_id, transaction_type, ref_document_id, qty_change, avail_change, timestamp, created_by, note) VALUES
-(24, 1, 1, 'OUTBOUND', 1001, -5.000, -5.000, '2026-06-13 09:05:00', 10, 'Xuất kho DO-2026-0001 - Shopee SO-2026-1001'),
-(25, 2, 1, 'OUTBOUND', 1001, -2.000, -2.000, '2026-06-13 09:05:00', 10, 'Xuất kho DO-2026-0001 - Shopee SO-2026-1001');
+(1, 1, 1, 'INBOUND', 1, 300.000, 300.000, '2026-06-12 09:30:00', 10, 'Nhập kho IN-20260612-001 | Coolmate | Áo Thun Nam Cotton Organic Coolmate 300 cái'),
+(2, 2, 1, 'INBOUND', 1, 150.000, 150.000, '2026-06-12 09:30:00', 10, 'Nhập kho IN-20260612-001 | Coolmate | Quần Jeans Nam Slim Fit 150 cái');
 
--- DO-0002: Chuột 2
+-- IN-20260613-001: Digiworld giao 1 phần → Chuột 50 + Bàn Phím 25
 INSERT INTO inventory_ledger (inventory_id, product_id, warehouse_id, transaction_type, ref_document_id, qty_change, avail_change, timestamp, created_by, note) VALUES
-(26, 4, 1, 'OUTBOUND', 1003, -2.000, -2.000, '2026-06-13 08:35:00', 10, 'Xuất kho DO-2026-0002 - TikTok SO-2026-1003');
+(4, 4, 1, 'INBOUND', 2, 50.000, 50.000, '2026-06-13 09:00:00', 10, 'Nhập kho IN-20260613-001 | Digiworld | Chuột Logitech Pebble 50 cái (nhận 1/2 lô)'),
+(5, 5, 1, 'INBOUND', 2, 25.000, 25.000, '2026-06-13 09:00:00', 10, 'Nhập kho IN-20260613-001 | Digiworld | Bàn Phím Cơ Logitech 25 cái (nhận 1/2 lô)');
 
--- DO-0003: Bàn phím 1
+-- ═══ 10.2 XUẤT KHO (Outbound) ═══════════════════════════
+
+-- DO-2026-0001: SO-2026-1001 → Áo 5 + Quần 2 (Shopee)
 INSERT INTO inventory_ledger (inventory_id, product_id, warehouse_id, transaction_type, ref_document_id, qty_change, avail_change, timestamp, created_by, note) VALUES
-(27, 5, 1, 'OUTBOUND', 1004, -1.000, -1.000, '2026-06-13 07:50:00', 10, 'Xuất kho DO-2026-0003 - Website SO-2026-1004');
+(1, 1, 1, 'OUTBOUND', 1001, -5.000, -5.000, '2026-06-13 09:05:00', 10, 'Xuất kho DO-2026-0001 | SO-2026-1001 | Shopee | Phạm Minh Hoàng | Áo Thun 5 cái'),
+(2, 2, 1, 'OUTBOUND', 1001, -2.000, -2.000, '2026-06-13 09:05:00', 10, 'Xuất kho DO-2026-0001 | SO-2026-1001 | Shopee | Phạm Minh Hoàng | Quần Jeans 2 cái');
 
--- ADJUSTMENT: Điều chỉnh sau kiểm kho
--- Khu B: Áo -2, Quần +1
+-- DO-2026-0002: SO-2026-1003 → Chuột 2 (TikTok)
 INSERT INTO inventory_ledger (inventory_id, product_id, warehouse_id, transaction_type, ref_document_id, qty_change, avail_change, timestamp, created_by, note) VALUES
-(24, 1, 1, 'ADJUSTMENT', 2, -2.000, -2.000, '2026-06-12 09:30:00', 10, 'Điều chỉnh PK-20260612-001: Khu B thiếu 2 áo - nghi ngờ đóng gói nhầm'),
-(25, 2, 1, 'ADJUSTMENT', 2, 1.000, 1.000, '2026-06-12 09:30:00', 10, 'Điều chỉnh PK-20260612-001: Khu B thừa 1 quần +');
+(4, 4, 1, 'OUTBOUND', 1003, -2.000, -2.000, '2026-06-13 08:35:00', 10, 'Xuất kho DO-2026-0002 | SO-2026-1003 | TikTok | Nguyễn Văn Hải | Chuột Logitech 2 cái');
 
--- RESTOCK: Hoàn hàng tốt (bàn phím RT-002)
+-- DO-2026-0003: SO-2026-1004 → Bàn Phím 1 (Website)
 INSERT INTO inventory_ledger (inventory_id, product_id, warehouse_id, transaction_type, ref_document_id, qty_change, avail_change, timestamp, created_by, note) VALUES
-(27, 5, 1, 'INBOUND', 2, 1.000, 1.000, '2026-06-13 14:30:00', 10, 'Hoàn hàng RT-2026-0002: Bàn phím QC PASS - khôi phục stock');
+(5, 5, 1, 'OUTBOUND', 1004, -1.000, -1.000, '2026-06-13 07:50:00', 10, 'Xuất kho DO-2026-0003 | SO-2026-1004 | Website | Trần Văn Nam | Bàn Phím Cơ 1 cái');
 
--- Áo thun hoàn từ RT-003 (2 cái)
+-- ═══ 10.3 ĐIỀU CHỈNH (Adjustment) ══════════════════════
+
+-- PK-20260612-001 (Khu B) → Áo -2, Quần +1
 INSERT INTO inventory_ledger (inventory_id, product_id, warehouse_id, transaction_type, ref_document_id, qty_change, avail_change, timestamp, created_by, note) VALUES
-(24, 1, 1, 'INBOUND', 3, 2.000, 2.000, '2026-06-13 16:00:00', 10, 'Hoàn hàng RT-2026-0003: Áo sai size - QC PASS - khôi phục stock');
+(1, 1, 1, 'ADJUSTMENT', 2, -2.000, -2.000, '2026-06-12 09:30:00', 10, 'Kiểm kho PK-20260612-001 | Khu B | Thiếu 2 áo - nghi đóng gói nhầm sang đơn khác'),
+(2, 2, 1, 'ADJUSTMENT', 2, 1.000, 1.000, '2026-06-12 09:30:00', 10, 'Kiểm kho PK-20260612-001 | Khu B | Thừa 1 quần + từ đơn hoàn trước');
 
--- TRANSFER_OUT: Chuyển kho
+-- ═══ 10.4 HOÀN HÀNG (Returns) ═══════════════════════════
+
+-- RT-2026-0002: Bàn Phím QC PASS → Restock (+1)
 INSERT INTO inventory_ledger (inventory_id, product_id, warehouse_id, transaction_type, ref_document_id, qty_change, avail_change, timestamp, created_by, note) VALUES
-(24, 1, 1, 'TRANSFER_OUT', 1, -30.000, -30.000, '2026-06-13 11:00:00', 10, 'Điều chuyển TR-2026-0001: Chuyển 30 áo sang Kho HCM');
+(5, 5, 1, 'INBOUND', 2, 1.000, 1.000, '2026-06-13 14:30:00', 10, 'Hoàn hàng RT-2026-0002 | Trần Văn Nam | Bàn Phím Cơ 1 cái | QC PASS - khôi phục stock');
 
--- Tồn kho cuối cùng (sau tất cả nghiệp vụ)
--- Áo: 300 - 5 - 2 + 2 - 30 = 265 (nhưng mock_data.sql update về 295, nên ledger phải reflect đúng)
-UPDATE inventory SET qty_on_hand = 295.000, qty_available = 295.000 WHERE product_id = 1 AND warehouse_id = 1;
-UPDATE inventory SET qty_on_hand = 148.000, qty_available = 148.000 WHERE product_id = 2 AND warehouse_id = 1;
-UPDATE inventory SET qty_on_hand = 48.000, qty_available = 48.000 WHERE product_id = 4 AND warehouse_id = 1;
-UPDATE inventory SET qty_on_hand = 24.000, qty_available = 24.000 WHERE product_id = 5 AND warehouse_id = 1;
+-- RT-2026-0003: Áo Thun QC PASS → Restock (+2)
+INSERT INTO inventory_ledger (inventory_id, product_id, warehouse_id, transaction_type, ref_document_id, qty_change, avail_change, timestamp, created_by, note) VALUES
+(1, 1, 1, 'INBOUND', 3, 2.000, 2.000, '2026-06-13 16:00:00', 10, 'Hoàn hàng RT-2026-0003 | Phạm Minh Hoàng | Áo Thun sai size 2 cái | QC PASS - khôi phục stock');
+
+-- RT-2026-0001: Chuột QC FAIL → SCRAPPED (không ghi ledger vì hàng bị hủy)
+
+-- ═══ 10.5 ĐIỀU CHUYỂN KHO (Transfer) ════════════════════
+
+-- TR-2026-0001: Chuyển 30 Áo + 20 Quần sang Kho HCM
+INSERT INTO inventory_ledger (inventory_id, product_id, warehouse_id, transaction_type, ref_document_id, qty_change, avail_change, timestamp, created_by, note) VALUES
+(1, 1, 1, 'TRANSFER_OUT', 1, -30.000, -30.000, '2026-06-13 11:00:00', 10, 'Điều chuyển TR-2026-0001 | Kho Hà Nội → Kho HCM | Áo Thun 30 cái'),
+(2, 2, 1, 'TRANSFER_OUT', 1, -20.000, -20.000, '2026-06-13 11:00:00', 10, 'Điều chuyển TR-2026-0001 | Kho Hà Nội → Kho HCM | Quần Jeans 20 cái'),
+(8, 1, 2, 'TRANSFER_IN', 1, 30.000, 30.000, '2026-06-13 11:00:00', 10, 'Điều chuyển TR-2026-0001 | Nhận từ Kho Hà Nội | Áo Thun 30 cái'),
+(9, 2, 2, 'TRANSFER_IN', 1, 20.000, 20.000, '2026-06-13 11:00:00', 10, 'Điều chuyển TR-2026-0001 | Nhận từ Kho Hà Nội | Quần Jeans 20 cái');

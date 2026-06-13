@@ -127,6 +127,15 @@ public abstract class BaseController extends HttpServlet {
         }
     }
 
+    protected String escapeJson(String s) {
+        if (s == null) return "";
+        return s.replace("\\", "\\\\")
+                .replace("\"", "\\\"")
+                .replace("\n", "\\n")
+                .replace("\r", "\\r")
+                .replace("\t", "\\t");
+    }
+
     // ── Input validation helpers ───────────────────────────────
 
     protected boolean isNullOrEmpty(String value) {

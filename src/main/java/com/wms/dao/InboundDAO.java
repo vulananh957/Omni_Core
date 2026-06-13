@@ -27,21 +27,26 @@ public class InboundDAO {
 
     private static final String SQL_FIND_ALL =
         "SELECT io.inbound_id, io.inbound_code, io.supplier, io.warehouse_id, "
-      + "w.warehouse_name, io.status, io.received_by, io.note, io.created_at, io.received_at "
+      + "w.warehouse_name, io.status, io.received_by, io.created_by, io.note, io.created_at, io.received_at, "
+      + "ii.inbound_item_id, ii.product_id, "
+      + "p.sku_code, p.product_name, "
+      + "ii.expected_qty, ii.received_qty "
       + "FROM inbound_orders io "
       + "LEFT JOIN warehouses w ON io.warehouse_id = w.warehouse_id "
-      + "ORDER BY io.created_at DESC LIMIT 200";
+      + "LEFT JOIN inbound_items ii ON io.inbound_id = ii.inbound_id "
+      + "LEFT JOIN products p ON ii.product_id = p.product_id "
+      + "ORDER BY io.created_at DESC";
 
     private static final String SQL_FIND_BY_ID =
         "SELECT io.inbound_id, io.inbound_code, io.supplier, io.warehouse_id, "
-      + "w.warehouse_name, io.status, io.received_by, io.note, io.created_at, io.received_at "
+      + "w.warehouse_name, io.status, io.received_by, io.created_by, io.note, io.created_at, io.received_at "
       + "FROM inbound_orders io "
       + "LEFT JOIN warehouses w ON io.warehouse_id = w.warehouse_id "
       + "WHERE io.inbound_id = ?";
 
     private static final String SQL_FIND_BY_STATUS =
         "SELECT io.inbound_id, io.inbound_code, io.supplier, io.warehouse_id, "
-      + "w.warehouse_name, io.status, io.received_by, io.note, io.created_at, io.received_at "
+      + "w.warehouse_name, io.status, io.received_by, io.created_by, io.note, io.created_at, io.received_at "
       + "FROM inbound_orders io "
       + "LEFT JOIN warehouses w ON io.warehouse_id = w.warehouse_id "
       + "WHERE io.status = ? "
@@ -49,7 +54,7 @@ public class InboundDAO {
 
     private static final String SQL_FIND_BY_WAREHOUSE =
         "SELECT io.inbound_id, io.inbound_code, io.supplier, io.warehouse_id, "
-      + "w.warehouse_name, io.status, io.received_by, io.note, io.created_at, io.received_at "
+      + "w.warehouse_name, io.status, io.received_by, io.created_by, io.note, io.created_at, io.received_at "
       + "FROM inbound_orders io "
       + "LEFT JOIN warehouses w ON io.warehouse_id = w.warehouse_id "
       + "WHERE io.warehouse_id = ? "
@@ -97,7 +102,6 @@ public class InboundDAO {
         InboundOrder o = new InboundOrder();
         o.setInboundId(rs.getInt("inbound_id"));
         o.setInboundCode(rs.getString("inbound_code"));
-        // Schema uses "supplier"; model uses "supplierName"
         o.setSupplierName(rs.getString("supplier"));
         o.setWarehouseId(rs.getInt("warehouse_id"));
         o.setWarehouseName(rs.getString("warehouse_name"));
@@ -150,7 +154,7 @@ public class InboundDAO {
     // ══ InboundOrder CRUD ══════════════════════════════════════════
 
     /**
-     * Returns the latest 200 inbound orders.
+     * Returns the latest inbound orders with their items.
      */
     public List<InboundOrder> findAll() {
         List<InboundOrder> list = new ArrayList<>();
@@ -160,9 +164,39 @@ public class InboundDAO {
              PreparedStatement ps = conn.prepareStatement(sql);
              ResultSet rs = ps.executeQuery()) {
 
+            InboundOrder current = null;
+            int lastId = -1;
+
             while (rs.next()) {
-                list.add(mapInboundOrder(rs));
+                int id = rs.getInt("inbound_id");
+                if (id != lastId) {
+                    if (current != null) list.add(current);
+                    current = mapInboundOrder(rs);
+                    lastId = id;
+                } else {
+                    // Same order, add item
+                    int itemId = rs.getInt("inbound_item_id");
+                    if (itemId > 0) {
+                        ReceiptNote item = new ReceiptNote();
+                        item.setReceiptId(itemId);
+                        item.setInboundId(id);
+                        item.setProductId(rs.getInt("product_id"));
+                        item.setSkuCode(rs.getString("sku_code"));
+                        item.setProductName(rs.getString("product_name"));
+
+                        BigDecimal eq = rs.getBigDecimal("expected_qty");
+                        item.setExpectedQty(eq != null ? eq : BigDecimal.ZERO);
+
+                        BigDecimal rq = rs.getBigDecimal("received_qty");
+                        item.setReceivedQty(rq != null ? rq : BigDecimal.ZERO);
+                        item.setAcceptedQty(rq != null ? rq : BigDecimal.ZERO);
+                        item.setRejectedQty(BigDecimal.ZERO);
+
+                        current.addItem(item);
+                    }
+                }
             }
+            if (current != null) list.add(current);
 
         } catch (SQLException e) {
             LOGGER.log(Level.WARNING, "InboundDAO.findAll: failed to retrieve inbound orders", e);

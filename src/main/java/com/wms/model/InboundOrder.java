@@ -2,6 +2,8 @@ package com.wms.model;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.List;
 
 /**
  * InboundOrder — Domain model representing an inbound purchase order / goods receipt note.
@@ -26,6 +28,7 @@ public class InboundOrder {
     private int createdBy;
     private String notes;
     private LocalDateTime createdAt;
+    private List<ReceiptNote> items = new ArrayList<>();
 
     // ── Constructors ──────────────────────────────────────────
 
@@ -39,6 +42,21 @@ public class InboundOrder {
         this.supplierName = supplierName;
         this.warehouseId = warehouseId;
         this.status = status;
+    }
+
+    // ── Items management ────────────────────────────────────
+
+    public List<ReceiptNote> getItems() {
+        return items;
+    }
+
+    public void setItems(List<ReceiptNote> items) {
+        this.items = items;
+    }
+
+    public void addItem(ReceiptNote item) {
+        if (this.items == null) this.items = new ArrayList<>();
+        this.items.add(item);
     }
 
     // ── Getters / Setters ───────────────────────────────────
@@ -129,6 +147,30 @@ public class InboundOrder {
 
     public void setCreatedAt(LocalDateTime createdAt) {
         this.createdAt = createdAt;
+    }
+
+    /**
+     * Returns items as JSON array string for JSP embedding.
+     */
+    public String getItemsJson() {
+        if (items == null || items.isEmpty()) return "[]";
+        StringBuilder sb = new StringBuilder("[");
+        for (int i = 0; i < items.size(); i++) {
+            ReceiptNote it = items.get(i);
+            if (i > 0) sb.append(",");
+            sb.append("{\"sku\":\"").append(escapeJson(it.getSkuCode()))
+              .append("\",\"productName\":\"").append(escapeJson(it.getProductName()))
+              .append("\",\"orderedQty\":").append(it.getExpectedQty())
+              .append(",\"receivedQty\":").append(it.getReceivedQty())
+              .append("}");
+        }
+        sb.append("]");
+        return sb.toString();
+    }
+
+    private String escapeJson(String s) {
+        if (s == null) return "";
+        return s.replace("\\", "\\\\").replace("\"", "\\\"").replace("\n", "\\n");
     }
 
     @Override

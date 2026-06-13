@@ -115,14 +115,7 @@ public class ChannelConfigServlet extends BaseController {
         }
     }
 
-    private String escapeJson(String s) {
-        if (s == null) return "";
-        return s.replace("\\", "\\\\")
-                .replace("\"", "\\\"")
-                .replace("\n", "\\n")
-                .replace("\r", "\\r")
-                .replace("\t", "\\t");
-    }
+
 
     private Channel bindChannel(HttpServletRequest req, boolean isEdit, int channelId) {
         Channel channel = new Channel();

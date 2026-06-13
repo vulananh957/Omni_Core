@@ -14,6 +14,11 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
+import java.sql.Connection;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
+import com.wms.dao.LedgerDAO;
+import com.wms.util.DBConnection;
 
 public class OutboundService {
 
@@ -69,6 +74,27 @@ public class OutboundService {
             log.warn("Outbound status update rejected: invalid status outboundId={} status={}", outboundId, newStatus);
             return StatusUpdateResult.failure("Trạng thái '" + newStatus + "' không hợp lệ hoặc không thể chuyển đổi.");
         }
+        
+        if ("SHIPPED".equalsIgnoreCase(newStatus)) {
+            if (isOmnichannelOutbound(outboundId)) {
+                OutboundOrder order = outboundDAO.findById(outboundId);
+                if (order != null) {
+                    String outboundCode = order.getOutboundCode();
+                    if (outboundCode == null) {
+                        outboundCode = "SOUT-OUT-" + outboundId;
+                    }
+                    boolean ok = new LedgerDAO().approveDocument(outboundCode, "Phiếu Xuất Kho", 1);
+                    if (ok) {
+                        log.info("Omnichannel outbound auto-approved and processed: outboundId={} code={}", outboundId, outboundCode);
+                        return StatusUpdateResult.success("Cập nhật trạng thái phiếu xuất thành '" + newStatus + "' thành công!");
+                    } else {
+                        log.error("Omnichannel outbound auto-approve failed: outboundId={} code={}", outboundId, outboundCode);
+                        return StatusUpdateResult.failure("Không thể hoàn tất xuất kho tự động cho đơn bán lẻ.");
+                    }
+                }
+            }
+        }
+
         boolean updated = outboundDAO.updateStatus(outboundId, newStatus.trim().toUpperCase());
         if (!updated) {
             log.error("Outbound status update failed: DAO returned false outboundId={} status={}", outboundId, newStatus);
@@ -76,6 +102,56 @@ public class OutboundService {
         }
         log.info("Outbound status updated: outboundId={} status={}", outboundId, newStatus);
         return StatusUpdateResult.success("Cập nhật trạng thái phiếu xuất thành '" + newStatus + "' thành công!");
+    }
+
+    public boolean isOmnichannelOutbound(int outboundId) {
+        String sql = 
+            "SELECT c.channel_name, o.channel, o.note, o.tracking_no " +
+            "FROM outbound_orders oo " +
+            "LEFT JOIN orders o ON oo.order_id = o.order_id " +
+            "LEFT JOIN channels c ON o.channel_id = c.channel_id " +
+            "WHERE oo.outbound_id = ?";
+        try (Connection conn = DBConnection.getConnection();
+             PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setInt(1, outboundId);
+            try (ResultSet rs = ps.executeQuery()) {
+                if (rs.next()) {
+                    String channelName = rs.getString("channel_name");
+                    String rawChannel = rs.getString("channel");
+                    String note = rs.getString("note");
+                    String trackingNo = rs.getString("tracking_no");
+                    
+                    if (channelName == null) {
+                        channelName = "Khách mua lẻ";
+                    }
+                    String lowerName = channelName.toLowerCase();
+                    if (lowerName.contains("shopee") || lowerName.contains("tiktok") || 
+                        lowerName.contains("lazada") || lowerName.contains("website") || 
+                        lowerName.contains("online") || lowerName.contains("khách mua lẻ") || 
+                        lowerName.contains("retail")) {
+                        return true;
+                    }
+                    if (rawChannel != null) {
+                        String lowerRaw = rawChannel.toLowerCase();
+                        if (lowerRaw.contains("shopee") || lowerRaw.contains("tiktok") || 
+                            lowerRaw.contains("lazada") || lowerRaw.contains("website") || 
+                            lowerRaw.contains("online") || lowerRaw.contains("retail")) {
+                            return true;
+                        }
+                    }
+                    if (note != null) {
+                        String lowerNote = note.toLowerCase();
+                        if (lowerNote.contains("shopee") || lowerNote.contains("tiktok") || 
+                            lowerNote.contains("lazada") || lowerNote.contains("website")) {
+                            return true;
+                        }
+                    }
+                }
+            }
+        } catch (Exception e) {
+            log.warn("Failed to check if outbound is omnichannel: {}", e.getMessage());
+        }
+        return false;
     }
 
     public CancelResult cancel(int outboundId) {

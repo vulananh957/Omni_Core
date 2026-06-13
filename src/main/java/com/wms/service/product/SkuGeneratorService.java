@@ -42,7 +42,7 @@ public class SkuGeneratorService {
      * @throws IllegalArgumentException if category not found or invalid.
      */
     public String generateNextSku(int categoryId) throws SQLException {
-        Category category = categoryDAO.findById(categoryId);
+        Category category = categoryDAO.findByIdWithParent(categoryId);
         if (category == null) {
             throw new IllegalArgumentException("Danh muc khong ton tai.");
         }
@@ -55,14 +55,18 @@ public class SkuGeneratorService {
             throw new IllegalArgumentException("Ma danh muc khong hop le.");
         }
 
-        String dateStr = LocalDateTime.now().format(DATE_FMT);
-        int nextSeq = productDAO.getNextDailySequence(categoryId, dateStr);
+        String parentCode = category.getParentCode();
+        String prefix = (parentCode != null && !parentCode.isEmpty())
+                ? (parentCode + "-" + categoryCode)
+                : categoryCode;
+
+        int nextSeq = productDAO.getNextSequence(categoryId, prefix);
         
         if (nextSeq > 999) {
-            throw new IllegalStateException("Da vuot qua gioi han 999 san pham/ngay cho danh muc nay.");
+            throw new IllegalStateException("Da vuot qua gioi han 999 san pham cho danh muc nay.");
         }
 
-        return String.format("%s-%s-%03d", categoryCode, dateStr, nextSeq);
+        return String.format("%s-%03d", prefix, nextSeq);
     }
 
     /**
@@ -73,8 +77,8 @@ public class SkuGeneratorService {
      */
     public boolean isValidSkuFormat(String sku) {
         if (sku == null || sku.isEmpty()) return false;
-        // Format: EYE-20250611-001
-        return sku.matches("^[A-Z0-9]{3,4}-\\d{8}-\\d{3}$");
+        // Format: EYE-001 or EYE-CON-001
+        return sku.matches("^[A-Z0-9]{3,4}(-[A-Z0-9]{3,4})?-\\d{3}$");
     }
 
     /**
@@ -85,7 +89,12 @@ public class SkuGeneratorService {
      */
     public String extractCategoryCode(String sku) {
         if (!isValidSkuFormat(sku)) return null;
-        return sku.split("-")[0];
+        String[] parts = sku.split("-");
+        if (parts.length == 3) {
+            return parts[1]; // Mã con is the second part (e.g. EYE-CON-001 -> CON)
+        } else {
+            return parts[0]; // Mã con is the first part (e.g. EYE-001 -> EYE)
+        }
     }
 
     /**

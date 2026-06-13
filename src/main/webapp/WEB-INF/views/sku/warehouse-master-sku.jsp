@@ -1,6 +1,16 @@
 <%@ page language="java" contentType="text/html; charset=UTF-8" pageEncoding="UTF-8" %>
 <%@ taglib prefix="c" uri="jakarta.tags.core" %>
 <%@ taglib prefix="fn" uri="jakarta.tags.functions" %>
+<%@ page import="com.wms.model.Product" %>
+<%@ page import="java.util.List" %>
+<%@ page import="com.wms.util.JsonUtil" %>
+<%
+    List<Product> products = (List<Product>) request.getAttribute("products");
+    if (products == null) products = java.util.Collections.emptyList();
+
+    String productsJson = JsonUtil.toJson(products);
+    request.setAttribute("productsJson", productsJson);
+%>
 
 <style>
     /* ─── Metric & Grid Layouts ─── */
@@ -667,10 +677,174 @@
         font-size: 12.5px;
         color: var(--navy);
     }
+
+    /* Multi-Location Matrix inside body */
+    .matrix-title {
+        color: var(--navy);
+        font-weight: 700;
+        font-size: 13px;
+    }
+    .matrix-desc {
+        color: rgba(16, 55, 92, 0.40);
+        font-size: 12px;
+        margin-top: 2px;
+    }
+    .matrix-headers {
+        display: grid;
+        grid-template-columns: 1fr 1fr auto;
+        gap: 12px;
+        font-size: 10px;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        color: rgba(16, 55, 92, 0.40);
+        padding: 0 4px;
+        margin-top: 16px;
+    }
+    .matrix-headers-col {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+    }
+    .matrix-headers-col svg {
+        width: 12px;
+        height: 12px;
+    }
+
+    .matrix-rows-container {
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+        margin-top: 8px;
+    }
+    .matrix-row {
+        display: grid;
+        grid-template-columns: 1fr 1fr auto;
+        gap: 12px;
+        align-items: start;
+        padding: 12px;
+        border-radius: 8px;
+        border: 1px solid var(--border);
+        background: rgba(240, 244, 250, 0.4);
+        transition: border-color 0.15s, background-color 0.15s;
+    }
+    .matrix-row.duplicate {
+        border-color: rgba(239, 68, 68, 0.3);
+        background-color: #fef2f2;
+    }
+    .matrix-row-select-wrap {
+        position: relative;
+    }
+    .matrix-row-select-wrap svg.prefix-icon {
+        position: absolute;
+        left: 12px;
+        top: 50%;
+        transform: translateY(-50%);
+        width: 14px;
+        height: 14px;
+        color: rgba(16, 55, 92, 0.30);
+        pointer-events: none;
+    }
+    .matrix-row-select-wrap select {
+        width: 100%;
+        appearance: none;
+        padding: 8px 32px 8px 34px;
+        background: #fff;
+        border: 1px solid #D8E1F0;
+        border-radius: calc(var(--radius-btn) - 2px);
+        font-size: 13px;
+        outline: none;
+        color: var(--navy);
+        cursor: pointer;
+        transition: border-color 0.15s;
+    }
+    .matrix-row-select-wrap select:focus {
+        border-color: rgba(16, 55, 92, 0.40);
+    }
+    .matrix-row-select-wrap select:disabled {
+        background: var(--alice);
+        color: rgba(16, 55, 92, 0.3);
+        cursor: not-allowed;
+        border-color: var(--border);
+    }
+    .matrix-row-select-wrap svg.suffix-icon {
+        position: absolute;
+        right: 10px;
+        top: 50%;
+        transform: translateY(-50%);
+        width: 14px;
+        height: 14px;
+        color: rgba(16, 55, 92, 0.30);
+        pointer-events: none;
+    }
+    .matrix-row.duplicate select {
+        border-color: #ef4444;
+        background-color: #fef2f2;
+        color: #b91c1c;
+    }
+    .matrix-row-err {
+        color: #ef4444;
+        font-size: 10px;
+        margin-top: 4px;
+        padding-left: 4px;
+    }
+
+    .btn-row-delete {
+        width: 32px;
+        height: 36px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border: none;
+        border-radius: 4px;
+        cursor: pointer;
+        transition: background 0.15s, color 0.15s;
+        background: none;
+        color: rgba(239, 68, 68, 0.50);
+    }
+    .btn-row-delete:hover:not(:disabled) {
+        background: #fef2f2;
+        color: #ef4444;
+    }
+    .btn-row-delete:disabled {
+        color: rgba(16, 55, 92, 0.15);
+        cursor: not-allowed;
+    }
+    .btn-row-delete svg {
+        width: 14px;
+        height: 14px;
+    }
+
+    .btn-add-row {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+        padding: 10px 16px;
+        font-size: 13px;
+        font-weight: 600;
+        background: #fff;
+        color: rgba(16, 55, 92, 0.60);
+        border: 1px dashed #C8D3E8;
+        border-radius: calc(var(--radius-btn) - 2px);
+        width: 100%;
+        cursor: pointer;
+        transition: all 0.15s ease;
+        margin-top: 12px;
+    }
+    .btn-add-row:hover {
+        color: var(--navy);
+        border-color: rgba(16, 55, 92, 0.40);
+        background: var(--alice);
+    }
+    .btn-add-row svg {
+        width: 16px;
+        height: 16px;
+    }
 </style>
 
 <!-- ══ STATS SECTION ═════════════════════════════════════════ -->
-<div class="stats-grid-4">
+<div class="stats-grid-3">
     <!-- Card: Total Products -->
     <div class="sku-card card-navy">
         <div class="sku-card__icon">
@@ -679,17 +853,6 @@
         <div class="sku-card__info">
             <div class="sku-card__lbl">Sản phẩm trong kho</div>
             <div class="sku-card__val" id="stat-total-skus">0</div>
-        </div>
-    </div>
-
-    <!-- Card: Total Physical Qty -->
-    <div class="sku-card card-orange">
-        <div class="sku-card__icon">
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path><polyline points="7.5 4.21 12 6.81 16.5 4.21"></polyline><polyline points="7.5 19.79 7.5 14.6 3.27 12.15"></polyline><polyline points="16.5 19.79 16.5 14.6 20.73 12.15"></polyline><polyline points="12 12.01 12 17.2 16.23 14.66"></polyline><polyline points="12 12.01 12 17.2 7.77 14.66"></polyline><polyline points="12 12.01 7.5 9.4 3.27 12.15"></polyline><polyline points="12 12.01 16.5 9.4 20.73 12.15"></polyline></svg>
-        </div>
-        <div class="sku-card__info">
-            <div class="sku-card__lbl">Tổng tồn kho khả dụng</div>
-            <div class="sku-card__val" id="stat-total-qty">0</div>
         </div>
     </div>
 
@@ -704,49 +867,14 @@
         </div>
     </div>
 
-    <!-- Card: Pending -->
-    <div class="sku-card card-yellow">
-        <div class="sku-card__icon">
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
-        </div>
-        <div class="sku-card__info">
-            <div class="sku-card__lbl">Chờ duyệt</div>
-            <div class="sku-card__val" id="stat-pending-skus">0</div>
-        </div>
-    </div>
-</div>
-
-<div class="stats-grid-3">
     <!-- Card: Low Stock -->
-    <div class="sku-card card-yellow">
+    <div class="sku-card card-red">
         <div class="sku-card__icon">
             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path><line x1="12" y1="9" x2="12" y2="13"></line><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>
         </div>
         <div class="sku-card__info">
             <div class="sku-card__lbl">Sắp hết hàng</div>
-            <div class="sku-card__val" id="stat-low-stock">0</div>
-        </div>
-    </div>
-
-    <!-- Card: Inactive -->
-    <div class="sku-card card-red">
-        <div class="sku-card__icon">
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
-        </div>
-        <div class="sku-card__info">
-            <div class="sku-card__lbl">Tạm ngưng</div>
-            <div class="sku-card__val" id="stat-inactive-skus">0</div>
-        </div>
-    </div>
-
-    <!-- Card: Fill Rate -->
-    <div class="sku-card card-navy">
-        <div class="sku-card__icon">
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 6l-9.5 9.5-5-5L1 18"></path><polyline points="17 6 23 6 23 12"></polyline></svg>
-        </div>
-        <div class="sku-card__info">
-            <div class="sku-card__lbl">Tỷ lệ lấp đầy</div>
-            <div class="sku-card__val" id="stat-fill-rate">0%</div>
+            <div class="sku-card__val" id="stat-low-stock-skus">0</div>
         </div>
     </div>
 </div>
@@ -769,31 +897,22 @@
         </select>
         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></svg>
     </div>
-    
-    <button class="btn-toolbar" id="btnFilterTrigger">
-        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"></polygon></svg>
-        Bộ lọc
-    </button>
-    <button class="btn-toolbar" id="btnExportCSV">
-        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
-        Xuất CSV
-    </button>
 
-    <!-- Warehouse filter -->
+    <!-- Zone Status Filter -->
     <div class="select-wrap">
-        <select id="skuWarehouseFilter">
-            <option value="">Tat ca kho</option>
-            <c:forEach var="w" items="${warehouses}">
-                <option value="${w.warehouseId}"><c:out value="${w.warehouseName}"/></option>
-            </c:forEach>
+        <select id="skuZoneStatusSelect">
+            <option value="all">Tất cả trạng thái Zone</option>
+            <option value="unassigned">Chưa gán Zone</option>
+            <option value="assigned">Đã gán Zone</option>
         </select>
         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></svg>
     </div>
-
-    <button class="btn-add-sku" id="btnCreateSKUTrigger">
-        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
-        Thêm SKU mới
-    </button>
+    
+    <!-- Fixed warehouse label -->
+    <div id="myWarehouseLabel" style="margin-left: auto; display: flex; align-items: center; gap: 8px; padding: 8px 14px; background: rgba(16,55,92,0.05); border: 1px solid rgba(16,55,92,0.12); border-radius: calc(var(--radius-btn) - 2px); font-size: 13px; font-weight: 600; color: var(--navy);">
+        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+        <span id="myWarehouseName">Kho của bạn</span>
+    </div>
 </div>
 
 <!-- ══ TABLE SECTION ═════════════════════════════════════════ -->
@@ -802,14 +921,12 @@
         <table class="sku-table">
             <thead>
                 <tr>
-                    <th style="width: 140px;">SKU</th>
-                    <th style="width: 220px;">Tên sản phẩm</th>
-                    <th style="width: 180px;">Vị trí lưu trữ</th>
-                    <th style="width: 120px;">Trạng thái</th>
-                    <th style="width: 120px; text-align: right;">Tồn kho</th>
-                    <th style="width: 140px; text-align: right;">Định mức (Min/Max)</th>
-                    <th style="width: 185px;">Thông tin</th>
-                    <th style="width: 100px; text-align: right;">Thao tác</th>
+                    <th style="width: 280px;">Sản phẩm (SKU & Tên)</th>
+                    <th style="width: 130px;">Danh mục</th>
+                    <th style="width: 150px; text-align: center;">Quy cách vật lý</th>
+                    <th style="width: 180px;">Khu vực cất hàng (Zone)</th>
+                    <th style="width: 110px; text-align: right;">Định mức (Min/Max)</th>
+                    <th style="width: 150px; text-align: center;">Thao tác</th>
                 </tr>
             </thead>
             <tbody id="skuTableBody"></tbody>
@@ -818,114 +935,60 @@
     
     <div class="table-footer">
         <span class="table-footer__info" id="skuTableInfo">Hiển thị 0 / 0 SKU</span>
+        <span style="margin-right:auto; margin-left:12px; font-size:11px; color:rgba(16,55,92,0.4); font-style:italic;">Danh sách chỉ đọc · Liên hệ Manager để chỉnh sửa thông tin sản phẩm</span>
         <div class="pagination" id="skuPagination"></div>
     </div>
 </div>
 
-<!-- ══ CREATE MODAL ══════════════════════════════════════════ -->
-<div class="modal-overlay" id="createModalOverlay">
+<!-- ══ ZONE CONFIG MODAL (for Warehouse Staff) ═════════════════ -->
+<div class="modal-overlay" id="configModalOverlay">
     <div class="modal-box">
         <div class="modal-hdr">
             <div>
-                <h2 class="modal-title">Tạo SKU mới</h2>
-                <p class="modal-subtitle">Nhân viên kho tạo sản phẩm mới (chờ phê duyệt từ Quản lý kinh doanh)</p>
+                <h2 class="modal-title">Cấu hình lưu trữ</h2>
+                <p class="modal-subtitle" id="config-sku-label">SKU-XXXX</p>
             </div>
-            <button class="modal-close" id="createModalClose">&times;</button>
+            <button class="modal-close" id="configModalClose">&times;</button>
         </div>
         <div class="modal-body">
-            <div class="form-group">
-                <label class="form-label" for="create-sku">Mã SKU *</label>
-                <div style="display: flex; gap: 8px; align-items: stretch;">
-                    <input class="form-input" type="text" id="create-sku" placeholder="VD: EYE-20250611-001" style="flex: 1;"/>
-                    <button type="button" class="btn-toolbar" id="btnAutoGenSku" title="Tu dong tao SKU" style="white-space: nowrap; padding: 0 12px;">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 3 21 3 21 8"/><line x1="4" y1="20" x2="21" y2="3"/><polyline points="21 16 21 21 16 21"/><line x1="15" y1="15" x2="21" y2="21"/><line x1="4" y1="4" x2="9" y2="9"/></svg>
-                        Auto
-                    </button>
-                </div>
-                <input type="hidden" id="create-category-id" value=""/>
+            <input type="hidden" id="config-product-id"/>
+
+            <!-- Locked warehouse badge -->
+            <div style="display:flex; align-items:center; gap:8px; padding:10px 14px; background:rgba(16,55,92,0.04); border:1px solid rgba(16,55,92,0.12); border-radius:6px; margin-bottom:4px;">
+                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="rgba(16,55,92,0.5)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+                <span style="font-size:12px; color:rgba(16,55,92,0.6);">
+                    Áp dụng cho kho: <strong id="config-warehouse-name" style="color:var(--navy);">—</strong>
+                </span>
             </div>
+
             <div class="form-group">
-                <label class="form-label" for="create-name">Tên sản phẩm *</label>
-                <input class="form-input" type="text" id="create-name" placeholder="Ví dụ: Lược chải tóc gỡ rối - Màu hồng"/>
+                <label class="form-label" for="config-zone-select">Khu vực cất hàng (Zone)</label>
+                <select id="config-zone-select" class="form-input" style="appearance:none; padding:10px 14px;">
+                    <option value="">— Chọn khu vực trong kho —</option>
+                </select>
+                <span style="font-size:11px; color:rgba(16,55,92,0.4);">Chọn Zone nơi mã hàng này sẽ được lưu trữ tại kho của bạn</span>
             </div>
-            <div class="form-group">
-                <label class="form-label" style="margin-bottom: 2px;">Danh mục hàng hóa * (Chọn trực tiếp từ sơ đồ cây bên dưới)</label>
-                <input type="text" class="form-input" id="selectedCategoryDisplay" readonly placeholder="Nhấp chọn danh mục từ sơ đồ cây..." style="cursor: default; font-weight: 600; background: #fff; border-color: var(--border);"/>
-                <input type="hidden" id="create-category" value=""/>
-                <div class="category-tree-picker-box" id="categoryTreePicker"></div>
-            </div>
+
             <div class="form-grid">
                 <div class="form-group">
-                    <label class="form-label" for="create-dimensions">Kích thước (D×R×C) cm</label>
-                    <input class="form-input" type="text" id="create-dimensions" placeholder="VD: 20×14×1.5"/>
+                    <label class="form-label" for="config-min">Tồn tối thiểu (Min)</label>
+                    <input class="form-input" type="number" id="config-min" min="0" placeholder="VD: 10"/>
+                    <span style="font-size:11px; color:rgba(16,55,92,0.4);">Báo động khi tổng tồn kho xuống dưới mức này</span>
                 </div>
                 <div class="form-group">
-                    <label class="form-label" for="create-weight">Khối lượng (kg)</label>
-                    <input class="form-input" type="text" id="create-weight" placeholder="VD: 0.28"/>
-                </div>
-            </div>
-            <div class="form-grid">
-                <div class="form-group">
-                    <label class="form-label" for="create-min">Tồn tối thiểu</label>
-                    <input class="form-input" type="number" id="create-min" value="50"/>
-                </div>
-                <div class="form-group">
-                    <label class="form-label" for="create-max">Tồn tối đa</label>
-                    <input class="form-input" type="number" id="create-max" value="500"/>
+                    <label class="form-label" for="config-max">Tồn tối đa (Max)</label>
+                    <input class="form-input" type="number" id="config-max" min="0" placeholder="VD: 200"/>
+                    <span style="font-size:11px; color:rgba(16,55,92,0.4);">Ngưỡng tối đa cho phép tại kho này</span>
                 </div>
             </div>
             
             <div class="modal-note">
-                <strong>Lưu ý:</strong> SKU sẽ được tạo ở trạng thái <strong>Chờ duyệt</strong>. Quản lý kinh doanh sẽ gán khu vực và vị trí lưu trữ trong quá trình phê duyệt.
+                Cấu hình này chỉ áp dụng cho <strong>kho của bạn</strong>. Không ảnh hưởng đến các chi nhánh kho khác.
             </div>
         </div>
         <div class="modal-ftr">
-            <button class="btn-toolbar" id="createModalCancel">Hủy</button>
-            <button class="btn-add-sku" id="btnCreateSKUSubmit">Tạo SKU</button>
-        </div>
-    </div>
-</div>
-
-<!-- ══ EDIT MODAL ════════════════════════════════════════════ -->
-<div class="modal-overlay" id="editModalOverlay">
-    <div class="modal-box">
-        <div class="modal-hdr">
-            <div>
-                <h2 class="modal-title">Chỉnh sửa SKU</h2>
-                <p class="modal-subtitle" id="edit-sku-code-label">SKU-XXXX</p>
-            </div>
-            <button class="modal-close" id="editModalClose">&times;</button>
-        </div>
-        <div class="modal-body">
-            <input type="hidden" id="edit-id"/>
-            <div class="form-group">
-                <label class="form-label" for="edit-name">Tên sản phẩm</label>
-                <input class="form-input" type="text" id="edit-name"/>
-            </div>
-            <div class="form-grid">
-                <div class="form-group">
-                    <label class="form-label" for="edit-dimensions">Kích thước (D×R×C)</label>
-                    <input class="form-input" type="text" id="edit-dimensions"/>
-                </div>
-                <div class="form-group">
-                    <label class="form-label" for="edit-weight">Khối lượng (kg)</label>
-                    <input class="form-input" type="text" id="edit-weight"/>
-                </div>
-            </div>
-            <div class="form-grid">
-                <div class="form-group">
-                    <label class="form-label" for="edit-min">Tồn tối thiểu</label>
-                    <input class="form-input" type="number" id="edit-min"/>
-                </div>
-                <div class="form-group">
-                    <label class="form-label" for="edit-max">Tồn tối đa</label>
-                    <input class="form-input" type="number" id="edit-max"/>
-                </div>
-            </div>
-        </div>
-        <div class="modal-ftr">
-            <button class="btn-toolbar" id="editModalCancel">Hủy</button>
-            <button class="btn-add-sku" id="btnEditSKUSubmit">Lưu thay đổi</button>
+            <button class="btn-toolbar" id="configModalCancel">Hủy</button>
+            <button class="btn-add-sku" id="btnConfigSubmit">Lưu cấu hình</button>
         </div>
     </div>
 </div>
@@ -1006,6 +1069,11 @@
     </div>
 </div>
 
+<div id="productsJsonData" style="display:none;"><c:out value="${productsJson}"/></div>
+<div id="warehousesJsonData" style="display:none;"><c:out value="${warehousesJson}"/></div>
+<div id="zonesJsonData" style="display:none;"><c:out value="${zonesJson}"/></div>
+<div id="categoriesJsonData" style="display:none;"><c:out value="${categoriesJson}"/></div>
+
 <!-- ══ SKU JAVASCRIPT STATE & LOGIC ══════════════════════════ -->
 <script>
 // Expose JSTL session user details to client-side
@@ -1039,46 +1107,18 @@ function submitPostAction(action, params) {
     form.submit();
 }
 
+
 (function () {
 'use strict';
 
-// Bind server-side product data if available from servlet
-var SERVER_PRODUCTS = [];
+/* ─── Data from server ─────────────────────────────────────── */
+var skus = [];
 try {
-    var rawJson = '<c:out value="${productsJson}" escapeXml="false"/>';
-    if (rawJson && rawJson.trim() && rawJson.indexOf('productsJson') === -1) {
-        SERVER_PRODUCTS = JSON.parse(rawJson);
-    }
-} catch (e) {
-    console.warn('warehouse-master-sku: No server product data, using localStorage fallback');
-}
-
-// LocalStorage fallback
-var savedSKUs = localStorage.getItem('wms_skus');
-var localSKUs = savedSKUs ? JSON.parse(savedSKUs) : [];
-
-// Always prefer server data when present; clear stale client cache for this page
-if (SERVER_PRODUCTS.length > 0 && savedSKUs) {
-    localStorage.removeItem('wms_skus');
-    localSKUs = [];
-}
-
-// Merge: server data takes priority if available
-var skus = (SERVER_PRODUCTS.length > 0) ? SERVER_PRODUCTS.map(function(p) {
-    var qtyOnHand = Number(p.qtyOnHand || 0);
-    var minStock = Number(p.minStock || 0);
-    var maxStock = Number(p.maxStock || 0);
-    var approvalStatus = p.status === 'APPROVED' ? 'approved' : p.status === 'REJECTED' ? 'rejected' : 'pending';
-    var stockStatus = 'inactive';
-
-    if (approvalStatus === 'approved') {
-        if (qtyOnHand <= minStock) {
-            stockStatus = 'low_stock';
-        } else {
-            stockStatus = 'active';
-        }
-    }
-
+    var rawJsonEl = document.getElementById('productsJsonData');
+    var rawJson = rawJsonEl ? rawJsonEl.textContent : '';
+    if (rawJson && rawJson.trim()) {
+        var SERVER_PRODUCTS = JSON.parse(rawJson);
+        skus = SERVER_PRODUCTS.map(function(p) {
     return {
         id: 'p-' + p.productId,
         sku: p.skuCode || '',
@@ -1086,458 +1126,210 @@ var skus = (SERVER_PRODUCTS.length > 0) ? SERVER_PRODUCTS.map(function(p) {
         category: p.categoryName || '',
         dimensions: p.attributesText || 'N/A',
         weight: p.weightKg ? p.weightKg + ' kg' : 'N/A',
-        qtyOnHand: qtyOnHand,
-        minStock: minStock,
-        maxStock: maxStock,
-        status: stockStatus,
-        approvalStatus: approvalStatus,
+                qtyOnHand: Number(p.qtyOnHand || 0),
+                minStock: Number(p.minStock || 0),
+                maxStock: Number(p.maxStock || 0),
         locationConfigs: p.locationConfigs || [],
-        createdBy: p.creatorName || p.createdBy || '',
+                approvalStatus: p.approvalStatus || 'pending',
+                createdBy: p.creatorName || '',
         createdAt: p.createdAt || '',
-        updatedBy: p.approverName || p.updatedBy || '',
+                updatedBy: p.approverName || '',
         lastUpdated: p.updatedAt || ''
     };
-}) : localSKUs;
-
-/* ─── State ──────────────────────────────────────────────── */
-var selectedWarehouse = '';
+        });
+    }
+} catch (e) {
+    console.warn('warehouse-master-sku: No server product data');
+}
 
 var LOCATIONS = [];
 try {
-    var rawWarehousesJson = '<c:out value="${warehousesJson}" escapeXml="false"/>';
-    if (rawWarehousesJson && rawWarehousesJson.trim() && rawWarehousesJson.indexOf('warehousesJson') === -1) {
-        var parsedWarehouses = JSON.parse(rawWarehousesJson);
-        LOCATIONS = parsedWarehouses.map(function(w) {
-            return {
-                id: 'loc-' + w.warehouseId,
-                name: w.warehouseName,
-                code: w.warehouseCode,
-                city: w.address
-            };
+    var rawWarehousesJsonEl = document.getElementById('warehousesJsonData');
+    var rawWarehousesJson = rawWarehousesJsonEl ? rawWarehousesJsonEl.textContent : '';
+    if (rawWarehousesJson && rawWarehousesJson.trim()) {
+        LOCATIONS = JSON.parse(rawWarehousesJson).map(function(w) {
+            return { id: w.warehouseId.toString(), name: w.warehouseName, code: w.warehouseCode };
         });
     }
-} catch (e) {
-    LOCATIONS = [];
-}
+} catch (e) { LOCATIONS = []; }
 
 var ZONES = [];
 try {
-    var rawZonesJson = '<c:out value="${zonesJson}" escapeXml="false"/>';
-    if (rawZonesJson && rawZonesJson.trim() && rawZonesJson.indexOf('zonesJson') === -1) {
-        var parsedZones = JSON.parse(rawZonesJson);
-        ZONES = parsedZones.map(function(z) {
+    var rawZonesJsonEl = document.getElementById('zonesJsonData');
+    var rawZonesJson = rawZonesJsonEl ? rawZonesJsonEl.textContent : '';
+    if (rawZonesJson && rawZonesJson.trim()) {
+        ZONES = JSON.parse(rawZonesJson).map(function(z) {
             return {
-                id: 'z-' + z.zoneId,
-                locationId: 'loc-' + z.warehouseId,
+                id: z.zoneId.toString(),
+                locationId: z.warehouseId.toString(),
                 code: z.zoneCode,
                 name: z.zoneName,
-                zoneType: z.zoneType,
-                allowForNew: z.zoneType === 'NORMAL' || z.zoneType === 'RETURN'
+                zoneType: z.zoneType
             };
         });
     }
-} catch (e) {
-    ZONES = [];
-}
+} catch (e) { ZONES = []; }
 
 var DB_CATEGORIES = [];
 try {
-    var rawCategoriesJson = '<c:out value="${categoriesJson}" escapeXml="false"/>';
-    if (rawCategoriesJson && rawCategoriesJson.trim() && rawCategoriesJson.indexOf('categoriesJson') === -1) {
-        DB_CATEGORIES = JSON.parse(rawCategoriesJson);
+    var rawCategoriesJsonEl = document.getElementById('categoriesJsonData');
+    var rawCategoriesJson = rawCategoriesJsonEl ? rawCategoriesJsonEl.textContent : '';
+    if (rawCategoriesJson && rawCategoriesJson.trim()) {
+        DB_CATEGORIES = JSON.parse(rawCategoriesJson).map(function(c) {
+            return { categoryId: c.id, categoryName: c.name, parentId: c.parentId };
+        });
     }
-} catch (e) {
-    console.warn('warehouse-master-sku: Failed to parse categoriesJson', e);
+} catch (e) {}
+
+/* ─── Helpers ─────────────────────────────────────────────── */
+function escapeHtml(str) {
+    if (!str) return '';
+    return str.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;").replace(/'/g,"&#039;");
 }
 
 function buildCategoryTreeOptions(categories, isFilter) {
     var html = isFilter ? '<option value="Tất cả">Tất cả</option>' : '';
-    
     function recurse(parentId, prefix) {
-        var levelNodes = categories.filter(function(c) {
-            var nodeParentId = c.parentId;
-            if (parentId === null) {
-                return nodeParentId === null || nodeParentId === 0 || nodeParentId === 'null';
-            }
-            return nodeParentId == parentId;
-        });
-        
-        levelNodes.forEach(function(node) {
+        categories.filter(function(c) {
+            var p = c.parentId;
+            return (parentId === null) ? (p === null || p === 0 || p === 'null') : (p == parentId);
+        }).forEach(function(node) {
             html += '<option value="' + escapeHtml(node.categoryName) + '">' + prefix + escapeHtml(node.categoryName) + '</option>';
-            recurse(node.categoryId, prefix + '    ');
+            recurse(node.categoryId, prefix + '    ');
         });
     }
-    
     recurse(null, '');
     return html;
 }
 
-function escapeHtml(str) {
-    if (!str) return '';
-    return str
-        .replace(/&/g, "&amp;")
-        .replace(/</g, "&lt;")
-        .replace(/>/g, "&gt;")
-        .replace(/"/g, "&quot;")
-        .replace(/'/g, "&#039;");
-}
+function padZero(n) { return n < 10 ? '0' + n : n; }
 
-var selectedPickerCategory = '';
-var expandedPickerNodes = {};
-
-function renderPickerTree() {
-    var pickerContainer = document.getElementById('categoryTreePicker');
-    if (!pickerContainer) return;
-
-    var roots = DB_CATEGORIES.filter(function (c) {
-        return c.parentId === null || c.parentId === 0 || c.parentId === 'null';
-    });
-
-    if (roots.length === 0) {
-        pickerContainer.innerHTML = '<div style="color: rgba(16, 55, 92, 0.4); text-align: center; padding: 24px;">Chưa có danh mục nào.</div>';
-        return;
-    }
-
-    function buildPickerNodeHtml(node, level) {
-        var children = DB_CATEGORIES.filter(function (c) { return c.parentId === node.categoryId; });
-        var hasChildren = children.length > 0;
-        
-        if (expandedPickerNodes[node.categoryId] === undefined) {
-            expandedPickerNodes[node.categoryId] = true; 
-        }
-        var isExpanded = !!expandedPickerNodes[node.categoryId];
-
-        var toggleBtn = '';
-        if (hasChildren) {
-            var chevronSvg = isExpanded ?
-                '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;"><polyline points="6 9 12 15 18 9"/></svg>' :
-                '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;"><polyline points="9 18 15 12 9 6"/></svg>';
-            toggleBtn = '<button class="btn-toggle-chevron" type="button" onclick="window.togglePickerNode(' + node.categoryId + ', event)">' + chevronSvg + '</button>';
-        } else {
-            toggleBtn = '<div class="bullet-dot"><span></span></div>';
-        }
-
-        var folderSvg = '';
-        var color = (level === 1) ? 'var(--orange)' : '#EB8317';
-        if (level >= 3) {
-            folderSvg = '<svg class="folder-icon level-3" style="color: rgba(16, 55, 92, 0.40); width:14px;height:14px;" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>';
-        } else if (hasChildren && isExpanded) {
-            folderSvg = '<svg class="folder-icon level-' + level + '" style="color: ' + color + '; width:14px;height:14px;" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/><path d="M2 10h20"/></svg>';
-        } else {
-            folderSvg = '<svg class="folder-icon level-' + level + '" style="color: ' + color + '; width:14px;height:14px;" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>';
-        }
-
-        var isSelected = selectedPickerCategory === node.categoryName;
-        var rowClass = isSelected ? 'tree-row selected' : 'tree-row';
-        if (level === 1) rowClass += ' root-row';
-
-        var checkmarkHtml = isSelected ? 
-            '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="#059669" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;margin-left:auto;"><polyline points="20 6 9 17 4 12"/></svg>' : '';
-
-        var childrenHtml = '';
-        if (isExpanded && hasChildren) {
-            childrenHtml = '<div class="tree-children-container">' + 
-                children.map(function (c) { return buildPickerNodeHtml(c, level + 1); }).join('') + 
-                '</div>';
-        }
-
-        return '<div class="tree-node-wrapper">' +
-            '<div class="' + rowClass + '" onclick="window.selectPickerCategory(\'' + escapeHtml(node.categoryName) + '\')">' +
-            toggleBtn +
-            folderSvg +
-            '<span class="node-name">' + escapeHtml(node.categoryName) + '</span>' +
-            checkmarkHtml +
-            '</div>' +
-            childrenHtml +
-            '</div>';
-    }
-
-    pickerContainer.innerHTML = roots.map(function (root) {
-        return buildPickerNodeHtml(root, 1);
-    }).join('');
-}
-
-window.togglePickerNode = function (nodeId, event) {
-    if (event) event.stopPropagation();
-    expandedPickerNodes[nodeId] = !expandedPickerNodes[nodeId];
-    renderPickerTree();
-};
-
-window.selectPickerCategory = function (categoryName) {
-    selectedPickerCategory = categoryName;
-    var selectText = document.getElementById('selectedCategoryDisplay');
-    if (selectText) {
-        selectText.value = categoryName;
-    }
-    var hiddenInput = document.getElementById('create-category');
-    if (hiddenInput) {
-        hiddenInput.value = categoryName;
-    }
-    // Also set hidden category ID for SKU generation
-    var catIdInput = document.getElementById('create-category-id');
-    if (catIdInput) {
-        var catObj = DB_CATEGORIES.find(function(c) { return c.categoryName === categoryName; });
-        catIdInput.value = catObj ? catObj.categoryId : '';
-    }
-    renderPickerTree();
-};
-
-
+/* ─── State ──────────────────────────────────────────────── */
 var search = '';
 var selectedCategory = 'Tất cả';
 var currentPage = 1;
-var pageSize = 15;
+var pageSize = 20;
 
-/* ─── DOM Elements ───────────────────────────────────────── */
-var tableBody   = document.getElementById('skuTableBody');
-var tableInfo   = document.getElementById('skuTableInfo');
-var pagination  = document.getElementById('skuPagination');
-
-var searchInput = document.getElementById('skuSearchInput');
-var catSelect   = document.getElementById('skuCategorySelect');
-
-/* Create Modal Elements */
-var createOverlay = document.getElementById('createModalOverlay');
-var btnCreateTrigger = document.getElementById('btnCreateSKUTrigger');
-var btnCreateClose   = document.getElementById('createModalClose');
-var btnCreateCancel  = document.getElementById('createModalCancel');
-var btnCreateSubmit  = document.getElementById('btnCreateSKUSubmit');
-
-var createSkuInput  = document.getElementById('create-sku');
-var createNameInput = document.getElementById('create-name');
-var createCatInput  = document.getElementById('create-category');
-var createDimInput  = document.getElementById('create-dimensions');
-var createWgtInput  = document.getElementById('create-weight');
-var createMinInput  = document.getElementById('create-min');
-var createMaxInput  = document.getElementById('create-max');
-
+/* ─── Init: set warehouse label ─ */
+(function initMyWarehouse() {
+    var label = document.getElementById('myWarehouseName');
+    if (label && LOCATIONS.length > 0) {
+        label.textContent = LOCATIONS[0].name;
+    }
 if (catSelect && DB_CATEGORIES.length > 0) {
     catSelect.innerHTML = buildCategoryTreeOptions(DB_CATEGORIES, true);
 }
-if (createCatInput && DB_CATEGORIES.length > 0) {
-    renderPickerTree();
-}
+})();
 
-/* Edit Modal Elements */
-var editOverlay   = document.getElementById('editModalOverlay');
-var btnEditClose  = document.getElementById('editModalClose');
-var btnEditCancel = document.getElementById('editModalCancel');
-var btnEditSubmit = document.getElementById('btnEditSKUSubmit');
+/* ─── DOM Elements ───────────────────────────────────────── */
+var tableBody  = document.getElementById('skuTableBody');
+var tableInfo  = document.getElementById('skuTableInfo');
+var pagination = document.getElementById('skuPagination');
+var searchInput = document.getElementById('skuSearchInput');
+var catSelect   = document.getElementById('skuCategorySelect');
 
-var editIdInput     = document.getElementById('edit-id');
-var editNameInput   = document.getElementById('edit-name');
-var editDimInput    = document.getElementById('edit-dimensions');
-var editWgtInput    = document.getElementById('edit-weight');
-var editMinInput    = document.getElementById('edit-min');
-var editMaxInput    = document.getElementById('edit-max');
-var editCodeLabel   = document.getElementById('edit-sku-code-label');
+/* Config Modal */
+var configOverlay        = document.getElementById('configModalOverlay');
+var btnConfigClose      = document.getElementById('configModalClose');
+var btnConfigCancel     = document.getElementById('configModalCancel');
+var btnConfigSubmit     = document.getElementById('btnConfigSubmit');
+var configSkuLabel      = document.getElementById('config-sku-label');
+var configProductId     = document.getElementById('config-product-id');
+var configZoneSelect    = document.getElementById('config-zone-select');
+var configWarehouseName  = document.getElementById('config-warehouse-name');
+var configMinInput      = document.getElementById('config-min');
+var configMaxInput      = document.getElementById('config-max');
 
-/* ─── Handlers ───────────────────────────────────────────── */
-if (searchInput) {
-    searchInput.addEventListener('input', function (e) {
-        search = e.target.value;
-        currentPage = 1;
-        renderAll();
-    });
-}
-
-if (catSelect) {
-    catSelect.addEventListener('change', function (e) {
-        selectedCategory = e.target.value;
-        currentPage = 1;
-        renderAll();
-    });
-}
-
-var skuWarehouseFilter = document.getElementById('skuWarehouseFilter');
-if (skuWarehouseFilter) {
-    skuWarehouseFilter.addEventListener('change', function (e) {
-        selectedWarehouse = e.target.value;
-        currentPage = 1;
-        renderAll();
-    });
-}
-
-/* Modals toggle */
-if (btnCreateTrigger) {
-    btnCreateTrigger.addEventListener('click', function () {
-        if (DB_CATEGORIES.length > 0 && !selectedPickerCategory) {
-            window.selectPickerCategory(DB_CATEGORIES[0].categoryName);
-        }
-        createOverlay.classList.add('active');
-    });
-}
-[btnCreateClose, btnCreateCancel].forEach(function (btn) {
-    if (btn) {
-        btn.addEventListener('click', function () {
-            createOverlay.classList.remove('active');
-            clearCreateForm();
-        });
-    }
-});
-
-[btnEditClose, btnEditCancel].forEach(function (btn) {
-    if (btn) {
-        btn.addEventListener('click', function () {
-            editOverlay.classList.remove('active');
-        });
-    }
-});
-
-/* View Modal Elements */
-var viewOverlay     = document.getElementById('viewModalOverlay');
+/* View Modal */
+var viewOverlay      = document.getElementById('viewModalOverlay');
 var btnViewClose    = document.getElementById('viewModalClose');
 var btnViewCloseBtn = document.getElementById('viewModalCloseBtn');
 
-[btnViewClose, btnViewCloseBtn].forEach(function (btn) {
-    if (btn) {
-        btn.addEventListener('click', function () {
-            viewOverlay.classList.remove('active');
-        });
-    }
-});
-
-// Close modals when clicking on background overlays
-[createOverlay, editOverlay, viewOverlay].forEach(function (overlay) {
-    if (overlay) {
-        overlay.addEventListener('click', function (e) {
-            if (e.target === overlay) {
-                overlay.classList.remove('active');
-                if (overlay === createOverlay) {
-                    clearCreateForm();
-                }
-            }
-        });
-    }
-});
-
-/* Auto Generate SKU Button */
-var btnAutoGen = document.getElementById('btnAutoGenSku');
-if (btnAutoGen) {
-    btnAutoGen.addEventListener('click', function () {
-        var catIdInput = document.getElementById('create-category-id');
-        var catId = catIdInput ? catIdInput.value : '';
-        if (!catId) {
-            alert('Vui long chon danh muc truoc!');
-            return;
-        }
-        btnAutoGen.disabled = true;
-        btnAutoGen.innerHTML = '...';
-        fetch('${pageContext.request.contextPath}/warehouse/sku/generate?categoryId=' + catId)
-            .then(function(resp) { return resp.json(); })
-            .then(function(data) {
-                if (data.sku) {
-                    createSkuInput.value = data.sku;
-                    createSkuInput.style.color = 'var(--emerald)';
-                    createSkuInput.style.fontWeight = '700';
-                    setTimeout(function() {
-                        createSkuInput.style.color = '';
-                        createSkuInput.style.fontWeight = '';
-                    }, 2000);
-                } else {
-                    alert('Loi: ' + (data.error || 'Khong the tao SKU tu dong.'));
-                }
-            })
-            .catch(function() {
-                alert('Loi mang khi tao SKU tu dong.');
-            })
-            .finally(function() {
-                btnAutoGen.disabled = false;
-                btnAutoGen.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 3 21 3 21 8"/><line x1="4" y1="20" x2="21" y2="3"/><polyline points="21 16 21 21 16 21"/><line x1="15" y1="15" x2="21" y2="21"/><line x1="4" y1="4" x2="9" y2="9"/></svg> Auto';
-            });
+/* ─── Config Modal: populate zone select ─────────────────── */
+function populateZoneSelect(warehouseId) {
+    if (!configZoneSelect) return;
+    var zones = ZONES.filter(function(z) { return z.locationId === warehouseId; });
+    var html = '<option value="">— Chọn khu vực trong kho —</option>';
+    zones.forEach(function(z) {
+        html += '<option value="' + z.id + '">' + z.code + ' — ' + z.name + '</option>';
     });
+    configZoneSelect.innerHTML = html;
 }
 
-/* Create Submit */
-if (btnCreateSubmit) {
-    btnCreateSubmit.addEventListener('click', function () {
-        var skuVal  = createSkuInput.value.trim();
-        var nameVal = createNameInput.value.trim();
-        
-        if (!skuVal || !nameVal) {
-            alert('Vui lòng nhập đầy đủ Mã SKU và Tên sản phẩm!');
-            return;
-        }
-
-        submitPostAction('create', {
-            skuCode: skuVal,
-            productName: nameVal,
-            categoryName: createCatInput.value ? createCatInput.value.trim() : '',
-            dimensions: createDimInput.value.trim() || 'N/A',
-            weight: createWgtInput.value.trim() || '0',
-            minStock: parseInt(createMinInput.value) || 0,
-            maxStock: parseInt(createMaxInput.value) || 100
-        });
-    });
-}
-
-/* Edit Submit */
-if (btnEditSubmit) {
-    btnEditSubmit.addEventListener('click', function () {
-        var id = editIdInput.value;
-        var nameVal = editNameInput.value.trim();
-        
-        if (!nameVal) {
-            alert('Tên sản phẩm không được bỏ trống!');
-            return;
-        }
-
-        if (id.indexOf('p-') === 0) {
-            var productId = id.substring(2);
-            submitPostAction('edit', {
-                productId: productId,
-                productName: nameVal,
-                dimensions: editDimInput.value.trim() || 'N/A',
-                weight: editWgtInput.value.trim() || '0',
-                minStock: parseInt(editMinInput.value) || 0,
-                maxStock: parseInt(editMaxInput.value) || 100
-            });
-            return;
-        }
-
-        var foundIndex = skus.findIndex(function (s) { return s.id === id; });
-        if (foundIndex > -1) {
-            var now = new Date();
-            var timeStr = now.getFullYear() + '-' + 
-                          padZero(now.getMonth()+1) + '-' + 
-                          padZero(now.getDate()) + ' ' + 
-                          padZero(now.getHours()) + ':' + 
-                          padZero(now.getMinutes());
-
-            skus[foundIndex].name = nameVal;
-            skus[foundIndex].dimensions = editDimInput.value.trim();
-            skus[foundIndex].weight = editWgtInput.value.trim();
-            skus[foundIndex].minStock = parseInt(editMinInput.value) || 0;
-            skus[foundIndex].maxStock = parseInt(editMaxInput.value) || 100;
-            skus[foundIndex].lastUpdated = timeStr;
-            skus[foundIndex].updatedBy = window.WMS_USER.fullName || 'Nhân viên kho';
-        }
-
-        editOverlay.classList.remove('active');
-        renderAll();
-        alert('Cập nhật SKU thành công!');
-    });
-}
-
-/* Edit action trigger */
-window.triggerEditSKU = function (id) {
-    var item = skus.find(function (s) { return s.id === id; });
+/* ─── Config Modal: open & close ────────────────────────── */
+window.triggerConfigSKU = function(id) {
+    var item = skus.find(function(s) { return s.id === id; });
     if (!item) return;
 
-    editIdInput.value = item.id;
-    editCodeLabel.textContent = item.sku;
-    editNameInput.value = item.name;
-    editDimInput.value = item.dimensions;
-    editWgtInput.value = item.weight.replace(' kg', '');
-    editMinInput.value = item.minStock;
-    editMaxInput.value = item.maxStock;
+    configSkuLabel.textContent = item.sku;
+    configProductId.value = item.id;
+    configMinInput.value = item.minStock || '';
+    configMaxInput.value = item.maxStock || '';
 
-    editOverlay.classList.add('active');
+    var myLoc = LOCATIONS[0] || null;
+    configWarehouseName.textContent = myLoc ? myLoc.name : '—';
+    populateZoneSelect(myLoc ? myLoc.id : null);
+
+    if (myLoc && item.locationConfigs) {
+        var existing = item.locationConfigs.find(function(c) {
+            return c.locationId && c.locationId.toString() === myLoc.id;
+        });
+        configZoneSelect.value = (existing && existing.zoneId) ? existing.zoneId.toString() : '';
+    } else {
+        configZoneSelect.value = '';
+    }
+
+    configOverlay.classList.add('active');
 };
 
-/* View details action trigger */
-window.triggerViewSKU = function (id) {
-    var item = skus.find(function (s) { return s.id === id; });
+function closeConfigModal() {
+    configOverlay.classList.remove('active');
+}
+
+if (btnConfigClose) btnConfigClose.addEventListener('click', closeConfigModal);
+if (btnConfigCancel) btnConfigCancel.addEventListener('click', closeConfigModal);
+if (configOverlay) configOverlay.addEventListener('click', function(e) {
+    if (e.target === configOverlay) closeConfigModal();
+});
+
+/* ─── Config Submit ──────────────────────────────────────── */
+if (btnConfigSubmit) {
+    btnConfigSubmit.addEventListener('click', function() {
+        var id = configProductId.value;
+        var zoneId = configZoneSelect.value;
+        var min = parseInt(configMinInput.value) || 0;
+        var max = parseInt(configMaxInput.value) || 100;
+        var myLoc = LOCATIONS[0];
+
+        if (!myLoc) {
+            alert('Không xác định được kho của bạn. Vui lòng liên hệ quản trị.');
+            return;
+        }
+
+        var item = skus.find(function(s) { return s.id === id; });
+        var otherConfigs = [];
+        if (item && item.locationConfigs) {
+            otherConfigs = item.locationConfigs.filter(function(c) {
+                return c.locationId && c.locationId.toString() !== myLoc.id.toString() && c.zoneId;
+            });
+        }
+        var mergedConfigs = otherConfigs.slice();
+        if (zoneId) {
+            mergedConfigs.push({ locationId: myLoc.id, zoneId: zoneId });
+        }
+
+        submitPostAction('edit', {
+            productId: id.replace('p-', ''),
+            minStock: min,
+            maxStock: max,
+            locationConfigsJson: JSON.stringify(mergedConfigs)
+        });
+    });
+}
+
+/* ─── View Modal ─────────────────────────────────────────── */
+window.triggerViewSKU = function(id) {
+    var item = skus.find(function(s) { return s.id === id; });
     if (!item) return;
 
     document.getElementById('view-sku-code-label').textContent = item.sku;
@@ -1547,9 +1339,9 @@ window.triggerViewSKU = function (id) {
     document.getElementById('view-weight').textContent = item.weight || 'N/A';
     document.getElementById('view-min').textContent = item.minStock;
     document.getElementById('view-max').textContent = item.maxStock;
-    
-    var statusText = item.approvalStatus === 'approved' ? 'Đã duyệt' : item.approvalStatus === 'pending' ? 'Chờ duyệt' : 'Từ chối';
-    document.getElementById('view-approval-status').textContent = statusText;
+    document.getElementById('view-approval-status').textContent =
+        item.approvalStatus === 'approved' ? 'Đã duyệt' :
+        item.approvalStatus === 'pending' ? 'Chờ duyệt' : 'Từ chối';
     document.getElementById('view-created-by').textContent = item.createdBy || 'N/A';
     document.getElementById('view-created-at').textContent = item.createdAt || 'N/A';
     document.getElementById('view-updated-by').textContent = item.updatedBy || item.createdBy || 'N/A';
@@ -1558,221 +1350,143 @@ window.triggerViewSKU = function (id) {
     viewOverlay.classList.add('active');
 };
 
-/* Delete action trigger */
-window.triggerDeleteSKU = function (id) {
-    var item = skus.find(function (s) { return s.id === id; });
-    if (!item) return;
+if (btnViewClose) btnViewClose.addEventListener('click', function() { viewOverlay.classList.remove('active'); });
+if (btnViewCloseBtn) btnViewCloseBtn.addEventListener('click', function() { viewOverlay.classList.remove('active'); });
+if (viewOverlay) viewOverlay.addEventListener('click', function(e) {
+    if (e.target === viewOverlay) viewOverlay.classList.remove('active');
+});
 
-    if (item.approvalStatus !== 'pending') {
-        alert('Chỉ cho phép xóa sản phẩm ở trạng thái Chờ duyệt.');
-        return;
-    }
-
-    if (confirm('Bạn có chắc chắn muốn xóa SKU "' + item.sku + '"?')) {
-        if (id.indexOf('p-') === 0) {
-            var productId = id.substring(2);
-            submitPostAction('delete', { productId: productId });
-        }
-    }
-};
-
-/* CSV Export */
-var btnExportCSV = document.getElementById('btnExportCSV');
-if (btnExportCSV) {
-    btnExportCSV.addEventListener('click', function () {
-        var filteredList = getFilteredList();
-        var headers = ["Mã SKU", "Tên sản phẩm", "Vị trí lưu trữ", "Trạng thái", "Tồn kho", "MIN", "MAX", "Tạo bởi", "Cập nhật"];
-        var csvContent = "\uFEFF" + headers.join(",") + "\n";
-        
-        filteredList.forEach(function (item) {
-            var locs = item.locationConfigs && item.locationConfigs.length > 0
-                ? item.locationConfigs.map(function(c) {
-                    var loc = LOCATIONS.find(function(l) { return l.id === c.locationId; });
-                    var zone = ZONES.find(function(z) { return z.id === c.zoneId; });
-                    return (loc ? loc.code : '?') + " -> " + (zone ? zone.name : '?');
-                  }).join(" | ")
-                : "Chưa gán vị trí";
-            
-            var statusStr = item.approvalStatus === 'approved' ? 'Đã duyệt' : item.approvalStatus === 'pending' ? 'Chờ duyệt' : 'Từ chối';
-            
-            var row = [
-                '"' + item.sku.replace(/"/g, '""') + '"',
-                '"' + item.name.replace(/"/g, '""') + '"',
-                '"' + locs.replace(/"/g, '""') + '"',
-                '"' + statusStr.replace(/"/g, '""') + '"',
-                item.qtyOnHand,
-                item.minStock,
-                item.maxStock,
-                '"' + (item.createdBy || '').replace(/"/g, '""') + '"',
-                '"' + (item.lastUpdated || '').replace(/"/g, '""') + '"'
-            ];
-            csvContent += row.join(",") + "\n";
-        });
-        
-        var blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-        var link = document.createElement("a");
-        link.href = URL.createObjectURL(blob);
-        link.setAttribute("download", "master_sku_warehouse_" + new Date().toISOString().slice(0, 10) + ".csv");
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
+/* ─── Search & Filter ────────────────────────────────────── */
+if (searchInput) {
+    searchInput.addEventListener('input', function(e) {
+        search = e.target.value;
+        currentPage = 1;
+        renderAll();
+    });
+}
+if (catSelect) {
+    catSelect.addEventListener('change', function(e) {
+        selectedCategory = e.target.value;
+        currentPage = 1;
+        renderAll();
+    });
+}
+var zoneStatusSelect = document.getElementById('skuZoneStatusSelect');
+if (zoneStatusSelect) {
+    zoneStatusSelect.addEventListener('change', function(e) {
+        currentPage = 1;
+        renderAll();
     });
 }
 
-/* ─── Helpers ─── */
-function padZero(n) { return n < 10 ? '0' + n : n; }
-
-function clearCreateForm() {
-    createSkuInput.value = '';
-    createNameInput.value = '';
-    if (DB_CATEGORIES.length > 0) {
-        window.selectPickerCategory(DB_CATEGORIES[0].categoryName);
-    } else {
-        window.selectPickerCategory('');
-    }
-    createDimInput.value = '';
-    createWgtInput.value = '';
-    createMinInput.value = '50';
-    createMaxInput.value = '500';
+/* ─── Stats ──────────────────────────────────────────────── */
+function updateStats(total, active, lowStock) {
+    var t = document.getElementById('stat-total-skus');
+    var a = document.getElementById('stat-active-skus');
+    var l = document.getElementById('stat-low-stock-skus');
+    if (t) t.textContent = total.toLocaleString();
+    if (a) a.textContent = active.toLocaleString();
+    if (l) l.textContent = lowStock.toLocaleString();
 }
 
-function getFilteredList() {
-    return skus.filter(function (s) {
-        var matchSearch = s.sku.toLowerCase().indexOf(search.toLowerCase()) > -1 ||
-                          s.name.toLowerCase().indexOf(search.toLowerCase()) > -1;
-        var matchCat    = selectedCategory === 'Tất cả' || s.category === selectedCategory;
-        var matchWh    = selectedWarehouse === '' || (s.warehouseId && s.warehouseId.toString() === selectedWarehouse);
-        return matchSearch && matchCat && matchWh;
-    });
-}
-
-function updateStats(filteredList) {
-    var total = skus.length;
-    var active = skus.filter(function (s) { return s.status === 'active' && s.approvalStatus === 'approved'; }).length;
-    var pending = skus.filter(function (s) { return s.approvalStatus === 'pending'; }).length;
-    var lowStock = skus.filter(function (s) { return s.status === 'low_stock' && s.approvalStatus === 'approved'; }).length;
-    var inactive = skus.filter(function (s) { return s.status === 'inactive'; }).length;
-    var totalPhysicalQty = skus.reduce(function (sum, s) { return sum + s.qtyOnHand; }, 0);
-    var totalMaxStock = skus.reduce(function (sum, s) { return sum + s.maxStock; }, 0);
-    
-    var fillRate = totalMaxStock > 0 ? Math.round((totalPhysicalQty / totalMaxStock) * 100) : 0;
-
-    document.getElementById('stat-total-skus').textContent = total.toLocaleString();
-    document.getElementById('stat-total-qty').textContent = totalPhysicalQty.toLocaleString();
-    document.getElementById('stat-active-skus').textContent = active.toLocaleString();
-    document.getElementById('stat-pending-skus').textContent = pending.toLocaleString();
-    document.getElementById('stat-low-stock').textContent = lowStock.toLocaleString();
-    document.getElementById('stat-inactive-skus').textContent = inactive.toLocaleString();
-    document.getElementById('stat-fill-rate').textContent = fillRate + '%';
-}
-
+/* ─── Render Table ────────────────────────────────────────── */
 function renderAll() {
-    localStorage.setItem('wms_skus', JSON.stringify(skus));
-    
-    var filtered = getFilteredList();
-    updateStats(filtered);
+    var myLoc = LOCATIONS[0];
+    var myLocId = myLoc ? myLoc.id : null;
+
+    var zoneStatusSelect = document.getElementById('skuZoneStatusSelect');
+    var selectedZoneStatus = zoneStatusSelect ? zoneStatusSelect.value : 'all';
+
+    var filtered = skus.filter(function(s) {
+        var matchSearch = !search ||
+            s.sku.toLowerCase().indexOf(search.toLowerCase()) > -1 ||
+            s.name.toLowerCase().indexOf(search.toLowerCase()) > -1;
+        var matchCat = selectedCategory === 'Tat ca' || selectedCategory === 'Tất cả' || s.category === selectedCategory;
+        
+        var myConfig = myLocId ? s.locationConfigs.find(function(c) {
+            return c.locationId && c.locationId.toString() === myLocId;
+        }) : null;
+        var hasZone = !!(myConfig && myConfig.zoneId);
+
+        var matchZoneStatus = true;
+        if (selectedZoneStatus === 'unassigned') {
+            matchZoneStatus = !hasZone;
+        } else if (selectedZoneStatus === 'assigned') {
+            matchZoneStatus = hasZone;
+        }
+
+        return matchSearch && matchCat && matchZoneStatus;
+    });
+
+    var activeCount = filtered.filter(function(s) { return s.approvalStatus === 'approved'; }).length;
+    var lowStock = filtered.filter(function(s) { return s.qtyOnHand < s.minStock; }).length;
+    updateStats(filtered.length, activeCount, lowStock);
     
     var totalItems = filtered.length;
     var totalPages = Math.ceil(totalItems / pageSize) || 1;
     if (currentPage > totalPages) currentPage = totalPages;
-    
     var startIdx = (currentPage - 1) * pageSize;
     var endIdx = Math.min(startIdx + pageSize, totalItems);
     var paginated = filtered.slice(startIdx, endIdx);
     
-    tableInfo.textContent = 'Hiển thị ' + (totalItems > 0 ? (startIdx + 1) : 0) + ' - ' + endIdx + ' / ' + totalItems + ' SKU (Tổng cộng ' + skus.length + ')';
+    tableInfo.textContent = 'Hiển thị ' + (totalItems > 0 ? startIdx + 1 : 0) + '–' + endIdx + ' / ' + totalItems + ' SKU';
     
     if (paginated.length === 0) {
-        tableBody.innerHTML = '<tr><td colspan="8" style="text-align:center;padding:48px;color:rgba(16, 55, 92, 0.4)">Không tìm thấy sản phẩm SKU nào.</td></tr>';
+        tableBody.innerHTML = '<tr><td colspan="6" style="text-align:center;padding:48px;color:rgba(16,55,92,0.4)">Không tìm thấy sản phẩm nào.</td></tr>';
+        pagination.innerHTML = '';
         return;
     }
     
-    var html = paginated.map(function (item, idx) {
-        var acLabel = item.approvalStatus === 'approved' ? 'Đã duyệt' : item.approvalStatus === 'pending' ? 'Chờ duyệt' : 'Từ chối';
-        var acClass = item.approvalStatus;
-
-        var statusIconHtml = '';
-        if (item.approvalStatus === 'pending') {
-            statusIconHtml = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="width:12px;height:12px;margin-right:4px;"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>';
-        } else if (item.approvalStatus === 'approved') {
-            statusIconHtml = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="width:12px;height:12px;margin-right:4px;"><polyline points="20 6 9 17 4 12"/></svg>';
-        } else if (item.approvalStatus === 'rejected') {
-            statusIconHtml = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="width:12px;height:12px;margin-right:4px;"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>';
-        }
-
-        var stockPct = item.maxStock > 0 ? Math.min(100, Math.round((item.qtyOnHand / item.maxStock) * 100)) : 0;
-        var barColor = stockPct > 50 ? '#10b981' : stockPct > 20 ? '#F5C842' : '#ef4444';
-        
-        var isLow = item.qtyOnHand <= item.minStock;
-        var qtyClass = (isLow && item.qtyOnHand > 0) ? 'qty-val low' : (item.qtyOnHand === 0) ? 'qty-val out' : 'qty-val';
+    var html = paginated.map(function(item, idx) {
+        var isLow = item.qtyOnHand < item.minStock;
+        var isOut = item.qtyOnHand === 0;
 
         var locHtml = '';
-        if (!item.locationConfigs || item.locationConfigs.length === 0) {
-            locHtml = '<span class="loc-unassigned">' +
-                '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg>' +
-                'Chưa gán vị trí</span>';
-        } else {
-            locHtml = '<div class="loc-tag-wrap">' +
-                item.locationConfigs.map(function (c) {
-                    var loc = LOCATIONS.find(function(l) { return l.id === c.locationId; });
-                    var zone = ZONES.find(function(z) { return z.id === c.zoneId; });
-                    var locCode = loc ? loc.code : '?';
-                    var zoneName = zone ? zone.name : '?';
-                    return '<div class="loc-tag">' +
-                           '<span class="loc-tag-code">' + locCode + '</span>' +
-                           '<span style="color: rgba(16, 55, 92, 0.3); margin: 0 6px;">→</span>' +
-                           '<span>' + zoneName + '</span>' +
-                           '</div>';
-                }).join('') +
-                '</div>';
+        if (myLocId && item.locationConfigs) {
+            var myConfig = item.locationConfigs.find(function(c) {
+                return c.locationId && c.locationId.toString() === myLocId;
+            });
+            if (myConfig && myConfig.zoneId) {
+                var zone = ZONES.find(function(z) { return z.id === myConfig.zoneId.toString(); });
+                if (zone) {
+                    locHtml = '<span style="font-size: 13px; color: var(--navy); font-weight: 600;">' + escapeHtml(zone.name) + '</span>';
+                }
+            }
+        }
+        if (!locHtml) {
+            locHtml = '<span class="loc-unassigned" style="background: rgba(245, 200, 66, 0.15); color: #d9a000; border: 1px solid rgba(245, 200, 66, 0.3); padding: 4px 8px; border-radius: 4px; display: inline-flex; align-items: center; gap: 4px; font-size: 11px; font-weight: 600;">' +
+                '⚠️ Chưa cấu hình</span>';
         }
 
-        var canEdit = item.approvalStatus === 'pending';
-        var editBtnHtml = canEdit ? 
-            '<button class="btn-act-circle edit" onclick="triggerEditSKU(\'' + item.id + '\')" title="Sửa">' +
-                '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 1 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>' +
-            '</button>' : '';
+        var isLowOrOut = item.qtyOnHand === 0 || item.qtyOnHand < item.minStock;
+        var inboundBtnStyle = isLowOrOut
+            ? 'background: rgba(239, 68, 68, 0.1); color: #ef4444; border: 1px solid rgba(239, 68, 68, 0.2);'
+            : 'background: rgba(16, 55, 92, 0.05); color: var(--navy); border: 1px solid rgba(16, 55, 92, 0.1);';
 
-        var viewBtnHtml = 
-            '<button class="btn-act-circle info" onclick="triggerViewSKU(\'' + item.id + '\')" title="Xem chi tiết">' +
-                '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg>' +
-            '</button>';
-
-        var canDelete = item.approvalStatus === 'pending';
-        var deleteBtnHtml = canDelete ? 
-            '<button class="btn-act-circle del" onclick="triggerDeleteSKU(\'' + item.id + '\')" title="Xóa">' +
-                '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>' +
-            '</button>' : 
-            '<button class="btn-act-circle del" style="cursor: not-allowed; opacity: 0.4;" onclick="alert(\'Chỉ cho phép xóa sản phẩm ở trạng thái Chờ duyệt.\')" title="Không thể xóa">' +
-                '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>' +
-            '</button>';
-
-        var rowClass = (startIdx + idx) % 2 === 0 ? '' : 'style="background:rgba(240, 244, 250, 0.3)"';
+        var rowClass = (startIdx + idx) % 2 === 0 ? '' : 'style="background:rgba(240,244,250,0.3)"';
 
         return '<tr ' + rowClass + '>' +
-            '<td><div class="sku-code-cell">' + item.sku + '</div></td>' +
-            '<td><div class="sku-name-cell" title="' + item.name + '">' + item.name + '</div></td>' +
+            '<td>' +
+                '<div class="sku-code-cell" style="font-weight: 700; margin-bottom: 2px;">' + escapeHtml(item.sku) + '</div>' +
+                '<div class="sku-name-cell" style="font-weight: 700; font-size: 13px;" title="' + escapeHtml(item.name) + '">' + escapeHtml(item.name) + '</div>' +
+            '</td>' +
+            '<td><div style="font-size: 13px; color: var(--navy);">' + escapeHtml(item.category || '—') + '</div></td>' +
+            '<td>' +
+                '<div style="font-size: 12px; color: var(--navy); font-weight: 500; text-align: center;">' + escapeHtml(item.dimensions) + '</div>' +
+                '<div style="font-size: 11px; color: rgba(16, 55, 92, 0.5); text-align: center;">' + escapeHtml(item.weight) + '</div>' +
+            '</td>' +
             '<td>' + locHtml + '</td>' +
-            '<td><span class="pill-badge ' + acClass + '">' + statusIconHtml + acLabel + '</span></td>' +
-            '<td>' +
-                '<div class="' + qtyClass + '">' + item.qtyOnHand.toLocaleString() + '</div>' +
-                '<div class="progress-bar-wrap"><div class="progress-bar-fill" style="width:' + stockPct + '%;background:' + barColor + '"></div></div>' +
+            '<td style="text-align: right;">' +
+                '<div style="font-size: 13px; color: var(--navy); font-weight: 600;">' + item.minStock + ' / ' + item.maxStock + '</div>' +
             '</td>' +
-            '<td>' +
-                '<div class="limit-lbl">Min: <span class="limit-val">' + item.minStock + '</span></div>' +
-                '<div class="limit-lbl">Max: <span class="limit-val">' + item.maxStock + '</span></div>' +
-            '</td>' +
-            '<td>' +
-                '<div class="info-lbl">Tạo: ' + item.createdBy + '</div>' +
-                '<div class="info-time">' + item.createdAt + '</div>' +
-                '<div class="info-lbl" style="margin-top:4px">Cập nhật: ' + (item.updatedBy || item.createdBy) + '</div>' +
-                '<div class="info-time">' + item.lastUpdated + '</div>' +
-            '</td>' +
-            '<td>' +
-                '<div style="display:flex;align-items:center;justify-content:flex-end;gap:8px">' +
-                    viewBtnHtml +
-                    editBtnHtml +
-                    deleteBtnHtml +
+            '<td style="text-align: center;">' +
+                '<div style="display:flex;align-items:center;justify-content:center;gap:8px;">' +
+                    '<button class="btn-act-circle edit" onclick="window.triggerConfigSKU(\'' + item.id + '\')" title="Cấu hình Kho" style="width:28px;height:28px;">' +
+                        '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>' +
+                    '</button>' +
+                    '<button class="btn-act-circle" onclick="window.location.href=\'${pageContext.request.contextPath}/warehouse/inbound?action=create&sku=\' + encodeURIComponent(\'' + item.sku + '\')" title="Nhập hàng" style="width:28px;height:28px; ' + inboundBtnStyle + '">' +
+                        '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>' +
+                    '</button>' +
                 '</div>' +
             '</td>' +
         '</tr>';
@@ -1782,19 +1496,18 @@ function renderAll() {
 
     var pageHtml = '';
     for (var p = 1; p <= totalPages; p++) {
-        var act = p === currentPage ? 'active' : '';
-        pageHtml += '<button class="page-btn ' + act + '" onclick="window.gotoSKUPage(' + p + ')">' + p + '</button>';
+        pageHtml += '<button class="page-btn' + (p === currentPage ? ' active' : '') + '" onclick="window.gotoSKUPage(' + p + ')">' + p + '</button>';
     }
     pagination.innerHTML = pageHtml;
 }
 
-window.gotoSKUPage = function (p) {
+window.gotoSKUPage = function(p) {
     currentPage = p;
     renderAll();
 };
 
-/* ─── Bootstrap ─── */
 renderAll();
 
 })();
 </script>
+

@@ -1,5 +1,6 @@
 package com.wms.model;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
 import java.time.LocalDateTime;
 
 /**
@@ -13,15 +14,27 @@ import java.time.LocalDateTime;
  */
 public class Category {
 
+    @JsonProperty("id")
     private int categoryId;
+    
+    @JsonProperty("code")
     private String categoryCode;    // Ma dinh danh 3-4 ky tu (VD: "EYE", "SUN")
+    
+    @JsonProperty("name")
     private String categoryName;
+    
     private Integer parentId;
     private String description;
     private int levelDepth;
+    
+    @JsonProperty("immutable")
     private boolean isImmutable;    // true = da lock categoryCode
+    
     private boolean active;         // true = hoat dong, false = ngung hoat dong
+    
+    @JsonProperty("parentCode")
     private String parentCode;      // ma cua danh muc cha (dung cho SKU generation)
+    
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 

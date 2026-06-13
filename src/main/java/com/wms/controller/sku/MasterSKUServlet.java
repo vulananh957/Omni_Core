@@ -34,9 +34,9 @@ public class MasterSKUServlet extends BaseController {
     protected void doGet(HttpServletRequest req, HttpServletResponse resp)
             throws ServletException, IOException {
 
+        consumeFlash(req);
         try {
             req.setAttribute("products", productService.findAll());
-            req.setAttribute("pendingProducts", productService.findPendingApproval());
         } catch (Exception e) {
             LOGGER.log(Level.WARNING, "MasterSKUServlet: Failed to load product data", e);
         }
@@ -79,6 +79,20 @@ public class MasterSKUServlet extends BaseController {
         String action = req.getParameter("action");
         HttpSession session = req.getSession();
         User currentUser = (User) session.getAttribute(AppConstants.SESSION_USER);
+
+        boolean isManager = currentUser != null && "MANAGER".equals(currentUser.getRole());
+        boolean isWriteAction = action != null && (
+            "create".equals(action) || "update".equals(action) ||
+            "delete".equals(action) || "approve".equals(action) ||
+            "reject".equals(action)
+        );
+
+        if (isWriteAction && !isManager) {
+            resp.sendError(HttpServletResponse.SC_FORBIDDEN,
+                "Chi Business Manager moi co quyen thuc hien hanh dong nay.");
+            return;
+        }
+
         int userId = currentUser != null ? currentUser.getUserId() : 1;
 
         try {
@@ -96,10 +110,13 @@ public class MasterSKUServlet extends BaseController {
                 if (min != null && !min.trim().isEmpty()) p.setMinStock(Double.parseDouble(min));
                 String max = req.getParameter("maxStock");
                 if (max != null && !max.trim().isEmpty()) p.setMaxStock(Double.parseDouble(max));
-                p.setWeightKg(parseDouble(req.getParameter("weightKg")));
-                p.setAttributesText(req.getParameter("attributes"));
+                p.setWeightKg(parseDouble(req.getParameter("weight")));
+                p.setAttributesText(req.getParameter("dimensions"));
 
-                boolean ok = productService.createProduct(p, userId);
+                String zonesJson = req.getParameter("locationConfigsJson");
+                List<Product.LocationConfig> zones = parseLocationConfigs(zonesJson);
+
+                boolean ok = productService.createProductWithZones(p, userId, zones);
                 if (!ok) {
                     req.setAttribute("error", "Không thể tạo sản phẩm. Có thể mã SKU đã tồn tại.");
                     doGet(req, resp);
@@ -115,33 +132,21 @@ public class MasterSKUServlet extends BaseController {
                 if (catId != null && !catId.trim().isEmpty()) {
                     updates.setCategoryId(Integer.parseInt(catId));
                 }
-                updates.setWeightKg(parseDouble(req.getParameter("weightKg")));
+                updates.setWeightKg(parseDouble(req.getParameter("weight")));
                 updates.setMinStock(parseDouble(req.getParameter("minStock")));
                 updates.setMaxStock(parseDouble(req.getParameter("maxStock")));
-                updates.setAttributesText(req.getParameter("attributes"));
+                updates.setAttributesText(req.getParameter("dimensions"));
+                updates.setBarcode(req.getParameter("barcode"));
+                updates.setUnit(req.getParameter("unit"));
 
-                ProductService.UpdateResult r = productService.updateProduct(productId, updates);
+                String zonesJson = req.getParameter("locationConfigsJson");
+                List<Product.LocationConfig> zones = parseLocationConfigs(zonesJson);
+
+                ProductService.UpdateResult r = productService.updateProduct(productId, updates, zones);
                 if (!r.isSuccess()) {
-                    req.setAttribute("error", r.getMessage());
-                }
-                resp.sendRedirect(req.getContextPath() + "/business/master-sku");
-
-            } else if ("approve".equals(action)) {
-                int productId = Integer.parseInt(req.getParameter("productId"));
-                String zoneConfigsJson = req.getParameter("locationConfigsJson");
-                List<Product.LocationConfig> configs = parseLocationConfigs(zoneConfigsJson);
-                boolean ok = productService.approveProductWithZones(productId, userId, configs);
-                if (!ok) {
-                    req.setAttribute("error", "Không thể duyệt sản phẩm.");
-                }
-                resp.sendRedirect(req.getContextPath() + "/business/master-sku");
-
-            } else if ("reject".equals(action)) {
-                int productId = Integer.parseInt(req.getParameter("productId"));
-                String reason = req.getParameter("rejectReason");
-                boolean ok = productService.rejectProduct(productId, reason);
-                if (!ok) {
-                    req.setAttribute("error", "Không thể từ chối sản phẩm.");
+                    session.setAttribute("errorMessage", r.getMessage());
+                } else {
+                    session.setAttribute("successMessage", "Cập nhật SKU thành công!");
                 }
                 resp.sendRedirect(req.getContextPath() + "/business/master-sku");
 
@@ -149,7 +154,9 @@ public class MasterSKUServlet extends BaseController {
                 int productId = Integer.parseInt(req.getParameter("productId"));
                 ProductService.DeleteResult r = productService.deleteProduct(productId);
                 if (!r.isSuccess()) {
-                    req.setAttribute("error", r.getMessage());
+                    setFlashError(req, r.getMessage());
+                } else {
+                    setFlashSuccess(req, "Xóa SKU thành công!");
                 }
                 resp.sendRedirect(req.getContextPath() + "/business/master-sku");
 

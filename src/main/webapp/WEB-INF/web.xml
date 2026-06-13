@@ -214,6 +214,10 @@
         <servlet-name>GenerateSKUServlet</servlet-name>
         <url-pattern>/warehouse/sku/generate</url-pattern>
     </servlet-mapping>
+    <servlet-mapping>
+        <servlet-name>GenerateSKUServlet</servlet-name>
+        <url-pattern>/business/sku/generate</url-pattern>
+    </servlet-mapping>
 
     <servlet>
         <servlet-name>WarehouseInboundServlet</servlet-name>
@@ -231,6 +235,15 @@
     <servlet-mapping>
         <servlet-name>WarehouseOutboundServlet</servlet-name>
         <url-pattern>/warehouse/outbound</url-pattern>
+    </servlet-mapping>
+
+    <servlet>
+        <servlet-name>FulfillmentRequestServlet</servlet-name>
+        <servlet-class>com.wms.controller.warehouse.FulfillmentRequestServlet</servlet-class>
+    </servlet>
+    <servlet-mapping>
+        <servlet-name>FulfillmentRequestServlet</servlet-name>
+        <url-pattern>/warehouse/fulfillment</url-pattern>
     </servlet-mapping>
 
     <servlet>

@@ -57,7 +57,7 @@ public class WarehouseServlet extends BaseController {
                 writeJson(resp, "{\"success\":false,\"message\":\"Hành động không hợp lệ.\"}");
             }
         } catch (Exception e) {
-            writeJson(resp, "{\"success\":false,\"message\":\"Đã xảy ra lỗi hệ thống: " + e.getMessage() + "\"}");
+            writeJson(resp, "{\"success\":false,\"message\":\"Đã xảy ra lỗi hệ thống: " + escapeJson(e.getMessage()) + "\"}");
         }
     }
 
@@ -79,10 +79,10 @@ public class WarehouseServlet extends BaseController {
             if (result.isSuccess()) {
                 writeJson(resp, "{\"success\":true}");
             } else {
-                writeJson(resp, "{\"success\":false,\"message\":\"" + result.getMessage() + "\"}");
+                writeJson(resp, "{\"success\":false,\"message\":\"" + escapeJson(result.getMessage()) + "\"}");
             }
         } catch (Exception e) {
-            writeJson(resp, "{\"success\":false,\"message\":\"Lỗi định dạng dữ liệu: " + e.getMessage() + "\"}");
+            writeJson(resp, "{\"success\":false,\"message\":\"Lỗi định dạng dữ liệu: " + escapeJson(e.getMessage()) + "\"}");
         }
     }
 
@@ -107,7 +107,7 @@ public class WarehouseServlet extends BaseController {
         } catch (NumberFormatException e) {
             writeJson(resp, "{\"success\":false,\"message\":\"ID không hợp lệ.\"}");
         } catch (Exception e) {
-            writeJson(resp, "{\"success\":false,\"message\":\"Lỗi: " + e.getMessage() + "\"}");
+            writeJson(resp, "{\"success\":false,\"message\":\"Lỗi: " + escapeJson(e.getMessage()) + "\"}");
         }
     }
 }

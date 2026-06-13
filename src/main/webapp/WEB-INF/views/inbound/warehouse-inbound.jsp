@@ -1052,79 +1052,36 @@
             </div>
         </div>
 
-        <!-- Card: Total SKU Count -->
-        <div class="inbound-kpi-card tone-navy">
+        <!-- Card: SKU Received -->
+        <div class="inbound-kpi-card tone-violet">
             <div class="inbound-kpi-card__icon-box">
-                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path><polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline><line x1="12" y1="22.08" x2="12" y2="12"></line></svg>
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m7.5 4.27 9 5.15"/><path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z"/><path d="m3.3 7 8.7 5 8.7-5"/><path d="M12 22V12"/></svg>
             </div>
             <div class="inbound-kpi-card__info">
                 <div class="inbound-kpi-card__val" id="stat-sku-received">0</div>
-                <div class="inbound-kpi-card__lbl">SKU đã nhập (tuần)</div>
+                <div class="inbound-kpi-card__lbl">SKU đã nhập</div>
             </div>
         </div>
     </div>
 
-    <!-- ─── DB-SIDE INBOUND ORDERS ─── -->
-    <!-- Pulls from InboundDAO.findAll() passed by WarehouseInboundServlet -->
-    <c:if test="${not empty inboundList || param.showDb eq 'true'}">
-    <div class="db-section-header" style="margin-bottom:16px;">
-        <div>
-            <div class="db-section-title">Danh sách phiếu nhập (từ Database)</div>
-            <div style="font-size:12px; color:rgba(16,55,92,0.40); margin-top:2px;">Dữ liệu thực từ MySQL — InboundOrder</div>
-        </div>
-        <div class="db-badge">
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:12px;height:12px;"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/></svg>
-            MySQL
-        </div>
-    </div>
-
-    <!-- Server-side status filter -->
-    <div class="db-filter-tabs" id="dbFilterTabs">
-        <button class="db-filter-btn active" data-filter="all">Tất cả <span class="db-filter-count" id="db-count-all">0</span></button>
-        <button class="db-filter-btn" data-filter="PENDING">Chờ <span class="db-filter-count" id="db-count-PENDING">0</span></button>
-        <button class="db-filter-btn" data-filter="IN_PROGRESS">Đang nhập <span class="db-filter-count" id="db-count-IN_PROGRESS">0</span></button>
-        <button class="db-filter-btn" data-filter="RECEIVED">Đã nhập <span class="db-filter-count" id="db-count-RECEIVED">0</span></button>
-        <button class="db-filter-btn" data-filter="CANCELLED">Đã hủy <span class="db-filter-count" id="db-count-CANCELLED">0</span></button>
-    </div>
-
-    <div class="db-table-card">
-        <table class="db-table">
-            <thead>
-                <tr>
-                    <th>Mã phiếu</th>
-                    <th>Nhà cung cấp</th>
-                    <th>Kho</th>
-                    <th>Ngày tạo</th>
-                    <th>Trạng thái</th>
-                    <th class="text-right">Thao tác</th>
-                </tr>
-            </thead>
-            <tbody id="dbInboundTableBody">
-            </tbody>
-        </table>
-    </div>
-    </c:if>
-
-    <div class="toolbar">
+    <!-- GRN List Container (rendered by JavaScript) -->
+    <!-- Toolbar -->
+    <div class="toolbar" style="margin-bottom:12px;">
         <div class="search-wrap">
             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"></svg>
             <input type="text" placeholder="Tìm mã phiếu hoặc nhà cung cấp..." id="grnSearchInput"/>
         </div>
-        <button class="btn-create" id="btnCreateGRNTrigger" onclick="openDraftModal('create')">
+        <button class="btn-create" onclick="openCreatePOModal()">
             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
             Tạo phiếu nhập
         </button>
     </div>
 
-    <!-- Status Tabs -->
-    <div class="status-tabs" id="statusTabsContainer">
-        <!-- Rendered dynamically -->
-    </div>
+    <!-- Status Filter Tabs -->
+    <div class="status-tabs" id="statusTabsContainer"></div>
 
-    <!-- GRN Accordion List -->
-    <div class="grn-list" id="grnListContainer">
-        <!-- Rendered dynamically -->
-    </div>
+    <!-- GRN Table (unified) -->
+    <div class="grn-list" id="grnListContainer"></div>
 </div>
 
 <!-- ══ VIEW 2: PRICING TAB ═══════════════════════════════════ -->
@@ -1387,7 +1344,7 @@
 <script id="db-page-flags-data" type="application/json">{"hasInboundList": ${not empty inboundList ? 'true' : 'false'}}</script>
 <script id="db-user-data" type="application/json">{"fullName":"<c:out value='${loggedInUser.fullName}'/>","role":"<c:out value='${loggedInUser.role}'/>"}</script>
 <script id="db-inbound-list-data" type="application/json">[
-<c:forEach items="${inboundList}" var="io" varStatus="s">{"inboundId":${io.inboundId},"inboundCode":"<c:out value='${io.inboundCode}'/>","supplierName":"<c:out value='${io.supplierName}'/>","warehouseName":"<c:out value='${io.warehouseName}'/>","status":"<c:out value='${io.status}'/>","createdAt":"<c:out value='${io.createdAt}'/>"}${!s.last ? ',' : ''}
+<c:forEach items="${inboundList}" var="io" varStatus="s">{"inboundId":${io.inboundId},"inboundCode":"<c:out value='${io.inboundCode}'/>","supplierName":"<c:out value='${io.supplierName}'/>","warehouseName":"<c:out value='${io.warehouseName}'/>","status":"<c:out value='${io.status}'/>","createdAt":"<c:out value='${io.createdAt}'/>","items":${io.itemsJson}}${!s.last ? ',' : ''}
 </c:forEach>]
 </script>
 
@@ -1415,9 +1372,42 @@ window.WMS_USER = {
     role: WMS_USER_DATA.role || 'Guest'
 };
 
-// Inbound Receipts
+// Inbound Receipts (from server database)
 var savedGRNs = localStorage.getItem('wh_inbound_grns');
 var grns = safeJsonParse(savedGRNs, []);
+
+// Load from server data if available
+var serverInboundList = safeJsonParse(document.getElementById('db-inbound-list-data') && document.getElementById('db-inbound-list-data').textContent, []);
+console.log('[INBOUND] serverInboundList:', serverInboundList.length, serverInboundList);
+if (serverInboundList && serverInboundList.length > 0) {
+    grns = serverInboundList.map(function(o) {
+        var mappedStatus = o.status;
+        if (o.status === 'PENDING') mappedStatus = 'pending';
+        else if (o.status === 'IN_PROGRESS') mappedStatus = 'in_progress';
+        else if (o.status === 'RECEIVED') mappedStatus = 'completed';
+        else if (o.status === 'CANCELLED') mappedStatus = 'cancelled';
+        else mappedStatus = 'draft';
+
+        return {
+            id: o.inboundId,
+            inboundCode: o.inboundCode,
+            supplier: o.supplierName,
+            warehouseName: o.warehouseName,
+            status: mappedStatus,
+            createdAt: o.createdAt,
+            items: (o.items || []).map(function(item) {
+                return {
+                    skuCode: item.skuCode || item.sku || '',
+                    skuName: item.skuName || item.productName || '',
+                    orderedQty: parseFloat(item.orderedQty || item.expectedQty || 0),
+                    receivedQty: parseFloat(item.receivedQty || 0)
+                };
+            })
+        };
+    });
+    console.log('[INBOUND] grns after server mapping:', grns.length, grns);
+}
+console.log('[INBOUND] final grns:', grns.length, grns);
 
 // Master SKUs
 var savedSKUs = localStorage.getItem('wms_skus');
@@ -1425,10 +1415,10 @@ var skus = safeJsonParse(savedSKUs, []);
 if ((!skus || skus.length === 0) && DB_PRODUCTS.length > 0) {
     skus = DB_PRODUCTS.map(function(p) {
         return {
-            id: p.id,
-            sku: p.sku,
-            name: p.name,
-            category: p.category || 'Chưa phân loại',
+            id: p.productId || p.id,
+            sku: p.skuCode || p.sku,
+            name: p.productName || p.name,
+            category: p.categoryName || p.category || 'Chưa phân loại',
             status: p.status || 'PENDING',
             qtyOnHand: p.qtyOnHand || 0
         };
@@ -1529,8 +1519,9 @@ if (searchInput) {
 function getFilteredGRNs() {
     return grns.filter(function (g) {
         var matchTab = activeStatusTab === 'all' || g.status === activeStatusTab;
-        var matchSearch = g.id.toLowerCase().indexOf(searchKeyword.toLowerCase()) > -1 || 
-                          g.supplier.toLowerCase().indexOf(searchKeyword.toLowerCase()) > -1;
+        var matchSearch = g.id.toString().toLowerCase().indexOf(searchKeyword.toLowerCase()) > -1 || 
+                          (g.supplier && g.supplier.toLowerCase().indexOf(searchKeyword.toLowerCase()) > -1) ||
+                          (g.inboundCode && g.inboundCode.toLowerCase().indexOf(searchKeyword.toLowerCase()) > -1);
         return matchTab && matchSearch;
     });
 }
@@ -1559,8 +1550,6 @@ function updateReceiptsKPIs() {
 function renderStatusTabs() {
     var counts = {
         all: grns.length,
-        draft: grns.filter(function(g) { return g.status === 'draft'; }).length,
-        pending_bm: grns.filter(function(g) { return g.status === 'pending_bm'; }).length,
         pending: grns.filter(function(g) { return g.status === 'pending'; }).length,
         in_progress: grns.filter(function(g) { return g.status === 'in_progress'; }).length,
         completed: grns.filter(function(g) { return g.status === 'completed'; }).length,
@@ -1569,11 +1558,9 @@ function renderStatusTabs() {
 
     var tabsData = [
         { id: 'all', label: 'Tất cả' },
-        { id: 'draft', label: 'Bản nháp' },
-        { id: 'pending_bm', label: 'Chờ duyệt' },
-        { id: 'pending', label: 'Chờ hàng về' },
+        { id: 'pending', label: 'Chờ' },
         { id: 'in_progress', label: 'Đang nhập' },
-        { id: 'completed', label: 'Hoàn thành' },
+        { id: 'completed', label: 'Đã nhập' },
         { id: 'cancelled', label: 'Đã hủy' }
     ];
 
@@ -1585,7 +1572,8 @@ function renderStatusTabs() {
             '</button>';
     }).join('');
 
-    document.getElementById('statusTabsContainer').innerHTML = html;
+    var tabsContainer = document.getElementById('statusTabsContainer');
+    if (tabsContainer) tabsContainer.innerHTML = html;
 }
 
 window.selectStatusTab = function(statusId) {
@@ -1748,7 +1736,7 @@ function renderReceipts() {
                 '</div>' +
                 '<div class="grn-hdr__info">' +
                     '<div class="grn-meta-row">' +
-                        '<span class="grn-id">' + grn.id + '</span>' +
+                        '<span class="grn-id">' + grn.inboundCode + '</span>' +
                         '<span class="pill-badge ' + grn.status + '"><span class="pill-badge__dot"></span>' + sc.label + '</span>' +
                         lockHtml +
                     '</div>' +
@@ -2143,7 +2131,7 @@ window.openDetailModal = function(grnId, event) {
     var grn = grns.find(function(g) { return g.id === grnId; });
     if (!grn) return;
     
-    document.getElementById('detailModalSubtitle').textContent = grn.id;
+    document.getElementById('detailModalSubtitle').textContent = grn.inboundCode;
     document.getElementById('detail-supplier').textContent = grn.supplier;
     document.getElementById('detail-created-at').textContent = grn.createdAt;
     document.getElementById('detail-expected-date').textContent = grn.expectedDate;
@@ -2308,10 +2296,6 @@ function padZero(n) { return n < 10 ? '0' + n : n; }
 renderReceipts();
 
 // ─── DB-SIDE INBOUND TABLE (from WarehouseInboundServlet) ───
-var dbInboundList = safeJsonParse(document.getElementById('db-inbound-list-data').textContent, []);
-
-var dbActiveFilter = 'all';
-
 function dbStatusLabel(status) {
     var m = {
         'PENDING':    { label: 'Chờ',        cls: 'pending' },
@@ -2324,59 +2308,28 @@ function dbStatusLabel(status) {
     return '<span class="status-pill ' + c.cls + '"><span class="status-pill__dot"></span>' + c.label + '</span>';
 }
 
+// DB Inbound counts (for filter tabs)
 function dbCounts() {
     return {
-        all:         dbInboundList.length,
-        PENDING:     dbInboundList.filter(function(o){ return o.status === 'PENDING'; }).length,
-        IN_PROGRESS: dbInboundList.filter(function(o){ return o.status === 'IN_PROGRESS'; }).length,
-        CONFIRMED:   dbInboundList.filter(function(o){ return o.status === 'CONFIRMED'; }).length,
-        RECEIVED:    dbInboundList.filter(function(o){ return o.status === 'RECEIVED'; }).length,
-        CANCELLED:   dbInboundList.filter(function(o){ return o.status === 'CANCELLED'; }).length
+        all:         grns.length,
+        pending:     grns.filter(function(o){ return o.status === 'pending'; }).length,
+        in_progress: grns.filter(function(o){ return o.status === 'in_progress'; }).length,
+        completed:   grns.filter(function(o){ return o.status === 'completed'; }).length,
+        cancelled:   grns.filter(function(o){ return o.status === 'cancelled'; }).length
     };
 }
+
+// Update filter tab counts
+var counts = dbCounts();
+document.getElementById('db-count-all').textContent = counts.all;
+document.getElementById('db-count-pending').textContent = counts.pending;
+document.getElementById('db-count-in_progress').textContent = counts.in_progress;
+document.getElementById('db-count-completed').textContent = counts.completed;
+document.getElementById('db-count-cancelled').textContent = counts.cancelled;
 
 function esc(v) {
     if (v == null) return '';
     return String(v).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
-}
-
-function renderDbTable() {
-    var filtered = dbActiveFilter === 'all'
-        ? dbInboundList
-        : dbInboundList.filter(function(o){ return o.status === dbActiveFilter; });
-
-    var counts = dbCounts();
-    document.getElementById('db-count-all').textContent = counts.all;
-    document.getElementById('db-count-PENDING').textContent = counts.PENDING;
-    document.getElementById('db-count-IN_PROGRESS').textContent = counts.IN_PROGRESS;
-    document.getElementById('db-count-RECEIVED').textContent = counts.RECEIVED;
-    document.getElementById('db-count-CANCELLED').textContent = counts.CANCELLED;
-
-    var tbody = document.getElementById('dbInboundTableBody');
-    if (!tbody) return;
-
-    if (filtered.length === 0) {
-        tbody.innerHTML = '<tr class="db-empty-row"><td colspan="6">Không có phiếu nhập nào.</td></tr>';
-        return;
-    }
-
-    tbody.innerHTML = filtered.map(function(o) {
-        var confirmBtn = o.status === 'PENDING'
-            ? '<button class="db-action-btn db-action-btn--navy" onclick="dbConfirmInbound(' + o.inboundId + ',\'' + esc(o.inboundCode) + '\')">Xác nhận</button>'
-            : '';
-        var receiveBtn = (o.status === 'CONFIRMED' || o.status === 'IN_PROGRESS')
-            ? '<button class="db-action-btn db-action-btn--emerald" onclick="dbOpenReceiveModal(' + o.inboundId + ',\'' + esc(o.inboundCode) + '\')">Nhập kho</button>'
-            : '';
-
-        return '<tr>' +
-            '<td><span class="db-inbound-code">' + esc(o.inboundCode) + '</span></td>' +
-            '<td><span class="db-supplier">' + esc(o.supplierName) + '</span></td>' +
-            '<td><span class="db-warehouse">' + esc(o.warehouseName || '—') + '</span></td>' +
-            '<td style="font-size:12px; color:rgba(16,55,92,0.5);">' + esc(o.createdAt) + '</td>' +
-            '<td>' + dbStatusLabel(o.status) + '</td>' +
-            '<td class="text-right">' + confirmBtn + receiveBtn + '</td>' +
-        '</tr>';
-    }).join('');
 }
 
 var tabs = document.getElementById('dbFilterTabs');
@@ -2384,10 +2337,10 @@ if (tabs) {
     tabs.addEventListener('click', function(e) {
         var btn = e.target.closest('.db-filter-btn');
         if (!btn) return;
-        dbActiveFilter = btn.dataset.filter;
+        activeStatusTab = btn.dataset.filter;
         tabs.querySelectorAll('.db-filter-btn').forEach(function(b) { b.classList.remove('active'); });
         btn.classList.add('active');
-        renderDbTable();
+        renderReceipts();
     });
 }
 
@@ -2464,6 +2417,27 @@ if (createBtn) {
             openDraftModal('create');
         }
     });
+}
+
+// Auto-open create modal if action=create parameter is found
+var params = new URLSearchParams(window.location.search);
+if (params.get('action') === 'create') {
+    var prefilledSku = params.get('sku') || '';
+    setTimeout(function() {
+        if (hasInboundList) {
+            if (typeof openCreatePOModal === 'function') openCreatePOModal();
+        } else {
+            if (typeof openDraftModal === 'function') {
+                openDraftModal('create');
+                if (prefilledSku && draftForm && draftForm.items && draftForm.items[0]) {
+                    var foundItem = skus.find(function(s) { return s.sku === prefilledSku; });
+                    draftForm.items[0].skuCode = prefilledSku;
+                    draftForm.items[0].skuName = foundItem ? foundItem.name : '';
+                    if (typeof renderDraftRows === 'function') renderDraftRows();
+                }
+            }
+        }
+    }, 300);
 }
 })();
 

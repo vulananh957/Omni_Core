@@ -71,7 +71,7 @@ CREATE TABLE IF NOT EXISTS warehouses (
 CREATE TABLE IF NOT EXISTS zones (
     zone_id     INT AUTO_INCREMENT PRIMARY KEY,
     warehouse_id INT NOT NULL,
-    zone_code   VARCHAR(10)  NOT NULL,
+    zone_code   VARCHAR(50)  NOT NULL,
     zone_name   VARCHAR(100) NOT NULL,
     zone_type   ENUM('NORMAL','RETURN','DAMAGED','DESTROY') NOT NULL DEFAULT 'NORMAL',
     description TEXT,
@@ -527,6 +527,7 @@ CREATE TABLE IF NOT EXISTS qc_inspections (
 -- Legacy alias (for existing code compatibility)
 CREATE TABLE IF NOT EXISTS return_orders (
     return_id     INT AUTO_INCREMENT PRIMARY KEY,
+    return_code   VARCHAR(50),
     order_id       INT,
     outbound_id   INT,
     customer_name  VARCHAR(100),
@@ -538,7 +539,8 @@ CREATE TABLE IF NOT EXISTS return_orders (
     FOREIGN KEY (order_id)    REFERENCES orders(order_id) ON DELETE SET NULL,
     FOREIGN KEY (outbound_id) REFERENCES outbound_orders(outbound_id) ON DELETE SET NULL,
     FOREIGN KEY (warehouse_id) REFERENCES warehouses(warehouse_id),
-    INDEX idx_ro_status (status)
+    INDEX idx_ro_status (status),
+    INDEX idx_ro_code (return_code)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 CREATE TABLE IF NOT EXISTS qc_records (
@@ -575,6 +577,7 @@ CREATE TABLE IF NOT EXISTS physical_inventories (
     warehouse_id       INT NOT NULL,
     created_by         INT NOT NULL,
     status             ENUM('DRAFT','IN_PROGRESS','APPROVED') NOT NULL DEFAULT 'DRAFT',
+    note               TEXT,
     created_at         DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (warehouse_id) REFERENCES warehouses(warehouse_id),
     FOREIGN KEY (created_by)   REFERENCES users(user_id),

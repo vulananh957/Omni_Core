@@ -124,11 +124,24 @@ public class LedgerDAO {
                 
                 String creator = rs.getString("creator_name");
                 d.createdBy = (creator != null) ? creator : "Hệ thống";
-                d.status = mapOutboundStatus(rs.getString("status"));
-                d.statusColor = getStatusColor(d.status);
                 d.remarks = rs.getString("note");
                 d.customer = rs.getString("channel_name");
                 if (d.customer == null) d.customer = "Khách mua lẻ";
+
+                String dbStatus = rs.getString("status");
+                if (isOmnichannelChannel(d.customer)) {
+                    if ("PENDING".equals(dbStatus) || "PICKING".equals(dbStatus) || "PACKED".equals(dbStatus)) {
+                        d.status = "Đã duyệt";
+                    } else if ("SHIPPED".equals(dbStatus) || "DELIVERED".equals(dbStatus)) {
+                        d.status = "Hoàn thành";
+                    } else {
+                        d.status = mapOutboundStatus(dbStatus);
+                    }
+                } else {
+                    d.status = mapOutboundStatus(dbStatus);
+                }
+
+                d.statusColor = getStatusColor(d.status);
                 d.items = countOutboundItems(conn, rs.getInt("outbound_id"));
                 docs.add(d);
             }
@@ -527,7 +540,7 @@ public class LedgerDAO {
                 }
 
                 // Retrieve outbound items
-                String sqlItems = "SELECT product_id, picked_qty FROM outbound_items WHERE outbound_id = ?";
+                String sqlItems = "SELECT product_id, qty, picked_qty FROM outbound_items WHERE outbound_id = ?";
                 List<Map<String, Object>> issueItems = new ArrayList<>();
                 try (PreparedStatement ps = conn.prepareStatement(sqlItems)) {
                     ps.setInt(1, outboundId);
@@ -535,7 +548,10 @@ public class LedgerDAO {
                         while (rs.next()) {
                             Map<String, Object> map = new HashMap<>();
                             map.put("productId", rs.getInt("product_id"));
-                            map.put("qty", rs.getBigDecimal("picked_qty"));
+                            BigDecimal pQty = rs.getBigDecimal("picked_qty");
+                            BigDecimal reqQty = rs.getBigDecimal("qty");
+                            BigDecimal finalQty = (pQty != null && pQty.compareTo(BigDecimal.ZERO) > 0) ? pQty : reqQty;
+                            map.put("qty", finalQty);
                             issueItems.add(map);
                         }
                     }
@@ -545,7 +561,7 @@ public class LedgerDAO {
                 for (Map<String, Object> item : issueItems) {
                     int prodId = (int) item.get("productId");
                     BigDecimal qty = (BigDecimal) item.get("qty");
-                    if (qty.compareTo(BigDecimal.ZERO) <= 0) continue;
+                    if (qty == null || qty.compareTo(BigDecimal.ZERO) <= 0) continue;
 
                     BigDecimal negativeQty = qty.negate();
                     upsertInventory(conn, prodId, warehouseId, negativeQty, negativeQty);
@@ -901,5 +917,17 @@ public class LedgerDAO {
         if ("Hoàn thành".equals(status) || "Đã duyệt".equals(status) || "Đã xử lý".equals(status)) return "#059669"; // green
         if ("Từ chối".equals(status)) return "#dc2626"; // red
         return "#6b7280"; // gray (Draft/Nháp)
+    }
+
+    private boolean isOmnichannelChannel(String channelName) {
+        if (channelName == null) return true;
+        String lower = channelName.trim().toLowerCase();
+        return lower.contains("shopee") || 
+               lower.contains("tiktok") || 
+               lower.contains("lazada") || 
+               lower.contains("website") || 
+               lower.contains("online") || 
+               lower.contains("khách mua lẻ") ||
+               lower.contains("retail");
     }
 }

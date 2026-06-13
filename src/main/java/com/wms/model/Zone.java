@@ -1,5 +1,7 @@
 package com.wms.model;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
+
 /**
  * Zone — Domain model representing a storage zone within a warehouse.
  */
@@ -12,6 +14,8 @@ public class Zone {
     private String zoneType; // "NORMAL" | "RETURN" | "DAMAGED" | "DESTROY"
     private String description;
     private boolean active;
+
+    @JsonProperty("isDefault")
     private boolean isDefault;
 
     // constructors
@@ -99,10 +103,12 @@ public class Zone {
         this.active = active;
     }
 
+    @JsonProperty("isDefault")
     public boolean isDefault() {
         return isDefault;
     }
 
+    @JsonProperty("isDefault")
     public void setDefault(boolean isDefault) {
         this.isDefault = isDefault;
     }

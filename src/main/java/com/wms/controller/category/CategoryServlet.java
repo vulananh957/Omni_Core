@@ -1,5 +1,6 @@
 package com.wms.controller.category;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.wms.controller.BaseController;
 import com.wms.model.Category;
 import com.wms.service.product.CategoryService;
@@ -8,6 +9,7 @@ import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
+import java.util.List;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -24,19 +26,43 @@ public class CategoryServlet extends BaseController {
 
     private static final Logger LOGGER = Logger.getLogger(CategoryServlet.class.getName());
     private final CategoryService categoryService = new CategoryService();
+    private final ObjectMapper objectMapper;
+
+    public CategoryServlet() {
+        objectMapper = new ObjectMapper();
+        objectMapper.findAndRegisterModules();
+    }
 
     @Override
     protected void doGet(HttpServletRequest req, HttpServletResponse resp)
             throws ServletException, IOException {
 
         try {
-            req.setAttribute("categories", categoryService.findAll());
+            List<Category> categoryList = categoryService.findAll();
+            req.setAttribute("categories", categoryList);
+            // Create JSON manually to ensure UTF-8 encoding
+            StringBuilder jsonBuilder = new StringBuilder("[");
+            for (int i = 0; i < categoryList.size(); i++) {
+                Category cat = categoryList.get(i);
+                if (i > 0) jsonBuilder.append(",");
+                jsonBuilder.append("{");
+                jsonBuilder.append("\"id\":").append(cat.getCategoryId()).append(",");
+                jsonBuilder.append("\"code\":\"").append(escapeJson(cat.getCategoryCode())).append("\",");
+                jsonBuilder.append("\"name\":\"").append(escapeJson(cat.getCategoryName())).append("\",");
+                jsonBuilder.append("\"parentId\":").append(cat.getParentId() == null ? "null" : cat.getParentId()).append(",");
+                jsonBuilder.append("\"description\":\"").append(escapeJson(cat.getDescription() != null ? cat.getDescription() : "")).append("\",");
+                jsonBuilder.append("\"immutable\":").append(cat.isImmutable()).append(",");
+                jsonBuilder.append("\"active\":").append(cat.isActive());
+                jsonBuilder.append("}");
+            }
+            jsonBuilder.append("]");
+            req.setAttribute("categoriesJson", jsonBuilder.toString());
         } catch (Exception e) {
             LOGGER.log(Level.WARNING, "CategoryServlet: Failed to load categories", e);
         }
 
-        req.setAttribute("pageTitle",    "Quan Ly Danh Muc San Pham");
-        req.setAttribute("pageSubtitle", "Xay dung so do cay phan cap danh muc san pham va anh xa danh muc da san");
+        req.setAttribute("pageTitle",    "Quản lý danh mục sản phẩm");
+        req.setAttribute("pageSubtitle", "Xây dựng sơ đồ cây phân cấp danh mục sản phẩm và ánh xạ danh mục đa sàn");
         req.setAttribute("currentPage",  "categories");
 
         req.setAttribute("contentPage", "/WEB-INF/views/category/categories.jsp");
@@ -44,6 +70,8 @@ public class CategoryServlet extends BaseController {
         req.getRequestDispatcher("/WEB-INF/views/layout/dashboard-layout.jsp")
            .forward(req, resp);
     }
+
+
 
     @Override
     protected void doPost(HttpServletRequest req, HttpServletResponse resp)

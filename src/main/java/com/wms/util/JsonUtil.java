@@ -1,5 +1,6 @@
 package com.wms.util;
 
+import com.fasterxml.jackson.core.JsonGenerator;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
@@ -20,6 +21,8 @@ public class JsonUtil {
         MAPPER.registerModule(new JavaTimeModule());
         // Write dates as standard ISO-8601 strings rather than timestamps
         MAPPER.disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS);
+        // Ensure UTF-8 encoding for proper Vietnamese character handling
+        MAPPER.getFactory().disable(JsonGenerator.Feature.AUTO_CLOSE_TARGET);
     }
 
     public static ObjectMapper getMapper() {

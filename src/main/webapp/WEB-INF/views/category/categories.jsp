@@ -861,7 +861,15 @@
     'use strict';
 
     /* ─── Server-side data ─────────────────────────────────── */
-    var serverCategories = JSON.parse("<c:out value='${categoriesJson}' escapeXml='false'/>");
+    var serverCategories = [];
+    try {
+        var rawCategories = '<c:out value="${categoriesJson}" escapeXml="false"/>';
+        if (rawCategories && rawCategories.trim() && rawCategories.indexOf('categoriesJson') === -1) {
+            serverCategories = JSON.parse(rawCategories);
+        }
+    } catch (e) {
+        console.error('categories: Failed to parse categoriesJson', e);
+    }
 
     var categories = serverCategories.slice();
 

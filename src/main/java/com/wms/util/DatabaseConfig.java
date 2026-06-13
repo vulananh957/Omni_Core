@@ -85,8 +85,10 @@ public final class DatabaseConfig {
     public static String getPassword() { return PROP.getProperty("db.password", ""); }
     public static String getJdbcUrl() {
         return "jdbc:mysql://" + getHost() + ":" + getPort() + "/" + getDatabase()
-                + "?useSSL=false&serverTimezone=Asia/Ho_Chi_Minh&characterEncoding=UTF-8"
-                + "&allowPublicKeyRetrieval=true&connectionCollation=utf8mb4_unicode_ci";
+                + "?useSSL=false&serverTimezone=Asia/Ho_Chi_Minh"
+                + "&useUnicode=yes&characterEncoding=UTF-8"
+                + "&connectionCollation=utf8mb4_unicode_ci"
+                + "&allowPublicKeyRetrieval=true";
     }
 
     public static int getPoolMinIdle() {

@@ -60,7 +60,7 @@ public class DBConnection {
             config.addDataSourceProperty("cachePrepStmts", "true");
             config.addDataSourceProperty("prepStmtCacheSize", "250");
             config.addDataSourceProperty("prepStmtCacheSqlLimit", "2048");
-            config.addDataSourceProperty("characterEncoding", "UTF-8");
+            config.addDataSourceProperty("characterEncoding", "UTF8");
             config.setConnectionInitSql("SET NAMES utf8mb4");
 
             dataSource = new HikariDataSource(config);

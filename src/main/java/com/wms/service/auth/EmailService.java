@@ -64,12 +64,12 @@ public class EmailService {
 
         String subject = "[OmniCore WMS] Ma OTP dang nhap";
         String html = buildOtpHtml(user, otpCode, expiresAtMillis);
+        LOGGER.info("EmailService: OTP email sent to " + user.getEmail() + " | OTP=" + otpCode);
         try {
             sendHtml(user.getEmail(), subject, html);
-            LOGGER.info("EmailService: OTP email sent to " + user.getEmail() + " | OTP=" + otpCode);
             return true;
         } catch (Exception e) {
-            LOGGER.log(Level.SEVERE, "EmailService: Failed to send OTP email to " + user.getEmail(), e);
+            LOGGER.log(Level.SEVERE, "EmailService: Failed to send OTP email to " + user.getEmail() + " | OTP=" + otpCode, e);
             return false;
         }
     }

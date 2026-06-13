@@ -3,12 +3,17 @@
 <%@ taglib prefix="fmt" uri="jakarta.tags.fmt" %>
 <%@ page import="com.wms.model.OutboundOrder" %>
 <%@ page import="com.wms.model.OutboundItem" %>
+<%@ page import="com.wms.model.FulfillmentRequest" %>
+<%@ page import="com.wms.model.FulfillmentRequestItem" %>
 <%@ page import="java.util.List" %>
 <%@ page import="java.util.Map" %>
 <%@ page import="java.util.HashMap" %>
 <%
     List<OutboundOrder> outboundOrders = (List<OutboundOrder>) request.getAttribute("outboundOrders");
     if (outboundOrders == null) outboundOrders = java.util.Collections.emptyList();
+
+    List<FulfillmentRequest> fulfillmentRequests = (List<FulfillmentRequest>) request.getAttribute("fulfillmentRequests");
+    if (fulfillmentRequests == null) fulfillmentRequests = java.util.Collections.emptyList();
 
     Map<String, Integer> statusCounts = new HashMap<>();
     statusCounts.put("ALL", outboundOrders.size());
@@ -24,9 +29,10 @@
         }
     }
 
-    com.fasterxml.jackson.databind.ObjectMapper mapper = new com.fasterxml.jackson.databind.ObjectMapper();
+    com.fasterxml.jackson.databind.ObjectMapper mapper = com.wms.util.JsonUtil.getMapper();
     request.setAttribute("outboundOrdersJson", mapper.valueToTree(outboundOrders).toString());
     request.setAttribute("statusCountsJson", mapper.valueToTree(statusCounts).toString());
+    request.setAttribute("fulfillmentRequestsJson", mapper.valueToTree(fulfillmentRequests).toString());
 %>
 
 <style>
@@ -469,6 +475,8 @@
     .btn-workflow-step.orange:hover { background: #ea580c; }
     .btn-workflow-step.amber { background: #d97706; }
     .btn-workflow-step.amber:hover { background: #b45309; }
+    .btn-workflow-step.green { background: #10b981; }
+    .btn-workflow-step.green:hover { background: #059669; }
     
     .label-checker-status {
         display: inline-flex;
@@ -960,6 +968,13 @@
     .pill-badge.dispatched .pill-badge__dot {
         background: #10b981 !important;
     }
+    .pill-badge.cancelled {
+        background: #fee2e2 !important;
+        color: #991b1b !important;
+    }
+    .pill-badge.cancelled .pill-badge__dot {
+        background: #ef4444 !important;
+    }
 </style>
 
 <!-- ══ TOAST NOTIFICATION ═══════════════════════════════════ -->
@@ -1067,7 +1082,7 @@
         <input type="text" id="outboundSearch" placeholder="Tìm mã phiếu xuất, mã SO..." oninput="window.handleSearch()"/>
     </div>
     
-    <button id="btn-open-draft-creator" onclick="window.openCreateOutboundModal()" class="btn-action-primary">
+    <button id="btn-open-draft-creator" onclick="window.openDraftModal()" class="btn-action-primary">
         <svg style="width: 14px; height: 14px;" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
             <path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4" />
         </svg>
@@ -1136,76 +1151,85 @@
     <div class="modal-shell modal-size-xl">
         <div class="modal-header-section">
             <div>
-                <h2 class="modal-hdr-title">Tạo phiếu xuất nháp</h2>
-                <p class="modal-hdr-desc">Chọn một yêu cầu xuất từ Sales để map SKU và lưu ở trạng thái DRAFT.</p>
+                <h2 class="modal-hdr-title">Tạo phiếu xuất</h2>
+                <p class="modal-hdr-desc">Chọn một yêu cầu xuất từ Sales để map SKU và tự động duyệt chuyển sang Chờ chuẩn bị hàng.</p>
             </div>
             <button onclick="window.closeDraftModal()" class="btn-modal-close-icon">&times;</button>
         </div>
-        <div class="draft-split-view" style="flex:1; min-height:0;">
-            <!-- Left pane: fulfillment requests list -->
-            <div class="draft-left-pane" id="fulfillmentRequestsContainer">
-                <!-- Rendered dynamically -->
+
+        <div style="display:grid; grid-template-columns: 1.1fr 1.4fr; flex:1; min-height:0; overflow:hidden;">
+            <!-- Left pane: Fulfillment Requests list -->
+            <div style="border-right:1px solid var(--border); background:rgba(240,244,250,0.13); overflow-y:auto; padding:16px;">
+                <div id="fulfillmentRequestsListContainer"></div>
             </div>
+
             <!-- Right pane: selected request details -->
-            <div class="draft-right-pane">
-                <div id="selectedRequestDetailsBox" style="display:none;" class="space-y-4">
-                    <div style="display:flex; align-items:center; justify-content:between; justify-content: space-between; margin-bottom: 16px;">
+            <div style="overflow-y:auto; padding:24px; background:#fff;">
+                <div id="selectedRequestDetailsBox" style="display:none;">
+                    <!-- Request ID header + DRAFT badge -->
+                    <div style="display:flex; align-items:flex-start; justify-content:space-between; margin-bottom:20px; gap:12px;">
                         <div>
-                            <div class="modal-hdr-title" style="font-size: 15px;" id="selected-req-id">FR-2026-XXXX</div>
-                            <div class="modal-hdr-desc">Map sang phiếu xuất nháp và lưu `mappedOrderId` để truy vết.</div>
+                            <div style="font-size:13px; color:rgba(16,55,92,0.4); margin-bottom:4px;">Order gốc: <span id="selected-req-order-source" style="font-weight:700; color:var(--navy);"></span></div>
+                            <div style="font-size:15px; font-weight:800; color:var(--navy);" id="selected-req-id">FR-2026-XXXX</div>
+                            <div style="font-size:12px; color:rgba(16,55,92,0.4); margin-top:2px;">Tạo phiếu xuất và lưu `mappedOrderId` để truy vết.</div>
                         </div>
-                        <span style="background: rgba(235,131,23,0.1); color: var(--orange); font-size:11px; font-weight:700; padding:4px 10px; border-radius:20px;">
-                            Sẽ lưu DRAFT
+                        <span style="background:rgba(16,185,129,0.1); color:#10b981; font-size:11px; font-weight:700; padding:5px 12px; border-radius:20px; white-space:nowrap; margin-top:4px;">
+                            Duyệt tự động (Auto-approve)
                         </span>
                     </div>
 
-                    <div class="outbound-form-group">
-                        <label class="outbound-form-label">Ghi chú</label>
-                        <textarea id="draft-memo" rows="3" class="outbound-form-textarea" placeholder="Ghi chú cho phiếu xuất nháp"></textarea>
+                    <!-- Ghi chú -->
+                    <div style="margin-bottom:20px;">
+                        <label style="display:block; color:rgba(16,55,92,0.60); font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:0.06em; margin-bottom:6px;">Ghi chú</label>
+                        <textarea id="draft-memo" rows="3"
+                                  style="width:100%; padding:10px 12px; border:1px solid var(--border); background:var(--alice); font-size:13px; color:var(--navy); outline:none; resize:none; border-radius:6px;"
+                                  placeholder="Ghi chú cho phiếu xuất"></textarea>
                     </div>
 
-                    <!-- Items table preview -->
-                    <div style="border:1px solid var(--border); border-radius: var(--radius-card); overflow:hidden; margin-bottom: 16px;">
-                        <div style="background: rgba(240,244,250,0.4); padding: 10px 16px; font-size: 13px; font-weight:600; color:var(--navy); border-bottom:1px solid var(--border);">
+                    <!-- SKU table preview -->
+                    <div style="border:1px solid var(--border); border-radius:var(--radius-card); overflow:hidden; margin-bottom:20px;">
+                        <div style="background:rgba(240,244,250,0.4); padding:10px 16px; font-size:13px; font-weight:600; color:var(--navy); border-bottom:1px solid var(--border);">
                             SKU sẽ được map tự động
                         </div>
-                        <table class="outbound-table">
+                        <table style="width:100%;">
                             <thead>
                                 <tr style="background:#fff; border-bottom:1px solid var(--border);">
-                                    <th style="text-align: left; font-size:10px;">SKU</th>
-                                    <th style="text-align: left; font-size:10px;">Tên sản phẩm</th>
-                                    <th style="text-align: right; font-size:10px;">SL</th>
+                                    <th style="text-align:left; padding:8px 16px; font-size:10px; color:rgba(16,55,92,0.4); font-weight:700; text-transform:uppercase; letter-spacing:0.06em;">SKU</th>
+                                    <th style="text-align:left; padding:8px 16px; font-size:10px; color:rgba(16,55,92,0.4); font-weight:700; text-transform:uppercase; letter-spacing:0.06em;">Tên sản phẩm</th>
+                                    <th style="text-align:right; padding:8px 16px; font-size:10px; color:rgba(16,55,92,0.4); font-weight:700; text-transform:uppercase; letter-spacing:0.06em;">SL</th>
                                 </tr>
                             </thead>
-                            <tbody id="draftPreviewItemsTableBody">
-                                <!-- Dynamic rows -->
-                            </tbody>
+                            <tbody id="draftPreviewItemsTableBody"></tbody>
                         </table>
                     </div>
 
-                    <!-- Meta info summary -->
-                    <div style="background: var(--alice); padding:16px; border-radius: var(--radius-btn);">
-                        <div style="display:grid; grid-template-columns: 1fr 1fr; gap:16px;">
+                    <!-- Meta info: Issue Doc ID + Mapped Order ID -->
+                    <div style="background:var(--alice); padding:16px; border-radius:6px;">
+                        <div style="display:grid; grid-template-columns:1fr 1fr; gap:16px;">
                             <div>
-                                <div class="outbound-form-label" style="font-size: 9px; color:rgba(16, 55, 92, 0.4);">Issue Document ID</div>
-                                <div style="font-family: monospace; font-weight:700; font-size:13px;" class="text-navy">Sẽ sinh khi lưu</div>
+                                <div style="font-size:10px; color:rgba(16,55,92,0.4); font-weight:700; text-transform:uppercase; letter-spacing:0.06em; margin-bottom:4px;">Issue Document ID</div>
+                                <div style="font-family:monospace; font-weight:700; font-size:13px; color:var(--navy);">Sẽ sinh khi lưu</div>
                             </div>
                             <div>
-                                <div class="outbound-form-label" style="font-size: 9px; color:rgba(16, 55, 92, 0.4);">Mapped Order ID</div>
-                                <div style="font-family: monospace; font-weight:700; font-size:13px;" class="text-navy" id="selected-mapped-order-id">SO-XXXX</div>
+                                <div style="font-size:10px; color:rgba(16,55,92,0.4); font-weight:700; text-transform:uppercase; letter-spacing:0.06em; margin-bottom:4px;">Mapped Order ID</div>
+                                <div style="font-family:monospace; font-weight:700; font-size:13px; color:var(--navy);" id="selected-mapped-order-id">SO-XXXX</div>
                             </div>
                         </div>
                     </div>
                 </div>
-                
-                <div id="noSelectedRequestBox" style="height: 100%; display:flex; align-items:center; justify-content:center; color:rgba(16, 55, 92, 0.4); font-size: 13px;">
-                    Không còn request nào để tạo phiếu xuất nháp.
+
+                <div id="noSelectedRequestBox" style="height:100%; display:flex; align-items:center; justify-content:center; color:rgba(16,55,92,0.4); font-size:13px;">
+                    Không còn request nào để tạo phiếu xuất.
                 </div>
             </div>
         </div>
+
         <div class="modal-footer-section">
             <button onclick="window.closeDraftModal()" class="btn-action-secondary">Hủy</button>
-            <button id="btn-submit-draft-do" onclick="window.submitDraftDO()" class="btn-action-primary">Lưu nháp</button>
+            <button id="btn-submit-draft-do" onclick="window.submitDraftDO()" disabled
+                    style="padding:9px 20px; background:var(--navy); color:rgba(16,55,92,0.3); font-size:13px; font-weight:700; border-radius:6px; border:none; cursor:not-allowed;">
+                Xác nhận tạo
+            </button>
         </div>
     </div>
 </div>
@@ -1427,50 +1451,6 @@
     </div>
 </div>
 
-<!-- 5. Create Outbound Modal -->
-<div class="overlay-backdrop" id="createOutboundOverlay">
-    <div class="modal-shell modal-size-md">
-        <div class="modal-header-section">
-            <div>
-                <h2 class="modal-hdr-title">Tạo Phiếu Xuất Kho</h2>
-                <p class="modal-hdr-desc">Lập phiếu xuất mới từ đơn hàng Sales</p>
-            </div>
-            <button onclick="window.closeCreateOutboundModal()" class="btn-modal-close-icon">&times;</button>
-        </div>
-        <form id="createOutboundForm" method="POST" action="${pageContext.request.contextPath}/warehouse/outbound">
-            <input type="hidden" name="action" value="create"/>
-            <div class="modal-body-section" style="display:flex; flex-direction:column; gap:14px;">
-                <div class="outbound-form-group">
-                    <label class="outbound-form-label">Mã Đơn Hàng (Order ID) *</label>
-                    <input type="number" name="orderId" id="create-order-id" min="1"
-                           class="outbound-form-input" style="font-weight:600;"
-                           placeholder="VD: 12345" required/>
-                </div>
-                <div class="outbound-form-group">
-                    <label class="outbound-form-label">Kho xuất *</label>
-                    <select name="warehouseId" id="create-warehouse-id" class="outbound-form-input"
-                            style="font-weight:600; cursor:pointer;" required>
-                        <option value="" disabled selected>-- Chon kho --</option>
-                        <c:forEach var="w" items="${warehouses}">
-                            <option value="${w.warehouseId}">${w.warehouseName}</option>
-                        </c:forEach>
-                    </select>
-                </div>
-                <div class="outbound-form-group">
-                    <label class="outbound-form-label">Ghi chú</label>
-                    <textarea name="notes" id="create-notes" rows="3"
-                              class="outbound-form-textarea"
-                              placeholder="Ghi chú cho phiếu xuất (không bắt buộc)"></textarea>
-                </div>
-            </div>
-            <div class="modal-footer-section">
-                <button type="button" onclick="window.closeCreateOutboundModal()" class="btn-action-secondary">Hủy</button>
-                <button type="submit" class="btn-action-primary" style="background: var(--orange);">Tạo phiếu xuất</button>
-            </div>
-        </form>
-    </div>
-</div>
-
 <!-- ══════════════════════════════════════════════════════════
      DYNAMIC JAVASCRIPT STATE CONTROLLER
      ══════════════════════════════════════════════════════════ -->
@@ -1514,17 +1494,17 @@
         pending_pick: { label: "Chờ chuẩn bị hàng", iconName: "Clock", bg: "#eff6ff", text: "#1d4ed8", dot: "#3b82f6", color: "#2563eb" },
         picking: { label: "Đang pick", iconName: "ArrowUpFromLine", bg: "rgba(245, 200, 66, 0.15)", text: "#d97706", dot: "#f5c842", color: "#eb8317" },
         packed: { label: "Đã đóng gói", iconName: "Package", bg: "#f3e8ff", text: "#7e22ce", dot: "#a855f7", color: "#9333ea" },
-        dispatched: { label: "Đã xuất kho", iconName: "Truck", bg: "#ecfdf5", text: "#047857", dot: "#10b981", color: "#059669" }
+        dispatched: { label: "Đã xuất kho", iconName: "Truck", bg: "#ecfdf5", text: "#047857", dot: "#10b981", color: "#059669" },
+        cancelled: { label: "Đã hủy", iconName: "XCircle", bg: "#fee2e2", text: "#991b1b", dot: "#ef4444", color: "#dc2626" }
     };
 
     var STATUS_TABS = [
         { id: "all", label: "Tất cả" },
-        { id: "draft", label: "Bản nháp" },
-        { id: "pending_bm", label: "Chờ duyệt" },
         { id: "pending_pick", label: "Chờ chuẩn bị hàng" },
         { id: "picking", label: "Đang pick" },
         { id: "packed", label: "Đã đóng gói" },
-        { id: "dispatched", label: "Đã xuất kho" }
+        { id: "dispatched", label: "Đã xuất kho" },
+        { id: "cancelled", label: "Đã hủy" }
     ];
 
     // Local controller states
@@ -1533,9 +1513,10 @@
     var activeTab = "all";
     var searchStr = "";
     var expandedOrderId = null;
-    
+
     // Draft creator state
     var selectedRequestId = null;
+    var newRequestIds = new Set(); // tracks IDs that arrived since last page load
 
     // Disposal Creator state
     var selectedDisposalSku = "";
@@ -1592,13 +1573,13 @@
             dbOutboundId: dbOrder.outboundId,
             issueDocumentId: dbOrder.outboundCode || ('DB-' + dbOrder.outboundId),
             mappedOrderId: dbOrder.orderId,
-            soRef: 'SO-' + dbOrder.orderId,
+            soRef: dbOrder.orderCode || ('SO-' + dbOrder.orderId),
             channel: "Sales",
             channelColor: "#3b82f6",
-            customer: "Khách hàng từ đơn #" + dbOrder.orderId,
-            address: dbOrder.notes || "Khu vực hàng thường",
+            customer: dbOrder.recipientName || ("Khách hàng từ đơn #" + dbOrder.orderId),
+            address: dbOrder.shippingAddress || dbOrder.notes || "Khu vực hàng thường",
             status: status,
-            courier: "Giao hàng nhanh",
+            courier: dbOrder.courierName || "Giao hàng nhanh",
             createdAt: dbOrder.createdAt ? dbOrder.createdAt.replace('T', ' ').substring(0, 16) : '',
             note: dbOrder.notes,
             items: itemsMapped
@@ -1607,18 +1588,7 @@
 
     // Bootstrap data initialization
     function initLocalStorageData() {
-        var hasMockData = localStorage.getItem(DO_STORAGE_KEY) && 
-                          localStorage.getItem(DO_STORAGE_KEY).indexOf("DO-2026-0892") > -1;
-                          
-        if (!localStorage.getItem(DO_STORAGE_KEY) || hasMockData) {
-            localStorage.setItem(DO_STORAGE_KEY, JSON.stringify([]));
-        }
-        if (!localStorage.getItem(FULFILLMENT_STORAGE_KEY) || hasMockData) {
-            localStorage.setItem(FULFILLMENT_STORAGE_KEY, JSON.stringify([]));
-        }
-        
-        var localOrders = JSON.parse(localStorage.getItem(DO_STORAGE_KEY));
-        fulfillmentRequests = JSON.parse(localStorage.getItem(FULFILLMENT_STORAGE_KEY));
+        var localOrders = JSON.parse(localStorage.getItem(DO_STORAGE_KEY) || '[]');
 
         // Bind server-side outbound orders if available from servlet
         var SERVER_OUTBOUND_ORDERS = [];
@@ -1628,24 +1598,74 @@
                 SERVER_OUTBOUND_ORDERS = JSON.parse(rawJson);
             }
         } catch(e) {
-            console.warn('warehouse-outbound: No server outbound order data, using localStorage fallback');
+            console.warn('warehouse-outbound: No server outbound order data');
         }
 
         var mappedServerOrders = SERVER_OUTBOUND_ORDERS.map(mapDbOrderToFrontend);
-        var serverCodes = mappedServerOrders.map(function(o) { return o.id; });
-        var filteredLocal = localOrders.filter(function(o) {
-            return serverCodes.indexOf(o.id) === -1;
+
+        // Merge picked state from local storage to keep checkboxes checked across reloads
+        mappedServerOrders.forEach(function(serverOrd) {
+            var localOrd = localOrders.find(function(lo) { return lo.id === serverOrd.id; });
+            if (localOrd) {
+                serverOrd.items.forEach(function(sItem) {
+                    var lItem = localOrd.items.find(function(li) { return li.skuCode === sItem.skuCode; });
+                    if (lItem) {
+                        sItem.picked = lItem.picked;
+                    }
+                });
+                if (localOrd.restocked !== undefined) {
+                    serverOrd.restocked = localOrd.restocked;
+                }
+            }
         });
 
-        pickOrders = mappedServerOrders.concat(filteredLocal);
+        pickOrders = mappedServerOrders;
+
+        // Load fulfillment requests from servlet (already fetched server-side)
+        var SERVER_FULFILLMENT = [];
+        try {
+            var frJson = '<c:out value="${fulfillmentRequestsJson}" escapeXml="false"/>';
+            if (frJson && frJson.trim() && frJson.indexOf('fulfillmentRequestsJson') === -1) {
+                SERVER_FULFILLMENT = JSON.parse(frJson);
+            }
+        } catch(e) {
+            console.warn('warehouse-outbound: No server fulfillment data');
+        }
+
+        fulfillmentRequests = SERVER_FULFILLMENT.map(function(fr) {
+            return {
+                requestId: fr.requestId,
+                orderId: fr.orderId,
+                warehouseId: fr.warehouseId,
+                status: fr.status,
+                autoCreated: fr.autoCreated,
+                createdAt: fr.createdAt ? new Date(fr.createdAt).toLocaleString('vi-VN') : null,
+                items: (fr.items || []).map(function(item) {
+                    return {
+                        skuCode: item.skuCode,
+                        skuName: item.skuName,
+                        qty: item.qty
+                    };
+                })
+            };
+        });
     }
 
     initLocalStorageData();
 
+    if (fulfillmentRequests.length > 0) {
+        var faCount = document.getElementById('fulfillment-alert-count');
+        if (faCount) {
+            faCount.textContent = fulfillmentRequests.length + " lệnh xuất mới";
+        }
+    }
+    renderStatistics();
+    renderOrders();
+
     // Render counts and update UI statistics
     function renderStatistics() {
         var counts = {
-            draft: 0, pending_bm: 0, pending_pick: 0, picking: 0, packed: 0, dispatched: 0
+            draft: 0, pending_bm: 0, pending_pick: 0, picking: 0, packed: 0, dispatched: 0, cancelled: 0
         };
         pickOrders.forEach(function(o) {
             if (counts[o.status] !== undefined) {
@@ -1653,25 +1673,30 @@
             }
         });
 
-        document.getElementById('stat-pending-pick').textContent = counts.pending_pick;
-        document.getElementById('stat-picking-pack').textContent = counts.picking;
-        document.getElementById('stat-packed').textContent = counts.packed;
-        document.getElementById('stat-dispatched').textContent = counts.dispatched;
+        var el;
+        if ((el = document.getElementById('stat-draft'))) el.textContent = counts.draft;
+        if ((el = document.getElementById('stat-pending-bm'))) el.textContent = counts.pending_bm;
+        if ((el = document.getElementById('stat-pending-pick'))) el.textContent = counts.pending_pick;
+        if ((el = document.getElementById('stat-picking-pack'))) el.textContent = counts.picking;
+        if ((el = document.getElementById('stat-packed'))) el.textContent = counts.packed;
+        if ((el = document.getElementById('stat-dispatched'))) el.textContent = counts.dispatched;
 
         // Alerts banners visibility (mutually exclusive)
         var newAlert = document.getElementById('fulfillment-alert-banner');
         var pickAlert = document.getElementById('pending-pick-alert-banner');
         if (fulfillmentRequests.length > 0) {
-            newAlert.style.display = 'flex';
-            document.getElementById('fulfillment-alert-count').textContent = fulfillmentRequests.length + " lệnh xuất mới";
-            pickAlert.style.display = 'none';
+            if (newAlert) newAlert.style.display = 'flex';
+            var faCount2 = document.getElementById('fulfillment-alert-count');
+            if (faCount2) faCount2.textContent = fulfillmentRequests.length + " lệnh xuất mới";
+            if (pickAlert) pickAlert.style.display = 'none';
         } else {
-            newAlert.style.display = 'none';
+            if (newAlert) newAlert.style.display = 'none';
             if (counts.pending_pick > 0) {
-                pickAlert.style.display = 'flex';
-                document.getElementById('pending-pick-alert-count').textContent = counts.pending_pick;
+                if (pickAlert) pickAlert.style.display = 'flex';
+                var paCount = document.getElementById('pending-pick-alert-count');
+                if (paCount) paCount.textContent = counts.pending_pick;
             } else {
-                pickAlert.style.display = 'none';
+                if (pickAlert) pickAlert.style.display = 'none';
             }
         }
 
@@ -1728,6 +1753,12 @@
                 actionBtnHtml = '<button class="btn-workflow-step amber" onclick="window.handleSubmitForBM(\'' + order.id + '\', event)">Trình duyệt BM</button>';
             } else if (order.status === 'pending_bm') {
                 actionBtnHtml = '<span class="label-checker-status">Chờ duyệt</span>';
+            } else if (order.status === 'cancelled') {
+                if (!order.restocked) {
+                    actionBtnHtml = '<button class="btn-workflow-step green" onclick="window.handleRestockOrder(\'' + order.id + '\', event)">Xác nhận hoàn kệ</button>';
+                } else {
+                    actionBtnHtml = '<span style="color:#10b981; font-weight:700; font-size:13px;">Đã hoàn kệ</span>';
+                }
             }
 
             // Document details viewer icon
@@ -1756,9 +1787,13 @@
                     '</div>';
                 }
 
+                // Make the checkbox interactive
+                var cursorStyle = order.status === 'picking' ? 'cursor:pointer;' : 'cursor:not-allowed; opacity:0.6;';
+                var onClickAttr = 'onclick="window.handleTogglePickItem(\'' + order.id + '\', \'' + item.skuCode + '\', event)"';
+                
                 var checkedIcon = item.picked ? 
-                    '<svg style="width:18px; height:18px; color:#10b981; margin:0 auto;" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>' :
-                    '<div style="width:16px; height:16px; border:2px solid rgba(16, 55, 92, 0.2); border-radius:3px; margin:0 auto;"></div>';
+                    '<svg style="width:18px; height:18px; color:#10b981; margin:0 auto; ' + cursorStyle + '" ' + onClickAttr + ' xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>' :
+                    '<div style="width:16px; height:16px; border:2px solid rgba(16, 55, 92, 0.2); border-radius:3px; margin:0 auto; ' + cursorStyle + '" ' + onClickAttr + '></div>';
 
                 return '<tr>' +
                     '<td>' +
@@ -1791,6 +1826,13 @@
             if (order.isDisposal && order.status === 'draft' && order.disposalRejectReason) {
                 badgesHtml += ' <span class="outbound-extra-badge rejected">⚠️ Bị từ chối</span>';
             }
+            if (order.status === 'cancelled') {
+                if (order.restocked) {
+                    badgesHtml += ' <span class="outbound-extra-badge restocked" style="background:#e6f4ea; color:#137333; font-weight:700; border:1px solid #137333; padding:2px 8px; border-radius:12px; font-size:11px;">Đã hoàn kệ</span>';
+                } else {
+                    badgesHtml += ' <span class="outbound-extra-badge restocking" style="background:#fef7e0; color:#b06000; font-weight:700; border:1px solid #b06000; padding:2px 8px; border-radius:12px; font-size:11px;">Chưa hoàn kệ</span>';
+                }
+            }
 
             var assignedHtml = order.assignedTo ? 
                 '<span>Phụ trách: <strong style="color:rgba(16, 55, 92, 0.7);">' + order.assignedTo + '</strong></span>' : '';
@@ -1808,6 +1850,13 @@
                     '</svg>' +
                     '<div><strong>Quản lý từ chối duyệt:</strong> "' + order.disposalRejectReason + '" (Nhân viên vui lòng kiểm tra lại)</div>' +
                 '</div>';
+            }
+
+            var cancelSimulationHtml = '';
+            if (order.status === 'pending_pick' || order.status === 'picking' || order.status === 'packed') {
+                cancelSimulationHtml = '<button onclick="window.handleSimulateCancel(\'' + order.id + '\', event)" class="btn-action-red" style="padding:4px 10px; font-size:11px; margin-left:auto; display:flex; align-items:center; gap:4px; background:#fef2f2; color:#ef4444; border:1px solid #fee2e2; border-radius:4px; cursor:pointer;">' +
+                    '❌ Mô phỏng Hủy đơn' +
+                '</button>';
             }
 
             return '<div class="outbound-item ' + (isExpanded ? 'expanded' : '') + '">' +
@@ -1854,7 +1903,8 @@
                         '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">' +
                             '<path stroke-linecap="round" stroke-linejoin="round" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" /><path stroke-linecap="round" stroke-linejoin="round" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />' +
                         '</svg>' +
-                        '<span>' + order.address + '</span>' +
+                        '<span style="flex:1;">' + order.address + '</span>' +
+                        cancelSimulationHtml +
                     '</div>' +
                     '<table class="outbound-table">' +
                         '<thead>' +
@@ -1905,6 +1955,52 @@
         activeTab = tabId;
         renderOrders();
         renderStatistics();
+    };
+
+    // Toggle picked status of an item during picking
+    window.handleTogglePickItem = function(orderId, skuCode, event) {
+        if (event) event.stopPropagation();
+        var order = pickOrders.find(function(o) { return o.id === orderId; });
+        if (!order) return;
+        if (order.status !== 'picking') {
+            alert('Vui lòng bấm "Bắt đầu Pick" trước khi xác nhận đã pick sản phẩm!');
+            return;
+        }
+        var item = order.items.find(function(i) { return i.skuCode === skuCode; });
+        if (item) {
+            item.picked = !item.picked;
+            saveState();
+        }
+    };
+
+    // Restock a cancelled order
+    window.handleRestockOrder = function(orderId, event) {
+        if (event) event.stopPropagation();
+        var order = pickOrders.find(function(o) { return o.id === orderId; });
+        if (!order) return;
+        order.restocked = true;
+        saveState();
+        alert('Đã xác nhận hoàn kệ cho đơn ' + orderId + ' thành công!');
+    };
+
+    // Simulate customer cancellation
+    window.handleSimulateCancel = function(orderId, event) {
+        if (event) event.stopPropagation();
+        var order = pickOrders.find(function(o) { return o.id === orderId; });
+        if (!order) return;
+        
+        var prevStatus = order.status;
+        order.status = 'cancelled';
+        
+        if (prevStatus === 'pending_pick') {
+            order.restocked = true; // No action needed as items are still on shelves
+            alert('Hủy đơn thành công! Vì đơn đang ở trạng thái "Chờ chuẩn bị hàng" (chưa nhặt hàng), hệ thống tự động đánh dấu "Đã hoàn kệ".');
+        } else {
+            order.restocked = false; // Requires warehouse action
+            alert('Hủy đơn thành công! Đơn hàng đã chuyển sang tab "Đã hủy" ở trạng thái "Chưa hoàn kệ". Nhân viên kho vui lòng hoàn kệ hàng vật lý.');
+        }
+        
+        saveState();
     };
 
     // Transition: Pending Pick -> Picking
@@ -2099,7 +2195,11 @@
             selectedRequestId = null;
             document.getElementById('selectedRequestDetailsBox').style.display = 'none';
             document.getElementById('noSelectedRequestBox').style.display = 'flex';
-            document.getElementById('btn-submit-draft-do').disabled = true;
+            var btn = document.getElementById('btn-submit-draft-do');
+            btn.disabled = true;
+            btn.style.background = 'var(--navy)';
+            btn.style.color = 'rgba(16,55,92,0.3)';
+            btn.style.cursor = 'not-allowed';
         }
 
         document.getElementById('draft-memo').value = '';
@@ -2108,33 +2208,62 @@
 
     window.closeDraftModal = function() {
         draftOverlay.classList.remove('active');
+        // Reset button to disabled state for next open
+        var btn = document.getElementById('btn-submit-draft-do');
+        btn.disabled = true;
+        btn.style.background = 'var(--navy)';
+        btn.style.color = 'rgba(16,55,92,0.3)';
+        btn.style.cursor = 'not-allowed';
     };
 
     function renderFulfillmentRequestsList() {
-        var container = document.getElementById('fulfillmentRequestsContainer');
-        var listHeader = '<div class="outbound-form-label" style="margin-bottom:8px;">Yêu cầu xuất hàng pending (' + fulfillmentRequests.length + ')</div>';
-        
+        var container = document.getElementById('fulfillmentRequestsListContainer');
+
         if (fulfillmentRequests.length === 0) {
-            container.innerHTML = listHeader + '<div style="background:#fff; border:1px solid var(--border); padding: 16px; font-size:12px; color:rgba(16,55,92,0.4); text-align:center; border-radius:var(--radius-card);">Không có yêu cầu xuất hàng nào từ Sales.</div>';
+            container.innerHTML = '<div style="text-align:center; color:rgba(16,55,92,0.4); font-size:12px; padding:16px;">Không có yêu cầu xuất hàng từ Sales.</div>';
             return;
         }
 
         var listHtml = fulfillmentRequests.map(function(req) {
-            var activeClass = selectedRequestId === req.requestId ? 'active' : '';
-            return '<button class="draft-item-select-btn ' + activeClass + '" onclick="window.handleSelectFulfillmentRequest(\'' + req.requestId + '\')">' +
-                '<div style="display:flex; align-items:center; justify-content:space-between; justify-content: space-between;">' +
-                    '<div>' +
-                        '<div style="font-weight:800; color:var(--navy); font-size:13px;">' + req.requestId + '</div>' +
-                        '<div style="font-size:11px; color:rgba(16, 55, 92, 0.4); margin-top:2px;">Order: ' + req.orderId + '</div>' +
+            var isActive = selectedRequestId === req.requestId;
+            var isNew = newRequestIds.has(req.requestId);
+            var isAuto = req.autoCreated;
+
+            var itemStyle = 'width:100%; text-align:left; padding:14px; border:1px solid var(--border); background:#fff; border-radius:var(--radius-card); cursor:pointer; transition:all 0.15s; margin-bottom:10px; display:block;';
+            if (isActive) {
+                itemStyle = 'width:100%; text-align:left; padding:14px; border:1px solid var(--orange); background:#fff; border-radius:var(--radius-card); cursor:pointer; transition:all 0.15s; margin-bottom:10px; display:block; box-shadow:0 4px 6px -1px rgba(235,131,23,0.1);';
+            } else if (isNew) {
+                itemStyle = 'width:100%; text-align:left; padding:14px; border:1px solid #a7f3d0; background:#ecfdf5; border-radius:var(--radius-card); cursor:pointer; transition:all 0.15s; margin-bottom:10px; display:block;';
+            }
+
+            var badgesHtml = '';
+            if (isAuto && isNew) {
+                badgesHtml = '<span style="padding:2px 6px; background:#10b981; color:#fff; font-size:9px; font-weight:700; border-radius:20px; animation:pulse 1.5s infinite; margin-right:4px;">TỰ ĐỘNG</span>' +
+                             '<span style="padding:2px 6px; background:#ef4444; color:#fff; font-size:9px; font-weight:700; border-radius:20px; animation:pulse 1.5s infinite;">MỚI</span>';
+            } else if (isNew) {
+                badgesHtml = '<span style="padding:2px 6px; background:#ef4444; color:#fff; font-size:9px; font-weight:700; border-radius:20px; animation:pulse 1.5s infinite;">MỚI</span>';
+            } else if (isAuto) {
+                badgesHtml = '<span style="padding:2px 6px; background:#10b981; color:#fff; font-size:9px; font-weight:700; border-radius:20px;">TỰ ĐỘNG</span>';
+            }
+
+            return '<button style="' + itemStyle + '" onclick="window.handleSelectFulfillmentRequest(\'' + req.requestId + '\')">' +
+                '<div style="display:flex; align-items:flex-start; justify-content:space-between; gap:12px;">' +
+                    '<div style="flex:1;">' +
+                        '<div style="display:flex; align-items:center; gap:6px; flex-wrap:wrap; margin-bottom:4px;">' +
+                            '<span style="font-weight:800; color:var(--navy); font-size:13px;">' + req.requestId + '</span>' +
+                            badgesHtml +
+                        '</div>' +
+                        '<div style="font-size:11px; color:rgba(16,55,92,0.4);">Order gốc: ' + req.orderId + '</div>' +
+                        (req.createdAt ? '<div style="font-size:10px; color:rgba(16,55,92,0.3); margin-top:2px;">' + req.createdAt + '</div>' : '') +
                     '</div>' +
-                    '<span style="background:rgba(16, 55, 92, 0.08); color:rgba(16, 55, 92, 0.6); font-size:10px; font-weight:700; padding:2px 8px; border-radius:20px;">' +
+                    '<span style="background:rgba(16,55,92,0.08); color:rgba(16,55,92,0.6); font-size:10px; font-weight:700; padding:3px 8px; border-radius:20px; white-space:nowrap; margin-top:2px; flex-shrink:0;">' +
                         req.items.length + ' SKU' +
                     '</span>' +
                 '</div>' +
             '</button>';
         }).join('');
 
-        container.innerHTML = listHeader + listHtml;
+        container.innerHTML = '<div style="color:var(--navy); font-size:13px; font-weight:600; margin-bottom:4px;">Fulfillment Requests</div>' + listHtml;
     }
 
     window.handleSelectFulfillmentRequest = function(reqId) {
@@ -2151,18 +2280,26 @@
         document.getElementById('btn-submit-draft-do').disabled = false;
 
         document.getElementById('selected-req-id').textContent = req.requestId;
+        document.getElementById('selected-req-order-source').textContent = req.orderId;
         document.getElementById('selected-mapped-order-id').textContent = req.orderId;
 
         // Render preview lines
         var tbody = document.getElementById('draftPreviewItemsTableBody');
         var previewHtml = req.items.map(function(item) {
-            return '<tr>' +
-                '<td style="font-family:monospace; font-size:11px; color:rgba(16,55,92,0.7);">' + item.skuCode + '</td>' +
-                '<td><span style="font-size:13px; color:var(--navy);">' + item.skuName + '</span></td>' +
-                '<td style="text-align:right; font-weight:700; color:var(--navy);">' + item.qty + '</td>' +
+            return '<tr style="border-top:1px solid var(--border);">' +
+                '<td style="padding:10px 16px; font-family:monospace; font-size:11px; color:rgba(16,55,92,0.7);">' + item.skuCode + '</td>' +
+                '<td style="padding:10px 16px; font-size:13px; color:var(--navy);">' + item.skuName + '</td>' +
+                '<td style="padding:10px 16px; text-align:right; font-size:13px; font-weight:700; color:var(--navy);">' + item.qty + '</td>' +
             '</tr>';
         }).join('');
         tbody.innerHTML = previewHtml;
+
+        // Enable Lưu nháp button with correct styling
+        var btn = document.getElementById('btn-submit-draft-do');
+        btn.disabled = false;
+        btn.style.background = 'var(--orange)';
+        btn.style.color = '#fff';
+        btn.style.cursor = 'pointer';
     };
 
     window.submitDraftDO = function() {
@@ -2170,62 +2307,27 @@
         var req = fulfillmentRequests.find(function(r) { return r.requestId === selectedRequestId; });
         if (!req) return;
 
-        // Generate next ID sequence DO-2026-XXXX
-        var maxSequence = 0;
-        pickOrders.forEach(function(o) {
-            var match = o.id.match(/DO-2026-(\d+)/);
-            if (match) {
-                var seq = parseInt(match[1]);
-                if (seq > maxSequence) maxSequence = seq;
-            }
-        });
-        var nextSeq = String(maxSequence + 1).padStart(4, '0');
-        var nextDoId = 'DO-2026-' + nextSeq;
+        var reqIdToRemove = selectedRequestId;
+        var btn = document.getElementById('btn-submit-draft-do');
+        if (btn) btn.disabled = true;
 
-        var memoVal = document.getElementById('draft-memo').value.trim();
-        var now = new Date();
-        var createdAtStr = now.getFullYear() + '-' + 
-                           padZero(now.getMonth()+1) + '-' + 
-                           padZero(now.getDate()) + ' ' + 
-                           padZero(now.getHours()) + ':' + 
-                           padZero(now.getMinutes());
-
-        // Create draft PickOrder
-        var newDraftDO = {
-            id: nextDoId,
-            issueDocumentId: nextDoId,
-            mappedOrderId: req.orderId,
-            soRef: req.orderId,
-            channel: "Sales",
-            channelColor: "#64748b",
-            customer: "Đơn nháp từ Sales",
-            address: "Chưa xác định",
-            status: "draft",
-            courier: "Chưa xác định",
-            createdAt: createdAtStr,
-            note: memoVal || undefined,
-            items: req.items.map(function(item) {
-                return {
-                    skuCode: item.skuCode,
-                    skuName: item.skuName,
-                    qty: item.qty,
-                    location: "—",
-                    picked: false
-                };
+        fetch('/warehouse/fulfillment?action=convert&requestId=' + encodeURIComponent(reqIdToRemove), { method: 'POST' })
+            .then(function(res) { return res.json(); })
+            .then(function(data) {
+                if (data.success) {
+                    alert('Tạo phiếu xuất thành công! Phiếu đã tự động duyệt (Auto-approve) và chuyển sang Chờ chuẩn bị hàng.');
+                    closeDraftModal();
+                    window.location.reload();
+                } else {
+                    alert('Lỗi: ' + data.message);
+                    if (btn) btn.disabled = false;
+                }
             })
-        };
-
-        // Prepend to list
-        pickOrders.unshift(newDraftDO);
-
-        // Remove from pending fulfillment requests
-        fulfillmentRequests = fulfillmentRequests.filter(function(r) {
-            return r.requestId !== selectedRequestId;
-        });
-
-        closeDraftModal();
-        saveState();
-        alert('Tạo phiếu xuất nháp ' + nextDoId + ' thành công!');
+            .catch(function(err) {
+                console.error('Failed to convert fulfillment request in DB', err);
+                alert('Có lỗi xảy ra khi tạo phiếu xuất hàng.');
+                if (btn) btn.disabled = false;
+            });
     };
 
     // ─── DISPOSAL note CREATOR MODAL ───
@@ -2540,7 +2642,7 @@
     }
 
     // Dismiss overlays when clicking backdrop
-    [confirmOverlay, draftOverlay, disposalOverlay, receiptDetailOverlay, createOverlay].forEach(function(ov) {
+    [confirmOverlay, draftOverlay, disposalOverlay, receiptDetailOverlay].forEach(function(ov) {
         if (ov) {
             ov.addEventListener('click', function(e) {
                 if (e.target === ov) {
@@ -2549,25 +2651,6 @@
             });
         }
     });
-
-    // ─── CREATE OUTBOUND MODAL ───
-    var createOverlay = document.getElementById('createOutboundOverlay');
-
-    window.openCreateOutboundModal = function() {
-        document.getElementById('create-order-id').value = '';
-        document.getElementById('create-warehouse-id').value = '';
-        document.getElementById('create-notes').value = '';
-        createOverlay.classList.add('active');
-    };
-
-    window.closeCreateOutboundModal = function() {
-        createOverlay.classList.remove('active');
-    };
-
-    // Auto-open create modal when triggered from server (e.g. GET ?create=1)
-    if (window.location.search.indexOf('create=1') > -1) {
-        setTimeout(function() { window.openCreateOutboundModal(); }, 300);
-    }
 
     // ─── TOAST AUTO-DISMISS ───
     var toast = document.getElementById('whToast');

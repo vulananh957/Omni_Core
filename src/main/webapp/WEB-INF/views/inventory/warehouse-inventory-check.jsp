@@ -443,12 +443,6 @@
                             </select>
                         </div>
                     </div>
-                    <div class="ic-form-group">
-                        <label class="ic-form-label">Người kiểm đếm *</label>
-                        <select class="ic-select" id="formAssignee">
-                            <option value="">— Chọn người kiểm đếm —</option>
-                        </select>
-                    </div>
                 </div>
 
                 <!-- PHẠM VI SẢN PHẨM KIỂM KÊ -->
@@ -520,7 +514,6 @@
     // ─── Master Data ───
     var WAREHOUSES = [];
     var ZONES = [];
-    var WH_STAFF_MEMBERS = [];
     var CATEGORIES = [];
 
     // Master Product List (Empty as requested by the user, but ready for future use)
@@ -541,7 +534,6 @@
     var formTitle       = document.getElementById('formTitle');
     var formWarehouse   = document.getElementById('formWarehouse');
     var formZone        = document.getElementById('formZone');
-    var formAssignee    = document.getElementById('formAssignee');
     var formCategory    = document.getElementById('formCategory');
     var formSKU         = document.getElementById('formSKU');
     var formNote        = document.getElementById('formNote');
@@ -573,16 +565,6 @@
         });
     }
     populateZoneSelect();
-
-    function populateAssigneeSelect() {
-        formAssignee.innerHTML = '<option value="">— Chọn người kiểm đếm —</option>';
-        WH_STAFF_MEMBERS.forEach(function (s) {
-            var opt = document.createElement('option');
-            opt.value = s; opt.textContent = s;
-            formAssignee.appendChild(opt);
-        });
-    }
-    populateAssigneeSelect();
 
     function populateCategorySelect() {
         formCategory.innerHTML = '<option value="">— Chọn danh mục sản phẩm —</option>';
@@ -669,7 +651,6 @@
             title: title + ' [' + formWarehouse.value + ' — ' + formZone.value + ']',
             createdAt: nowStr,
             status: 'in_progress',
-            createdBy: 'Nhân viên kiểm đếm: ' + formAssignee.value,
             items: selectedItems,
             note: formNote.value.trim() || null
         };

@@ -59,8 +59,10 @@ public class SchemaInitListener implements ServletContextListener {
             ensureScrapRecordsTable();
             ensureStockTransfers();
             ensureStocktakes();
+            ensureFulfillmentRequestTables();
             ensureIndexes();
             seedDefaultData();
+            seedFulfillmentTestData();
             LOGGER.info("SchemaInitListener: Schema initialisation completed successfully.");
         } catch (Exception e) {
             LOGGER.log(Level.SEVERE, "SchemaInitListener: FAILED to initialise schema. "
@@ -220,7 +222,7 @@ public class SchemaInitListener implements ServletContextListener {
     private void ensureZonesTable() throws SQLException {
         try (Connection conn = DBConnection.getConnection()) {
             createTableIfNotExists(conn, "zones",
-                "CREATE TABLE zones (zone_id INT AUTO_INCREMENT PRIMARY KEY, warehouse_id INT NOT NULL, zone_code VARCHAR(10) NOT NULL, zone_name VARCHAR(100) NOT NULL, zone_type ENUM('NORMAL','RETURN','DAMAGED','DESTROY') NOT NULL DEFAULT 'NORMAL', description TEXT, active TINYINT(1) NOT NULL DEFAULT 1, UNIQUE KEY uq_zone_code_wh (zone_code, warehouse_id)) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+                "CREATE TABLE zones (zone_id INT AUTO_INCREMENT PRIMARY KEY, warehouse_id INT NOT NULL, zone_code VARCHAR(50) NOT NULL, zone_name VARCHAR(100) NOT NULL, zone_type ENUM('NORMAL','RETURN','DAMAGED','DESTROY') NOT NULL DEFAULT 'NORMAL', description TEXT, active TINYINT(1) NOT NULL DEFAULT 1, UNIQUE KEY uq_zone_code_wh (zone_code, warehouse_id)) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
             DatabaseMetaData md = conn.getMetaData();
             addColumnIfMissing(conn, md, "zones", "is_default", "TINYINT(1) NOT NULL DEFAULT 0");
         }
@@ -352,7 +354,7 @@ public class SchemaInitListener implements ServletContextListener {
     private void ensureOrderItemsTable() throws SQLException {
         try (Connection conn = DBConnection.getConnection()) {
             createTableIfNotExists(conn, "order_items",
-                "CREATE TABLE order_items (order_item_id INT AUTO_INCREMENT PRIMARY KEY, order_id INT NOT NULL, sku_id INT NOT NULL, qty INT NOT NULL DEFAULT 1, unit_price DECIMAL(12,2) NOT NULL DEFAULT 0.00) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+                "CREATE TABLE order_items (order_item_id INT AUTO_INCREMENT PRIMARY KEY, order_id INT NOT NULL, product_id INT NOT NULL, qty INT NOT NULL DEFAULT 1, unit_price DECIMAL(12,2) NOT NULL DEFAULT 0.00) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
         }
     }
 
@@ -381,6 +383,8 @@ public class SchemaInitListener implements ServletContextListener {
         try (Connection conn = DBConnection.getConnection()) {
             createTableIfNotExists(conn, "inbound_orders",
                 "CREATE TABLE inbound_orders (inbound_id INT AUTO_INCREMENT PRIMARY KEY, inbound_code VARCHAR(30) NOT NULL UNIQUE, warehouse_id INT NOT NULL, supplier VARCHAR(100), status ENUM('PENDING','IN_PROGRESS','RECEIVED','CANCELLED') NOT NULL DEFAULT 'PENDING', received_by INT, note TEXT, created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP, received_at DATETIME) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+            DatabaseMetaData md = conn.getMetaData();
+            addColumnIfMissing(conn, md, "inbound_orders", "created_by", "INT DEFAULT NULL");
             createTableIfNotExists(conn, "inbound_items",
                 "CREATE TABLE inbound_items (inbound_item_id INT AUTO_INCREMENT PRIMARY KEY, inbound_id INT NOT NULL, product_id INT NOT NULL, expected_qty DECIMAL(12,3) NOT NULL DEFAULT 0, received_qty DECIMAL(12,3) NOT NULL DEFAULT 0) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
             createTableIfNotExists(conn, "receipt_notes",
@@ -398,6 +402,9 @@ public class SchemaInitListener implements ServletContextListener {
                 "CREATE TABLE outbound_orders (outbound_id INT AUTO_INCREMENT PRIMARY KEY, order_id INT NOT NULL, warehouse_id INT NOT NULL, status ENUM('PENDING','PICKING','PACKED','SHIPPED','DELIVERED','CANCELLED') NOT NULL DEFAULT 'PENDING', picked_by INT, shipped_at DATETIME, note TEXT, created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP, updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
             createTableIfNotExists(conn, "outbound_items",
                 "CREATE TABLE outbound_items (outbound_item_id INT AUTO_INCREMENT PRIMARY KEY, outbound_id INT NOT NULL, product_id INT NOT NULL, qty DECIMAL(12,3) NOT NULL DEFAULT 1, picked_qty DECIMAL(12,3) NOT NULL DEFAULT 0) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+            DatabaseMetaData md = conn.getMetaData();
+            addColumnIfMissing(conn, md, "outbound_items", "shelf_location", "VARCHAR(100) DEFAULT NULL");
+            addColumnIfMissing(conn, md, "outbound_orders", "outbound_code", "VARCHAR(50) DEFAULT NULL");
             createTableIfNotExists(conn, "picking_sheets",
                 "CREATE TABLE picking_sheets (sheet_id INT AUTO_INCREMENT PRIMARY KEY, outbound_id INT NOT NULL, picker_id INT, status ENUM('PENDING','IN_PROGRESS','COMPLETED') DEFAULT 'PENDING', started_at DATETIME, completed_at DATETIME) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
             createTableIfNotExists(conn, "delivery_notes",
@@ -446,6 +453,8 @@ public class SchemaInitListener implements ServletContextListener {
         try (Connection conn = DBConnection.getConnection()) {
             createTableIfNotExists(conn, "physical_inventories",
                 "CREATE TABLE physical_inventories (inventory_check_id INT AUTO_INCREMENT PRIMARY KEY, check_code VARCHAR(50) NOT NULL UNIQUE, warehouse_id INT NOT NULL, created_by INT NOT NULL, status ENUM('DRAFT','IN_PROGRESS','APPROVED') NOT NULL DEFAULT 'DRAFT', created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+            DatabaseMetaData md = conn.getMetaData();
+            addColumnIfMissing(conn, md, "physical_inventories", "note", "TEXT DEFAULT NULL");
             createTableIfNotExists(conn, "physical_inventory_details",
                 "CREATE TABLE physical_inventory_details (check_detail_id INT AUTO_INCREMENT PRIMARY KEY, inventory_check_id INT NOT NULL, product_id INT NOT NULL, system_qty DECIMAL(12,3) NOT NULL DEFAULT 0, actual_qty DECIMAL(12,3) DEFAULT NULL, delta_qty DECIMAL(12,3) DEFAULT NULL, counted_by INT, counted_at DATETIME) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
             createTableIfNotExists(conn, "stocktakes",
@@ -453,5 +462,151 @@ public class SchemaInitListener implements ServletContextListener {
             createTableIfNotExists(conn, "stocktake_items",
                 "CREATE TABLE stocktake_items (item_id INT AUTO_INCREMENT PRIMARY KEY, stocktake_id INT NOT NULL, product_id INT NOT NULL, system_qty INT NOT NULL DEFAULT 0, counted_qty INT DEFAULT NULL, variance INT DEFAULT NULL, counted_by INT, counted_at DATETIME) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
         }
+    }
+
+    // ── Fulfillment Requests (test seed) ──
+
+    private void ensureFulfillmentRequestTables() throws SQLException {
+        try (Connection conn = DBConnection.getConnection()) {
+            createTableIfNotExists(conn, "fulfillment_requests",
+                "CREATE TABLE fulfillment_requests ("
+                    + "request_id VARCHAR(50) PRIMARY KEY,"
+                    + "order_id VARCHAR(50) NOT NULL,"
+                    + "warehouse_id INT NOT NULL DEFAULT 1,"
+                    + "status ENUM('PENDING','CONVERTED','CANCELLED') NOT NULL DEFAULT 'PENDING',"
+                    + "auto_created TINYINT(1) NOT NULL DEFAULT 0,"
+                    + "created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,"
+                    + "updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,"
+                    + "INDEX idx_fr_status (status),"
+                    + "INDEX idx_fr_order (order_id)"
+                    + ") ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+            createTableIfNotExists(conn, "fulfillment_request_items",
+                "CREATE TABLE fulfillment_request_items ("
+                    + "item_id INT AUTO_INCREMENT PRIMARY KEY,"
+                    + "request_id VARCHAR(50) NOT NULL,"
+                    + "sku_code VARCHAR(50) NOT NULL,"
+                    + "sku_name VARCHAR(200) NOT NULL,"
+                    + "qty INT NOT NULL DEFAULT 1,"
+                    + "FOREIGN KEY (request_id) REFERENCES fulfillment_requests(request_id) ON DELETE CASCADE"
+                    + ") ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+        }
+    }
+
+    private void executeSqlScript(String resourceName) {
+        LOGGER.info("SchemaInitListener: Loading SQL script '" + resourceName + "'...");
+        try (java.io.InputStream is = SchemaInitListener.class.getClassLoader().getResourceAsStream(resourceName)) {
+            if (is == null) {
+                LOGGER.warning("SchemaInitListener: SQL script '" + resourceName + "' not found in classpath.");
+                return;
+            }
+            try (Connection conn = DBConnection.getConnection();
+                 java.io.BufferedReader reader = new java.io.BufferedReader(new java.io.InputStreamReader(is, java.nio.charset.StandardCharsets.UTF_8))) {
+                
+                StringBuilder sb = new StringBuilder();
+                String line;
+                try (Statement st = conn.createStatement()) {
+                    while ((line = reader.readLine()) != null) {
+                        String cleanLine = line;
+                        int commentIdx = cleanLine.indexOf("--");
+                        if (commentIdx >= 0) {
+                            cleanLine = cleanLine.substring(0, commentIdx);
+                        }
+                        commentIdx = cleanLine.indexOf("#");
+                        if (commentIdx >= 0) {
+                            cleanLine = cleanLine.substring(0, commentIdx);
+                        }
+                        cleanLine = cleanLine.trim();
+                        if (cleanLine.startsWith("--") || cleanLine.startsWith("#") || cleanLine.isEmpty()) {
+                            continue;
+                        }
+                        sb.append(cleanLine).append(" ");
+                        if (cleanLine.endsWith(";")) {
+                            String sql = sb.toString().trim();
+                            if (sql.endsWith(";")) {
+                                sql = sql.substring(0, sql.length() - 1);
+                            }
+                            if (!sql.trim().isEmpty()) {
+                                try {
+                                    st.executeUpdate(sql);
+                                } catch (SQLException ex) {
+                                    LOGGER.warning("SchemaInitListener: Error executing query: " + sql + ". Error: " + ex.getMessage());
+                                }
+                            }
+                            sb.setLength(0);
+                        }
+                    }
+                }
+            }
+        } catch (Exception e) {
+            LOGGER.log(Level.SEVERE, "SchemaInitListener: Failed to execute SQL script " + resourceName, e);
+        }
+    }
+
+    private void seedFulfillmentTestData() throws SQLException {
+        // Check if we should force re-seed (via system property or env var)
+        boolean forceReSeed = Boolean.parseBoolean(System.getProperty("wms.force.reseed", "false"))
+            || Boolean.parseBoolean(System.getenv("WMS_FORCE_RESEED") == null ? "false" : System.getenv("WMS_FORCE_RESEED"));
+
+        // Only seed if no products exist OR force re-seed is enabled
+        try (Connection conn = DBConnection.getConnection();
+             Statement st = conn.createStatement();
+             ResultSet rs = st.executeQuery("SELECT COUNT(*) FROM products")) {
+            if (rs.next() && rs.getInt(1) > 0 && !forceReSeed) {
+                LOGGER.info("SchemaInitListener: Products already exist, skipping mock_data.sql. "
+                    + "Set -Dwms.force.reseed=true or WMS_FORCE_RESEED=true to force re-seed.");
+                return;
+            }
+        }
+
+        if (forceReSeed) {
+            LOGGER.info("SchemaInitListener: Force re-seed enabled. Clearing existing data...");
+            try (Connection conn = DBConnection.getConnection()) {
+                clearAllData(conn);
+            }
+        }
+
+        executeSqlScript("mock_data.sql");
+        LOGGER.info("SchemaInitListener: Mock data seeded successfully");
+    }
+
+    private void clearAllData(Connection conn) throws SQLException {
+        // Disable foreign key checks to allow truncating in any order
+        Statement st = conn.createStatement();
+        st.executeUpdate("SET FOREIGN_KEY_CHECKS = 0");
+
+        // Tables in dependency order (children first, parents last)
+        String[] tables = {
+            "fulfillment_request_items", "fulfillment_requests",
+            "return_items", "qc_records", "scrap_records",
+            "outbound_items", "outbound_orders",
+            "physical_inventory_details", "physical_inventories",
+            "stocktake_items", "stocktakes",
+            "inventory_ledger", "inventory",
+            "stock_transfer_items", "stock_transfers",
+            "transfer_details", "issue_details", "warehouse_issues",
+            "receipt_details", "warehouse_receipts", "receipt_notes",
+            "inbound_items", "inbound_orders",
+            "shipping_labels", "order_shipping_details", "order_items", "orders",
+            "rma_items", "qc_inspections", "rma_requests",
+            "sku_mappings", "channel_products", "webhook_logs", "lazada_sync_log",
+            "product_images", "product_default_zones",
+            "return_orders", "skus", "products", "categories",
+            "zones", "user_warehouse_assignments",
+            "channels"
+        };
+
+        for (String table : tables) {
+            try {
+                st.executeUpdate("TRUNCATE TABLE " + table);
+                LOGGER.info("SchemaInitListener: Truncated table '" + table + "'");
+            } catch (SQLException e) {
+                // Table might not exist or already empty - that's OK
+                LOGGER.fine("SchemaInitListener: Could not truncate '" + table + "': " + e.getMessage());
+            }
+        }
+
+        // Re-enable foreign key checks
+        st.executeUpdate("SET FOREIGN_KEY_CHECKS = 1");
+        st.close();
     }
 }

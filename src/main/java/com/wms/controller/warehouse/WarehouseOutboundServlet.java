@@ -1,6 +1,8 @@
 package com.wms.controller.warehouse;
 
 import com.wms.controller.BaseController;
+import com.wms.dao.FulfillmentRequestDAO;
+import com.wms.model.FulfillmentRequest;
 import com.wms.model.OutboundOrder;
 import com.wms.model.Warehouse;
 import com.wms.service.warehouse.OutboundService;
@@ -22,6 +24,7 @@ public class WarehouseOutboundServlet extends BaseController {
     private static final String CONTEXT_PATH = "/warehouse/outbound";
     private final OutboundService outboundService = new OutboundService();
     private final WarehouseService warehouseService = new WarehouseService();
+    private final FulfillmentRequestDAO fulfillmentDAO = new FulfillmentRequestDAO();
 
     @Override
     protected void doGet(HttpServletRequest req, HttpServletResponse resp)
@@ -38,9 +41,13 @@ public class WarehouseOutboundServlet extends BaseController {
             }
             List<Warehouse> warehouses = warehouseService.findAllActive();
             req.setAttribute("warehouses", warehouses);
+
+            List<FulfillmentRequest> fulfillmentRequests = fulfillmentDAO.findPending();
+            req.setAttribute("fulfillmentRequests", fulfillmentRequests);
         } catch (Exception e) {
             outboundOrders = List.of();
             req.setAttribute("warehouses", List.<Warehouse>of());
+            req.setAttribute("fulfillmentRequests", List.<FulfillmentRequest>of());
         }
 
         req.setAttribute("outboundOrders", outboundOrders);

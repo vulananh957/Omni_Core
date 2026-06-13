@@ -29,9 +29,12 @@ public class OutboundDAO {
     public List<OutboundOrder> findAll() {
         List<OutboundOrder> list = new ArrayList<>();
         String sql = "SELECT o.outbound_id, o.outbound_code, o.order_id, o.warehouse_id, "
-                   + "w.warehouse_name, o.status, o.notes, o.created_at, o.picked_by, o.picked_at "
+                   + "w.warehouse_name, o.status, o.note, o.created_at, o.picked_by, o.shipped_at, "
+                   + "ord.order_code, sd.shipping_address, sd.courier_name, sd.recipient_name "
                    + "FROM outbound_orders o "
                    + "LEFT JOIN warehouses w ON o.warehouse_id = w.warehouse_id "
+                   + "LEFT JOIN orders ord ON o.order_id = ord.order_id "
+                   + "LEFT JOIN order_shipping_details sd ON o.order_id = sd.order_id "
                    + "ORDER BY o.created_at DESC LIMIT 100";
 
         try (Connection conn = DBConnection.getConnection();
@@ -39,7 +42,9 @@ public class OutboundDAO {
              ResultSet rs = ps.executeQuery()) {
 
             while (rs.next()) {
-                list.add(mapRow(rs));
+                OutboundOrder order = mapRow(rs);
+                order.setItems(findItemsByOutboundId(order.getOutboundId()));
+                list.add(order);
             }
         } catch (SQLException e) {
             LOGGER.log(Level.WARNING, "OutboundDAO: Failed to retrieve outbound orders", e);
@@ -52,9 +57,12 @@ public class OutboundDAO {
      */
     public OutboundOrder findById(int id) {
         String sql = "SELECT o.outbound_id, o.outbound_code, o.order_id, o.warehouse_id, "
-                   + "w.warehouse_name, o.status, o.notes, o.created_at, o.picked_by, o.picked_at "
+                   + "w.warehouse_name, o.status, o.note, o.created_at, o.picked_by, o.shipped_at, "
+                   + "ord.order_code, sd.shipping_address, sd.courier_name, sd.recipient_name "
                    + "FROM outbound_orders o "
                    + "LEFT JOIN warehouses w ON o.warehouse_id = w.warehouse_id "
+                   + "LEFT JOIN orders ord ON o.order_id = ord.order_id "
+                   + "LEFT JOIN order_shipping_details sd ON o.order_id = sd.order_id "
                    + "WHERE o.outbound_id = ?";
 
         try (Connection conn = DBConnection.getConnection();
@@ -63,7 +71,9 @@ public class OutboundDAO {
             ps.setInt(1, id);
             try (ResultSet rs = ps.executeQuery()) {
                 if (rs.next()) {
-                    return mapRow(rs);
+                    OutboundOrder order = mapRow(rs);
+                    order.setItems(findItemsByOutboundId(order.getOutboundId()));
+                    return order;
                 }
             }
         } catch (SQLException e) {
@@ -78,9 +88,12 @@ public class OutboundDAO {
     public List<OutboundOrder> findByStatus(String status) {
         List<OutboundOrder> list = new ArrayList<>();
         String sql = "SELECT o.outbound_id, o.outbound_code, o.order_id, o.warehouse_id, "
-                   + "w.warehouse_name, o.status, o.notes, o.created_at, o.picked_by, o.picked_at "
+                   + "w.warehouse_name, o.status, o.note, o.created_at, o.picked_by, o.shipped_at, "
+                   + "ord.order_code, sd.shipping_address, sd.courier_name, sd.recipient_name "
                    + "FROM outbound_orders o "
                    + "LEFT JOIN warehouses w ON o.warehouse_id = w.warehouse_id "
+                   + "LEFT JOIN orders ord ON o.order_id = ord.order_id "
+                   + "LEFT JOIN order_shipping_details sd ON o.order_id = sd.order_id "
                    + "WHERE o.status = ? "
                    + "ORDER BY o.created_at DESC LIMIT 100";
 
@@ -90,7 +103,9 @@ public class OutboundDAO {
             ps.setString(1, status);
             try (ResultSet rs = ps.executeQuery()) {
                 while (rs.next()) {
-                    list.add(mapRow(rs));
+                    OutboundOrder order = mapRow(rs);
+                    order.setItems(findItemsByOutboundId(order.getOutboundId()));
+                    list.add(order);
                 }
             }
         } catch (SQLException e) {
@@ -105,9 +120,12 @@ public class OutboundDAO {
     public List<OutboundOrder> findByWarehouse(int warehouseId) {
         List<OutboundOrder> list = new ArrayList<>();
         String sql = "SELECT o.outbound_id, o.outbound_code, o.order_id, o.warehouse_id, "
-                   + "w.warehouse_name, o.status, o.notes, o.created_at, o.picked_by, o.picked_at "
+                   + "w.warehouse_name, o.status, o.note, o.created_at, o.picked_by, o.shipped_at, "
+                   + "ord.order_code, sd.shipping_address, sd.courier_name, sd.recipient_name "
                    + "FROM outbound_orders o "
                    + "LEFT JOIN warehouses w ON o.warehouse_id = w.warehouse_id "
+                   + "LEFT JOIN orders ord ON o.order_id = ord.order_id "
+                   + "LEFT JOIN order_shipping_details sd ON o.order_id = sd.order_id "
                    + "WHERE o.warehouse_id = ? "
                    + "ORDER BY o.created_at DESC LIMIT 100";
 
@@ -117,7 +135,9 @@ public class OutboundDAO {
             ps.setInt(1, warehouseId);
             try (ResultSet rs = ps.executeQuery()) {
                 while (rs.next()) {
-                    list.add(mapRow(rs));
+                    OutboundOrder order = mapRow(rs);
+                    order.setItems(findItemsByOutboundId(order.getOutboundId()));
+                    list.add(order);
                 }
             }
         } catch (SQLException e) {
@@ -131,7 +151,7 @@ public class OutboundDAO {
      */
     public int insert(OutboundOrder order) {
         String sql = "INSERT INTO outbound_orders "
-                   + "(outbound_code, order_id, warehouse_id, status, notes, created_at, picked_by, picked_at) "
+                   + "(outbound_code, order_id, warehouse_id, status, note, created_at, picked_by, shipped_at) "
                    + "VALUES (?, ?, ?, ?, ?, ?, ?, ?)";
 
         try (Connection conn = DBConnection.getConnection();
@@ -170,7 +190,7 @@ public class OutboundDAO {
     public boolean update(OutboundOrder order) {
         String sql = "UPDATE outbound_orders SET "
                    + "outbound_code = ?, order_id = ?, warehouse_id = ?, status = ?, "
-                   + "notes = ?, picked_by = ?, picked_at = ? "
+                   + "note = ?, picked_by = ?, shipped_at = ? "
                    + "WHERE outbound_id = ?";
 
         try (Connection conn = DBConnection.getConnection();
@@ -285,7 +305,7 @@ public class OutboundDAO {
         o.setWarehouseId(rs.getInt("warehouse_id"));
         o.setWarehouseName(rs.getString("warehouse_name"));
         o.setStatus(rs.getString("status"));
-        o.setNotes(rs.getString("notes"));
+        o.setNotes(rs.getString("note"));
 
         Timestamp createdAt = rs.getTimestamp("created_at");
         if (createdAt != null) {
@@ -295,10 +315,23 @@ public class OutboundDAO {
         int pickedBy = rs.getInt("picked_by");
         o.setPickedBy(rs.wasNull() ? null : pickedBy);
 
-        Timestamp pickedAt = rs.getTimestamp("picked_at");
-        if (pickedAt != null) {
-            o.setPickedAt(pickedAt.toLocalDateTime());
+        Timestamp shippedAt = rs.getTimestamp("shipped_at");
+        if (shippedAt != null) {
+            o.setPickedAt(shippedAt.toLocalDateTime());
         }
+
+        try {
+            o.setOrderCode(rs.getString("order_code"));
+        } catch (SQLException e) { /* ignore */ }
+        try {
+            o.setShippingAddress(rs.getString("shipping_address"));
+        } catch (SQLException e) { /* ignore */ }
+        try {
+            o.setCourierName(rs.getString("courier_name"));
+        } catch (SQLException e) { /* ignore */ }
+        try {
+            o.setRecipientName(rs.getString("recipient_name"));
+        } catch (SQLException e) { /* ignore */ }
 
         return o;
     }

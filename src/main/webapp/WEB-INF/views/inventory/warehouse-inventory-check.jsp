@@ -506,18 +506,65 @@
     </div>
 </div>
 
+<%
+    com.fasterxml.jackson.databind.ObjectMapper mapper = new com.fasterxml.jackson.databind.ObjectMapper();
+    String warehousesJson = mapper.writeValueAsString(request.getAttribute("warehouses"));
+    String zonesJson = mapper.writeValueAsString(request.getAttribute("zones"));
+    String categoriesJson = mapper.writeValueAsString(request.getAttribute("categories"));
+    String productsJson = mapper.writeValueAsString(request.getAttribute("products"));
+%>
+<div id="warehousesJson" style="display:none"><%= warehousesJson %></div>
+<div id="zonesJson" style="display:none"><%= zonesJson %></div>
+<div id="categoriesJson" style="display:none"><%= categoriesJson %></div>
+<div id="productsJson" style="display:none"><%= productsJson %></div>
+
 <!-- ═══ JAVASCRIPT ═══ -->
 <script>
 (function () {
     'use strict';
 
-    // ─── Master Data ───
+    // ─── Master Data (from server) ───
     var WAREHOUSES = [];
     var ZONES = [];
     var CATEGORIES = [];
-
-    // Master Product List (Empty as requested by the user, but ready for future use)
     var PRODUCTS = [];
+
+    // Parse server data into arrays
+    (function() {
+        try {
+            var wEl = document.getElementById('warehousesJson');
+            if (wEl && wEl.textContent.trim()) {
+                var wData = JSON.parse(wEl.textContent);
+                WAREHOUSES = wData.map(function(w) {
+                    return { id: w.warehouseId, code: w.warehouseCode, name: w.warehouseName };
+                });
+            }
+        } catch(e) {}
+        try {
+            var zEl = document.getElementById('zonesJson');
+            if (zEl && zEl.textContent.trim()) {
+                var zData = JSON.parse(zEl.textContent);
+                ZONES = zData.map(function(z) {
+                    return { id: z.zoneId, warehouseId: z.warehouseId, code: z.zoneCode, name: z.zoneName, type: z.zoneType };
+                });
+            }
+        } catch(e) {}
+        try {
+            var cEl = document.getElementById('categoriesJson');
+            if (cEl && cEl.textContent.trim()) {
+                var cData = JSON.parse(cEl.textContent);
+                CATEGORIES = cData.map(function(c) {
+                    return { id: c.id, name: c.categoryName || c.name };
+                });
+            }
+        } catch(e) {}
+        try {
+            var pEl = document.getElementById('productsJson');
+            if (pEl && pEl.textContent.trim()) {
+                PRODUCTS = JSON.parse(pEl.textContent);
+            }
+        } catch(e) {}
+    })();
 
     // ─── State ───
     var sheets = [];
@@ -550,7 +597,7 @@
         formWarehouse.innerHTML = '<option value="">— Chọn chi nhánh kho —</option>';
         WAREHOUSES.forEach(function (w) {
             var opt = document.createElement('option');
-            opt.value = w; opt.textContent = w;
+            opt.value = w.id; opt.textContent = w.code + ' — ' + w.name;
             formWarehouse.appendChild(opt);
         });
     }
@@ -560,7 +607,7 @@
         formZone.innerHTML = '<option value="">— Chọn khu vực (Zone) —</option>';
         ZONES.forEach(function (z) {
             var opt = document.createElement('option');
-            opt.value = z; opt.textContent = z;
+            opt.value = z.id; opt.textContent = z.code + ' — ' + z.name;
             formZone.appendChild(opt);
         });
     }
@@ -570,7 +617,7 @@
         formCategory.innerHTML = '<option value="">— Chọn danh mục sản phẩm —</option>';
         CATEGORIES.forEach(function (c) {
             var opt = document.createElement('option');
-            opt.value = c; opt.textContent = c;
+            opt.value = c.id; opt.textContent = c.name;
             formCategory.appendChild(opt);
         });
     }
@@ -580,8 +627,8 @@
         formSKU.innerHTML = '<option value="">— Chọn sản phẩm (SKU) —</option>';
         PRODUCTS.forEach(function (p) {
             var opt = document.createElement('option');
-            opt.value = p.sku;
-            opt.textContent = p.sku + ' - ' + p.name;
+            opt.value = p.skuCode;
+            opt.textContent = p.skuCode + ' - ' + p.productName;
             formSKU.appendChild(opt);
         });
     }

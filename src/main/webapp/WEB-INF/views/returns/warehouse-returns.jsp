@@ -621,7 +621,7 @@
 [
     <c:forEach items="${returns}" var="r" varStatus="status">
         {
-            "id": "${r.returnId}",
+            "id": "${r.returnCode}",
             "soRef": "${r.orderCode}",
             "channel": "${r.channel}",
             "customer": "${r.customerName}",

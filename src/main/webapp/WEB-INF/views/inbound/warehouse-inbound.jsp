@@ -1647,15 +1647,15 @@ function renderReceipts() {
             '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:10px;height:10px;margin-right:2px;"><rect width="18" height="11" x="3" y="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>' +
             'Khóa</span>' : '';
 
-        // Eye action button (only completed)
-        var detailBtn = grn.status === 'completed' ?
+        // Inbound action button (pending / in_progress / confirmed)
+        var receiveBtn = (grn.status === 'pending' || grn.status === 'in_progress' || grn.status === 'confirmed') ?
+            '<button class="btn-action-grn" onclick="openReceiveModal(\'' + grn.id + '\', event)">Nhập kho</button>' : '';
+
+        // Eye action button (view detail - for all statuses)
+        var detailBtn =
             '<button class="btn-action-icon" onclick="openDetailModal(\'' + grn.id + '\', event)" title="Xem chi tiết">' +
             '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>' +
-            '</button>' : '';
-
-        // Inbound action button (pending / in_progress)
-        var receiveBtn = (grn.status === 'pending' || grn.status === 'in_progress') ?
-            '<button class="btn-action-grn" onclick="openReceiveModal(\'' + grn.id + '\', event)">Nhập kho</button>' : '';
+            '</button>';
 
         // Pending BM badge
         var pendingBmLabel = grn.status === 'pending_bm' ?
@@ -1815,7 +1815,7 @@ window.openDraftModal = function(mode, sourceId) {
             items: [{ skuCode: '', skuName: '', orderedQty: 10 }]
         };
     } else { // duplicate
-        var source = grns.find(function(g) { return g.id === sourceId; });
+        var source = grns.find(function(g) { return g.id == sourceId; });
         titleEl.textContent = 'Nhân bản phiếu nhập';
         draftForm = {
             supplier: source ? source.supplier : '',
@@ -1965,7 +1965,7 @@ window.submitDraftGRN = function() {
 // ─── ACTION BUTTONS ───
 window.submitForBMAvailability = function(grnId, event) {
     if (event) event.stopPropagation();
-    var grn = grns.find(function(g) { return g.id === grnId; });
+    var grn = grns.find(function(g) { return g.id == grnId; });
     if (grn) {
         grn.status = 'pending_bm';
         grn.isLocked = true;
@@ -1977,7 +1977,7 @@ window.submitForBMAvailability = function(grnId, event) {
 window.cancelDraftGRN = function(grnId, event) {
     if (event) event.stopPropagation();
     if (confirm('Bạn có chắc chắn muốn hủy bản nháp phiếu nhập này không?')) {
-        var grn = grns.find(function(g) { return g.id === grnId; });
+        var grn = grns.find(function(g) { return g.id == grnId; });
         if (grn) {
             grn.status = 'cancelled';
             grn.isLocked = true;
@@ -1992,7 +1992,7 @@ var receiveQuantities = {};
 
 window.openReceiveModal = function(grnId, event) {
     if (event) event.stopPropagation();
-    var grn = grns.find(function(g) { return g.id === grnId; });
+    var grn = grns.find(function(g) { return g.id == grnId; });
     if (!grn) return;
     
     document.getElementById('receive-grn-id').value = grnId;
@@ -2033,7 +2033,7 @@ window.closeReceiveModal = function() {
 
 window.submitConfirmReceive = function() {
     var grnId = document.getElementById('receive-grn-id').value;
-    var grn = grns.find(function(g) { return g.id === grnId; });
+    var grn = grns.find(function(g) { return g.id == grnId; });
     if (!grn) return;
     
     var now = new Date();
@@ -2128,7 +2128,7 @@ var detailOverlay = document.getElementById('detailModalOverlay');
 
 window.openDetailModal = function(grnId, event) {
     if (event) event.stopPropagation();
-    var grn = grns.find(function(g) { return g.id === grnId; });
+    var grn = grns.find(function(g) { return g.id == grnId; });
     if (!grn) return;
     
     document.getElementById('detailModalSubtitle').textContent = grn.inboundCode;

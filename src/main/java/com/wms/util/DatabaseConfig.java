@@ -86,8 +86,7 @@ public final class DatabaseConfig {
     public static String getJdbcUrl() {
         return "jdbc:mysql://" + getHost() + ":" + getPort() + "/" + getDatabase()
                 + "?useSSL=false&serverTimezone=Asia/Ho_Chi_Minh"
-                + "&useUnicode=yes&characterEncoding=UTF-8"
-                + "&connectionCollation=utf8mb4_unicode_ci"
+                + "&characterEncoding=UTF8&connectionCollation=utf8mb4_unicode_ci"
                 + "&allowPublicKeyRetrieval=true";
     }
 

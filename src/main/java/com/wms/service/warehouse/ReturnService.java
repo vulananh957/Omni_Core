@@ -18,7 +18,7 @@ public class ReturnService {
     }
 
     public List<Product> findApprovedProducts() {
-        return productDAO.findApproved();
+        return productDAO.findAll();
     }
 
     public ValidationResult validateForCreate(String soRef, String customer, String phone, List<ReturnItem> items) {

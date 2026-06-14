@@ -4,8 +4,10 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.wms.controller.BaseController;
 import com.wms.dao.TransferDAO;
 import com.wms.model.Product;
+import com.wms.model.User;
 import com.wms.model.Warehouse;
 import com.wms.service.warehouse.TransferService;
+import com.wms.util.AppConstants;
 
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -78,8 +80,8 @@ public class WarehouseTransferServlet extends BaseController {
                 int qty     = body.get("qty").asInt();
                 String note = body.has("note") ? body.get("note").asText() : "";
 
-                Integer userId = (Integer) req.getSession().getAttribute("userId");
-                int creatorId = userId != null ? userId : 1;
+                User currentUser = (User) req.getSession().getAttribute(AppConstants.SESSION_USER);
+                int creatorId = currentUser != null ? currentUser.getUserId() : 1;
 
                 TransferDAO.Transfer created =
                     transferService.createTransfer(fromWarehouseId, toWarehouseId,

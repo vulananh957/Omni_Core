@@ -349,6 +349,70 @@ public class CategoryDAO {
     }
 
     /**
+     * Reactivates a previously deactivated category.
+     * Sets active = 1.
+     *
+     * @param categoryId The category ID to reactivate.
+     * @return true if successful, false otherwise.
+     */
+    public boolean activate(int categoryId) {
+        String sql = "UPDATE categories SET active = 1 WHERE category_id = ?";
+        try (Connection conn = DBConnection.getConnection();
+             PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setInt(1, categoryId);
+            return ps.executeUpdate() > 0;
+        } catch (SQLException e) {
+            LOGGER.log(Level.WARNING, "CategoryDAO: Failed to activate category " + categoryId, e);
+            return false;
+        }
+    }
+
+    /**
+     * Deactivates a category and all its descendants in the tree (cascade).
+     * Uses a recursive BFS traversal in Java so the operation works on any DB
+     * that supports the standard {@code categories} table layout.
+     *
+     * @param rootCategoryId The root category ID to deactivate (along with all descendants).
+     * @return Number of categories that were deactivated.
+     */
+    public int deactivateWithDescendants(int rootCategoryId) {
+        List<Integer> toDeactivate = new ArrayList<>();
+        java.util.Deque<Integer> queue = new java.util.ArrayDeque<>();
+        queue.add(rootCategoryId);
+        while (!queue.isEmpty()) {
+            int current = queue.poll();
+            toDeactivate.add(current);
+            List<Category> children = findByParentId(current);
+            for (Category child : children) {
+                queue.add(child.getCategoryId());
+            }
+        }
+
+        if (toDeactivate.isEmpty()) {
+            return 0;
+        }
+
+        StringBuilder sql = new StringBuilder("UPDATE categories SET active = 0 WHERE category_id IN (");
+        for (int i = 0; i < toDeactivate.size(); i++) {
+            if (i > 0) sql.append(",");
+            sql.append("?");
+        }
+        sql.append(")");
+
+        try (Connection conn = DBConnection.getConnection();
+             PreparedStatement ps = conn.prepareStatement(sql.toString())) {
+            for (int i = 0; i < toDeactivate.size(); i++) {
+                ps.setInt(i + 1, toDeactivate.get(i));
+            }
+            return ps.executeUpdate();
+        } catch (SQLException e) {
+            LOGGER.log(Level.WARNING,
+                "CategoryDAO: Failed to cascade-deactivate category " + rootCategoryId, e);
+            return 0;
+        }
+    }
+
+    /**
      * Deletes a category by its primary key.
      *
      * @param categoryId The category ID to delete.

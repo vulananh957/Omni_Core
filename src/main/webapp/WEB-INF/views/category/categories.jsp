@@ -604,9 +604,55 @@
         background: #fef2f2;
     }
 
+    .btn-action-sm.reactivate:hover {
+        color: #059669;
+        background: #ecfdf5;
+    }
+
+    .btn-action-sm:disabled,
+    .btn-action-sm.disabled {
+        opacity: 0.35;
+        cursor: not-allowed;
+        pointer-events: none;
+    }
+
     .btn-action-sm svg {
         width: 14px;
         height: 14px;
+    }
+
+    /* Inactive / cascade-deactivated node */
+    .tree-node-wrapper.is-inactive > .tree-row {
+        opacity: 0.78;
+        background: rgba(220, 38, 38, 0.04);
+        border-left: 3px solid rgba(220, 38, 38, 0.45);
+        border-radius: 4px;
+    }
+
+    .tree-node-wrapper.is-inactive > .tree-row:hover {
+        opacity: 1;
+    }
+
+    .node-name.struck {
+        text-decoration: line-through;
+        text-decoration-color: rgba(220, 38, 38, 0.45);
+        text-decoration-thickness: 1.5px;
+        color: rgba(16, 55, 92, 0.55);
+    }
+
+    .cascade-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        font-size: 10px;
+        font-weight: 700;
+        color: #92400E;
+        background: #FEF3C7;
+        border: 1px solid #FDE68A;
+        padding: 2px 6px;
+        border-radius: 4px;
+        margin-left: 6px;
+        letter-spacing: 0.02em;
     }
 
     /* ─── Forms & Controls ─── */
@@ -956,6 +1002,16 @@
         return isDescendant(parentId, child.parentId);
     }
 
+    /* Returns true if any ancestor of this category is currently inactive. */
+    function hasInactiveAncestor(catId) {
+        var cat = categories.find(function (c) { return c.id === catId; });
+        if (!cat || cat.parentId === null) return false;
+        var parent = categories.find(function (c) { return c.id === cat.parentId; });
+        if (!parent) return false;
+        if (!parent.active) return true;
+        return hasInactiveAncestor(parent.id);
+    }
+
     /* ─── DOM Elements ───────────────────────────────────────── */
     var treeContainer = document.getElementById('treeContainer');
     var feedbackBanner = document.getElementById('feedbackBannerWrap');
@@ -1051,8 +1107,21 @@
         }
 
         var addSubBtn = '';
-        if (level < 3) {
+        var nodeLockedByAncestor = !node.active ? false : hasInactiveAncestor(node.id);
+        // Lock add-sub when:
+        //  - this node is inactive, OR
+        //  - any ancestor is inactive (defensive: even if this node still has
+        //    active=true in the DB because the page was loaded before the
+        //    server healed it, we still refuse to add a child here).
+        if (level < 3 && node.active && !nodeLockedByAncestor) {
             addSubBtn = '<button class="btn-action-sm" onclick="WMS_ADD_SUB(' + node.id + ')" title="Thêm thể loại con">' +
+                '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>' +
+                '</button>';
+        } else if (level < 3) {
+            var addSubTitle = !node.active
+                ? 'Khong the them con: danh muc dang ngung hoat dong'
+                : 'Khong the them con: nhanh cha dang ngung hoat dong';
+            addSubBtn = '<button class="btn-action-sm disabled" disabled title="' + addSubTitle + '" aria-disabled="true">' +
                 '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>' +
                 '</button>';
         }
@@ -1101,14 +1170,15 @@
         // Inline Edit Form Row
         if (activeForm.mode === 'edit' && activeForm.selectedId === node.id) {
             var parentSelectOptions = buildParentSelectOptions(node.id, node.parentId);
-            var codeReadonly = node.isImmutable ? 'readonly disabled' : '';
-            var codeClass = node.isImmutable ? 'inline-input locked-code' : 'inline-input';
-            
+            // Ma dinh danh bi khoa vinh vien ngay khi tao, khong cho sua o bat ky luc nao.
+            var codeReadonly = 'readonly disabled';
+            var codeClass = 'inline-input locked-code';
+
             return '<div class="tree-node-wrapper">' +
                 '<form class="inline-edit-form" onsubmit="WMS_SUBMIT_INLINE_EDIT(event, ' + node.id + ')">' +
                 toggleBtn +
                 folderSvg +
-                '<input type="text" class="' + codeClass + '" style="width: 70px; font-weight: 700; text-transform: uppercase;" id="editCode_' + node.id + '" value="' + escapeHtml(node.code) + '" ' + codeReadonly + ' placeholder="Ma..." title="' + (node.isImmutable ? 'Ma da bi khoa' : 'Ma dinh danh 3-4 ky tu') + '" ' + (node.isImmutable ? '' : 'oninput="this.value = this.value.toUpperCase().replace(/[^A-Z0-9]/g, \'\')"') + ' />' +
+                '<input type="text" class="' + codeClass + '" style="width: 70px; font-weight: 700; text-transform: uppercase;" id="editCode_' + node.id + '" value="' + escapeHtml(node.code) + '" ' + codeReadonly + ' title="Ma dinh danh — khong the sua" />' +
                 '<input type="text" class="inline-input name-input" id="editName_' + node.id + '" value="' + escapeHtml(node.name) + '" required placeholder="Ten danh muc..." />' +
                 '<input type="text" class="inline-input desc-input" id="editDesc_' + node.id + '" value="' + escapeHtml(node.description || '') + '" placeholder="Mo ta danh muc..." />' +
                 '<div style="display: flex; align-items: center; gap: 8px;">' +
@@ -1129,26 +1199,96 @@
         // Standard View Row
         var descSpan = node.description ? '<span style="font-size: 11.5px; color: rgba(16, 55, 92, 0.45); margin-left: 8px; font-weight: normal;">— ' + escapeHtml(node.description) + '</span>' : '';
         var codeBadge = '<span class="cat-code-badge" style="font-size: 11px; font-weight: 700; color: var(--orange); background: rgba(16, 55, 92, 0.08); padding: 2px 6px; border-radius: 4px; margin-left: 8px;">' + escapeHtml(node.code) + '</span>';
-        var statusBadge = node.active ? '' : '<span style="font-size: 10px; font-weight: 600; color: #dc2626; background: #fef2f2; padding: 2px 6px; border-radius: 4px; margin-left: 6px;">Ngung</span>';
-        
-        return '<div class="tree-node-wrapper">' +
+
+        // Effective "locked" state — self inactive OR any ancestor inactive.
+        // Even if DB still says active=true for the descendant (e.g. page loaded
+        // before server healed it), we still show it as locked here.
+        var nodeInactive = !node.active;
+        var ancestorInactive = hasInactiveAncestor(node.id);
+        var effectivelyInactive = nodeInactive || ancestorInactive;
+        var cascadeFromAncestor = node.active && ancestorInactive; // self active but parent path is dead
+
+        var nameClass = effectivelyInactive ? 'node-name struck' : 'node-name';
+        var wrapperClass = effectivelyInactive ? 'tree-node-wrapper is-inactive' : 'tree-node-wrapper';
+        var statusBadge;
+        if (cascadeFromAncestor) {
+            // Defensive: should be rare after server heals, but cover it.
+            statusBadge = '<span class="cascade-badge" title="Danh muc cha dang ngung hoat dong — trang thai dang duoc dong bo">' +
+                '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="width:10px;height:10px;">' +
+                '<path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/>' +
+                '</svg>' +
+                'Ngung (cascade)</span>';
+        } else if (nodeInactive) {
+            if (ancestorInactive) {
+                statusBadge = '<span class="cascade-badge" title="Vo hieu hoa theo cascade tu danh muc cha">' +
+                    '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="width:10px;height:10px;">' +
+                    '<path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/>' +
+                    '</svg>' +
+                    'Ngung (cascade)</span>';
+            } else {
+                statusBadge = '<span style="font-size: 10px; font-weight: 600; color: #dc2626; background: #fef2f2; padding: 2px 6px; border-radius: 4px; margin-left: 6px;">Ngừng</span>';
+            }
+        } else {
+            statusBadge = '';
+        }
+
+        // Build action buttons — locked when node is effectively inactive.
+        var editBtn;
+        var delBtn;
+        var reactivateBtn;
+        if (effectivelyInactive) {
+            var lockTitleEdit = cascadeFromAncestor
+                ? 'Khong the sua: nhanh cha dang ngung hoat dong'
+                : 'Khong the sua: danh muc dang ngung hoat dong. Hay kich hoat lai truoc.';
+            var lockTitleDel = cascadeFromAncestor
+                ? 'Khong the xoa: nhanh cha dang ngung hoat dong'
+                : 'Khong the xoa: danh muc dang ngung hoat dong';
+            editBtn = '<button class="btn-action-sm disabled" disabled title="' + lockTitleEdit + '" aria-disabled="true">' +
+                '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>' +
+                '</button>';
+            delBtn = '<button class="btn-action-sm del disabled" disabled title="' + lockTitleDel + '" aria-disabled="true">' +
+                '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>' +
+                '</button>';
+            // Only show reactivate when the node itself is the one we need to
+            // bring back. If the ancestor is dead, the user must reactivate
+            // the ancestor first; show a placeholder instead.
+            if (cascadeFromAncestor) {
+                reactivateBtn = '<button class="btn-action-sm reactivate disabled" disabled title="Can kich hoat danh muc cha truoc" aria-disabled="true">' +
+                    '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>' +
+                    '</button>';
+            } else {
+                var reactivateTitle = ancestorInactive
+                    ? 'Kich hoat lai (can kich hoat danh muc cha truoc)'
+                    : 'Kich hoat lai danh muc';
+                reactivateBtn = '<button class="btn-action-sm reactivate" onclick="WMS_REACTIVATE(' + node.id + ')" title="' + reactivateTitle + '">' +
+                    '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>' +
+                    '</button>';
+            }
+        } else {
+            editBtn = '<button class="btn-action-sm" onclick="WMS_EDIT_NODE(' + node.id + ')" title="Chinh sua">' +
+                '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>' +
+                '</button>';
+            delBtn = '<button class="btn-action-sm del" onclick="WMS_DEL_NODE(' + node.id + ')" title="Xoa danh muc">' +
+                '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>' +
+                '</button>';
+            reactivateBtn = '';
+        }
+
+        return '<div class="' + wrapperClass + '">' +
             '<div class="' + rowClass + '">' +
             toggleBtn +
             folderSvg +
             '<div class="node-title-wrap">' +
-            '<span class="node-name">' + escapeHtml(node.name) + '</span>' +
+            '<span class="' + nameClass + '">' + escapeHtml(node.name) + '</span>' +
             codeBadge +
             statusBadge +
             descSpan +
             '</div>' +
             '<div class="node-actions">' +
             addSubBtn +
-            '<button class="btn-action-sm" onclick="WMS_EDIT_NODE(' + node.id + ')" title="Chinh sua">' +
-            '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>' +
-            '</button>' +
-            '<button class="btn-action-sm del" onclick="WMS_DEL_NODE(' + node.id + ')" title="Xoa danh muc">' +
-            '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>' +
-            '</button>' +
+            editBtn +
+            reactivateBtn +
+            delBtn +
             '</div>' +
             '</div>' +
             childrenHtml +
@@ -1201,6 +1341,16 @@
     };
 
     window.WMS_ADD_SUB = function (parentId) {
+        var parent = categories.find(function (c) { return c.id === parentId; });
+        if (!parent) return;
+        if (!parent.active) {
+            showToast('Khong the them danh muc con: danh muc cha dang ngung hoat dong. Hay kich hoat lai truoc.', 'error');
+            return;
+        }
+        if (hasInactiveAncestor(parentId)) {
+            showToast('Khong the them danh muc con: nhanh cha dang ngung hoat dong. Hay kich hoat cac danh muc to tien truoc.', 'error');
+            return;
+        }
         activeForm.mode = 'create';
         activeForm.selectedId = null;
         activeForm.parentId = parentId;
@@ -1212,6 +1362,14 @@
     window.WMS_EDIT_NODE = function (categoryId) {
         var cat = categories.find(function (c) { return c.id === categoryId; });
         if (!cat) return;
+        if (!cat.active) {
+            showToast('Danh muc dang ngung hoat dong. Hay kich hoat lai truoc khi sua.', 'error');
+            return;
+        }
+        if (hasInactiveAncestor(categoryId)) {
+            showToast('Danh muc dang nam trong nhanh ngung hoat dong. Hay kich hoat danh muc to tien truoc.', 'error');
+            return;
+        }
         activeForm.mode = 'edit';
         activeForm.selectedId = categoryId;
         activeForm.parentId = cat.parentId;
@@ -1221,6 +1379,10 @@
     window.WMS_DEL_NODE = function (categoryId) {
         var cat = categories.find(function (c) { return c.id === categoryId; });
         if (!cat) return;
+        if (!cat.active || hasInactiveAncestor(categoryId)) {
+            showToast('Khong the xoa: danh muc dang ngung hoat dong. Hay kich hoat truoc neu muon xoa.', 'error');
+            return;
+        }
         activeForm.mode = 'delete';
         activeForm.selectedId = categoryId;
         renderTree();
@@ -1374,6 +1536,36 @@
         })
         .catch(function () {
             showToast('Da xay ra loi khi ngung hoat dong danh muc!', 'error');
+        });
+    };
+
+    window.WMS_REACTIVATE = function (nodeId) {
+        var cat = categories.find(function (c) { return c.id === nodeId; });
+        if (!cat) return;
+        if (cat.active) return;
+
+        if (!window.confirm('Kich hoat lai danh muc "' + cat.name + '"?\n\nDanh muc se xuat hien lai voi nhan vien kho khi tao SKU moi.')) {
+            return;
+        }
+
+        var params = new URLSearchParams();
+        params.append('action', 'reactivate');
+        params.append('categoryId', nodeId);
+
+        fetch('${pageContext.request.contextPath}/business/categories', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+            body: params.toString()
+        })
+        .then(function (resp) {
+            if (resp.redirected) {
+                window.location.href = resp.url;
+            } else {
+                showToast('Da xay ra loi khi kich hoat lai danh muc!', 'error');
+            }
+        })
+        .catch(function () {
+            showToast('Da xay ra loi khi kich hoat lai danh muc!', 'error');
         });
     };
 

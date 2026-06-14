@@ -34,7 +34,7 @@ public class TransferService {
     }
 
     public List<Product> findApprovedProducts() throws SQLException {
-        return productDAO.findApproved();
+        return productDAO.findAll();
     }
 
     public List<Warehouse> findAllWarehouses() throws SQLException {

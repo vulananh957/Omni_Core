@@ -299,20 +299,6 @@
         height: 14px;
     }
 
-    /* Status Pills */
-    .pill-badge {
-        display: inline-flex;
-        align-items: center;
-        padding: 4px 10px;
-        font-size: 11px;
-        font-weight: 600;
-        border-radius: 20px;
-        white-space: nowrap;
-    }
-    .pill-badge.approved { background: #ECFDF5; color: #047857; }
-    .pill-badge.pending { background: rgba(245, 200, 66, 0.15); color: #b45309; }
-    .pill-badge.rejected { background: #FEF2F2; color: #b91c1c; }
-
     /* Quantity and bars */
     .qty-val {
         font-size: 15px;
@@ -1034,10 +1020,6 @@
             </div>
             <div class="form-grid">
                 <div class="form-group">
-                    <label class="form-label">Trạng thái phê duyệt</label>
-                    <div class="form-input" id="view-approval-status" style="background: rgba(16, 55, 92, 0.02); pointer-events: none; height: auto; min-height: 38px; display: flex; align-items: center; border: 1px solid var(--border); border-radius: 6px; padding: 0 12px; font-weight: 500; color: var(--navy);"></div>
-                </div>
-                <div class="form-group">
                     <label class="form-label">Đơn vị tính</label>
                     <div class="form-input" id="view-unit" style="background: rgba(16, 55, 92, 0.02); pointer-events: none; height: auto; min-height: 38px; display: flex; align-items: center; border: 1px solid var(--border); border-radius: 6px; padding: 0 12px; font-weight: 500; color: var(--navy);">Cái</div>
                 </div>
@@ -1130,10 +1112,9 @@ try {
                 minStock: Number(p.minStock || 0),
                 maxStock: Number(p.maxStock || 0),
         locationConfigs: p.locationConfigs || [],
-                approvalStatus: p.approvalStatus || 'pending',
                 createdBy: p.creatorName || '',
         createdAt: p.createdAt || '',
-                updatedBy: p.approverName || '',
+                updatedBy: p.creatorName || '',
         lastUpdated: p.updatedAt || ''
     };
         });
@@ -1339,9 +1320,6 @@ window.triggerViewSKU = function(id) {
     document.getElementById('view-weight').textContent = item.weight || 'N/A';
     document.getElementById('view-min').textContent = item.minStock;
     document.getElementById('view-max').textContent = item.maxStock;
-    document.getElementById('view-approval-status').textContent =
-        item.approvalStatus === 'approved' ? 'Đã duyệt' :
-        item.approvalStatus === 'pending' ? 'Chờ duyệt' : 'Từ chối';
     document.getElementById('view-created-by').textContent = item.createdBy || 'N/A';
     document.getElementById('view-created-at').textContent = item.createdAt || 'N/A';
     document.getElementById('view-updated-by').textContent = item.updatedBy || item.createdBy || 'N/A';
@@ -1418,7 +1396,8 @@ function renderAll() {
         return matchSearch && matchCat && matchZoneStatus;
     });
 
-    var activeCount = filtered.filter(function(s) { return s.approvalStatus === 'approved'; }).length;
+    // Moi SKU do manager tao deu active — activeCount = tong so SKU trong view.
+    var activeCount = filtered.length;
     var lowStock = filtered.filter(function(s) { return s.qtyOnHand < s.minStock; }).length;
     updateStats(filtered.length, activeCount, lowStock);
     

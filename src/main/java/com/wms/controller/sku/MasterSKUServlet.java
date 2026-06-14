@@ -83,8 +83,7 @@ public class MasterSKUServlet extends BaseController {
         boolean isManager = currentUser != null && "MANAGER".equals(currentUser.getRole());
         boolean isWriteAction = action != null && (
             "create".equals(action) || "update".equals(action) ||
-            "delete".equals(action) || "approve".equals(action) ||
-            "reject".equals(action)
+            "delete".equals(action)
         );
 
         if (isWriteAction && !isManager) {

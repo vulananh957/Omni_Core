@@ -5,6 +5,10 @@
 <%@ page import="java.util.List" %>
 <%@ page import="com.fasterxml.jackson.databind.ObjectMapper" %>
 <%
+    response.setHeader("Cache-Control", "no-cache, no-store, must-revalidate");
+    response.setHeader("Pragma", "no-cache");
+    response.setDateHeader("Expires", 0);
+
     List<Product> products = (List<Product>) request.getAttribute("products");
     if (products == null) products = java.util.Collections.emptyList();
 
@@ -84,32 +88,6 @@
     .btn-add-sku:active { transform: translateY(0); }
     .btn-add-sku svg { width: 15px; height: 15px; }
 
-    .modal-overlay {
-        display: none;
-        position: fixed;
-        inset: 0;
-        background: rgba(10, 30, 60, 0.45);
-        backdrop-filter: blur(4px);
-        z-index: 1000;
-        align-items: center;
-        justify-content: center;
-        padding: 20px;
-    }
-    .modal-overlay.active { display: flex; }
-    .modal-box {
-        background: #fff;
-        border-radius: var(--radius-card);
-        width: 100%;
-        max-width: 560px;
-        max-height: 90vh;
-        overflow-y: auto;
-        box-shadow: 0 24px 64px rgba(10, 30, 60, 0.20);
-        animation: modalSlideIn 0.2s ease;
-    }
-    @keyframes modalSlideIn {
-        from { opacity: 0; transform: translateY(-16px) scale(0.98); }
-        to   { opacity: 1; transform: translateY(0) scale(1); }
-    }
     .modal-hdr {
         padding: 20px 24px 16px;
         border-bottom: 1px solid var(--border);
@@ -518,33 +496,7 @@
         color: rgba(16, 55, 92, 0.60);
     }
 
-    /* Status Pills */
-    .pill-badge {
-        display: inline-flex;
-        align-items: center;
-        padding: 4px 10px;
-        font-size: 11px;
-        font-weight: 600;
-        border-radius: 4px;
-        white-space: nowrap;
-    }
-    .pill-badge.approved {
-        background: #ECFDF5;
-        color: #047857;
-        border: 1px solid rgba(16, 185, 129, 0.20);
-    }
-    .pill-badge.pending {
-        background: #fffbeb;
-        color: #b45309;
-        border: 1px solid rgba(245, 158, 11, 0.30);
-    }
-    .pill-badge.rejected {
-        background: #fef2f2;
-        color: #b91c1c;
-        border: 1px solid rgba(239, 68, 68, 0.20);
-    }
-
-    /* Action buttons (Approve / Reject) */
+    /* Action buttons (Edit / Delete) */
     .btn-action {
         width: 32px;
         height: 32px;
@@ -555,20 +507,6 @@
         border-radius: 6px;
         cursor: pointer;
         transition: background 0.15s;
-    }
-    .btn-action.approve {
-        color: #059669;
-        background: none;
-    }
-    .btn-action.approve:hover {
-        background: #ECFDF5;
-    }
-    .btn-action.reject {
-        color: #ef4444;
-        background: none;
-    }
-    .btn-action.reject:hover {
-        background: #FEF2F2;
     }
     .btn-action svg {
         width: 16px;
@@ -589,23 +527,18 @@
 
     /* ─── Modals ─── */
     .modal-overlay {
+        display: none;
         position: fixed;
         inset: 0;
         background: rgba(16, 55, 92, 0.50);
         backdrop-filter: blur(4px);
-        display: flex;
         align-items: start;
         justify-content: center;
         z-index: 1000;
-        opacity: 0;
-        pointer-events: none;
-        transition: opacity 0.2s ease;
-        overflow-y: auto;
         padding: 32px 16px;
     }
     .modal-overlay.active {
-        opacity: 1;
-        pointer-events: auto;
+        display: flex !important;
     }
     .modal-box {
         background: #fff;
@@ -613,13 +546,13 @@
         max-width: 680px;
         border-radius: var(--radius-card);
         box-shadow: 0 20px 25px -5px rgba(16, 55, 92, 0.15), 0 10px 10px -5px rgba(16, 55, 92, 0.1);
-        transform: translateY(24px);
-        transition: transform 0.2s ease;
         display: flex;
         flex-direction: column;
+        animation: modalBoxSlideIn 0.2s ease;
     }
-    .modal-overlay.active .modal-box {
-        transform: translateY(0);
+    @keyframes modalBoxSlideIn {
+        from { opacity: 0; transform: translateY(-16px); }
+        to   { opacity: 1; transform: translateY(0); }
     }
 
     .modal-hdr {
@@ -1102,8 +1035,8 @@
 </div>
 
 <!-- ══ CREATE MODAL ══════════════════════════════════════════ -->
-<div class="modal-overlay" id="createModalOverlay">
-    <div class="modal-box">
+<div id="createModalOverlay" style="display:none; position:fixed; inset:0; background:rgba(16,55,92,0.55); backdrop-filter:blur(4px); z-index:9999; align-items:flex-start; justify-content:center; padding:32px 16px;">
+    <div class="modal-box" style="background:#fff; width:100%; max-width:680px; border-radius:8px; box-shadow:0 20px 25px -5px rgba(16,55,92,0.15), 0 10px 10px -5px rgba(16,55,92,0.1); display:flex; flex-direction:column; animation:modalBoxSlideIn 0.2s ease;">
         <div class="modal-hdr">
                 <div>
                 <h2 class="modal-title">Tạo Master SKU</h2>
@@ -1157,8 +1090,8 @@
 </div>
 
 <!-- ══ EDIT MODAL ══════════════════════════════════════════ -->
-<div class="modal-overlay" id="editModalOverlay">
-    <div class="modal-box">
+<div id="editModalOverlay" style="display:none; position:fixed; inset:0; background:rgba(16,55,92,0.55); backdrop-filter:blur(4px); z-index:9999; align-items:flex-start; justify-content:center; padding:32px 16px;">
+    <div class="modal-box" style="background:#fff; width:100%; max-width:680px; border-radius:8px; box-shadow:0 20px 25px -5px rgba(16,55,92,0.15), 0 10px 10px -5px rgba(16,55,92,0.1); display:flex; flex-direction:column; animation:modalBoxSlideIn 0.2s ease;">
         <div class="modal-hdr">
                 <div>
                 <h2 class="modal-title">Chỉnh sửa SKU</h2>
@@ -1305,7 +1238,7 @@ try {
         locationConfigs: p.locationConfigs || [],
         createdBy: p.creatorName || p.createdBy || '',
         createdAt: p.createdAt || '',
-        updatedBy: p.approverName || p.updatedBy || '',
+        updatedBy: p.creatorName || p.createdBy || '',
                 lastUpdated: p.lastUpdated || p.updatedAt || ''
     };
 });
@@ -1610,50 +1543,58 @@ var editCategoryInput = document.getElementById('edit-category');
 [btnEditClose, btnEditCancel].forEach(function (btn) {
     if (btn) {
         btn.addEventListener('click', function () {
-            editOverlay.classList.remove('active');
+            editOverlay.style.display = 'none';
         });
     }
 });
 
 editOverlay.addEventListener('click', function (e) {
     if (e.target === editOverlay) {
-        editOverlay.classList.remove('active');
+        editOverlay.style.display = 'none';
     }
 });
 
 window.triggerEditSKU = function (id) {
-    var item = skus.find(function (s) { return s.id === id; });
-    if (!item) return;
+    console.log('[master-sku] triggerEditSKU called for id:', id);
+    try {
+        var item = skus.find(function (s) { return s.id === id; });
+        console.log('[master-sku] item found:', item);
+        if (!item) { console.warn('[master-sku] no item for id', id); return; }
 
-    editIdInput.value = item.productId || item.id.substring(2);
-    editCodeLabel.textContent = item.sku;
-    editNameInput.value = item.name;
+        editIdInput.value = item.productId || item.id.substring(2);
+        editCodeLabel.textContent = item.sku;
+        editNameInput.value = item.name;
 
-    // Parse dimensions
-    var len = '', wid = '', hgt = '';
-    if (item.dimensions && item.dimensions !== 'N/A') {
-        var dimParts = item.dimensions.split(/[×x]/);
-        if (dimParts.length === 3) {
-            len = parseFloat(dimParts[0]) || '';
-            wid = parseFloat(dimParts[1]) || '';
-            hgt = parseFloat(dimParts[2]) || '';
+        // Parse dimensions
+        var len = '', wid = '', hgt = '';
+        if (item.dimensions && item.dimensions !== 'N/A') {
+            var dimParts = item.dimensions.split(/[×x]/);
+            if (dimParts.length === 3) {
+                len = parseFloat(dimParts[0]) || '';
+                wid = parseFloat(dimParts[1]) || '';
+                hgt = parseFloat(dimParts[2]) || '';
+            }
         }
+        editDimLengthInput.value = len;
+        editDimWidthInput.value = wid;
+        editDimHeightInput.value = hgt;
+
+        var wVal = '';
+        if (item.weight && item.weight !== 'N/A') {
+            wVal = parseFloat(item.weight.replace(' kg', '')) || '';
+        }
+        editWgtInput.value = wVal;
+        editBarcodeInput.value = item.barcode || '';
+        editUnitInput.value = item.unit || '';
+
+        window.selectEditPickerCategory(item.category || '');
+
+        console.log('[master-sku] opening edit overlay');
+        editOverlay.style.display = 'flex';
+        console.log('[master-sku] edit overlay display:', editOverlay.style.display);
+    } catch (err) {
+        console.error('[master-sku] triggerEditSKU FAILED:', err);
     }
-    editDimLengthInput.value = len;
-    editDimWidthInput.value = wid;
-    editDimHeightInput.value = hgt;
-
-    var wVal = '';
-    if (item.weight && item.weight !== 'N/A') {
-        wVal = parseFloat(item.weight.replace(' kg', '')) || '';
-    }
-    editWgtInput.value = wVal;
-    editBarcodeInput.value = item.barcode || '';
-    editUnitInput.value = item.unit || '';
-
-    window.selectEditPickerCategory(item.category || '');
-
-    editOverlay.classList.add('active');
 };
 
 window.triggerDeleteSKU = function (id) {
@@ -1744,14 +1685,14 @@ if (btnCreateTrigger) {
         if (DB_CATEGORIES.length > 0 && !selectedPickerCategory) {
             window.selectPickerCategory(DB_CATEGORIES[0].categoryName);
         }
-        createOverlay.classList.add('active');
+        createOverlay.style.display = 'flex';
     });
 }
 
 [btnCreateClose, btnCreateCancel].forEach(function (btn) {
     if (btn) {
         btn.addEventListener('click', function () {
-            createOverlay.classList.remove('active');
+            createOverlay.style.display = 'none';
             clearCreateForm();
         });
     }
@@ -1759,7 +1700,7 @@ if (btnCreateTrigger) {
 
 createOverlay.addEventListener('click', function (e) {
     if (e.target === createOverlay) {
-        createOverlay.classList.remove('active');
+        createOverlay.style.display = 'none';
         clearCreateForm();
     }
 });
@@ -2006,10 +1947,12 @@ function renderAll() {
         var infoHtml = '<div class="info-lbl"><span class="info-lbl-inner">Tạo:</span> ' + item.createdBy + '</div>' +
                        '<div class="info-time">' + item.createdAt + '</div>';
 
-        var editBtnHtml = '<button class="btn-act-circle edit" onclick="window.triggerEditSKU(\'' + item.id + '\')" title="Sửa">' +
+        var isManagerUser = (window.WMS_USER && window.WMS_USER.role === 'MANAGER');
+
+        var editBtnHtml = '<button type="button" class="btn-act-circle edit" data-action="edit" data-id="' + item.id + '" title="Sửa" style="' + (isManagerUser ? '' : 'display:none;') + '">' +
             '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 1 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>' +
             '</button>';
-        var deleteBtnHtml = '<button class="btn-act-circle del" onclick="window.triggerDeleteSKU(\'' + item.id + '\')" title="Xóa">' +
+        var deleteBtnHtml = '<button type="button" class="btn-act-circle del" data-action="delete" data-id="' + item.id + '" title="Xóa" style="' + (isManagerUser ? '' : 'display:none;') + '">' +
             '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>' +
             '</button>';
 
@@ -2033,6 +1976,28 @@ function renderAll() {
     }).join('');
 
     tableBody.innerHTML = html;
+}
+
+/* Event delegation for Edit / Delete buttons — robust against inline-onclick issues */
+if (tableBody) {
+    console.log('[master-sku] event delegation attached to tableBody');
+    tableBody.addEventListener('click', function (ev) {
+        var btn = ev.target.closest('button[data-action]');
+        if (!btn) return;
+        var action = btn.getAttribute('data-action');
+        var id = btn.getAttribute('data-id');
+        console.log('[master-sku] click detected:', action, id);
+        if (!action || !id) return;
+        if (action === 'edit' && typeof window.triggerEditSKU === 'function') {
+            console.log('[master-sku] calling triggerEditSKU');
+            window.triggerEditSKU(id);
+        } else if (action === 'delete' && typeof window.triggerDeleteSKU === 'function') {
+            console.log('[master-sku] calling triggerDeleteSKU');
+            window.triggerDeleteSKU(id);
+        } else {
+            console.warn('[master-sku] action not handled:', action);
+        }
+    });
 }
 
 /* ─── Bootstrap ─── */

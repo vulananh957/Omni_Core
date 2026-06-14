@@ -17,10 +17,14 @@ import java.util.logging.Logger;
  * CategoryServlet — Handles requests for the Category Management page.
  *
  * Maps to /business/categories.
- * 
+ *
  * Business rules:
- * - categoryCode: required on create, 3-4 chars, uppercase, immutable after save
- * - Delete: hard delete if no products, deactivate if has products
+ * - categoryCode: required on create, 3-4 chars, uppercase, permanently
+ *   locked (immutable) the moment a category is created.
+ * - Deactivate cascades to all descendants; reactivate is blocked while any
+ *   ancestor is still inactive.
+ * - Delete: hard delete if no products, soft delete (deactivate) if has
+ *   products.
  */
 public class CategoryServlet extends BaseController {
 
@@ -38,6 +42,14 @@ public class CategoryServlet extends BaseController {
             throws ServletException, IOException {
 
         try {
+            // Heal pre-existing inconsistent state where a descendant is active
+            // while one of its ancestors is inactive. Safe to call repeatedly.
+            int repaired = categoryService.ensureCascadeConsistency();
+            if (repaired > 0) {
+                LOGGER.info("CategoryServlet: Healed " + repaired
+                    + " inconsistent active-descendant(s) under inactive ancestor(s).");
+            }
+
             List<Category> categoryList = categoryService.findAll();
             req.setAttribute("categories", categoryList);
             // Create JSON manually to ensure UTF-8 encoding
@@ -94,6 +106,9 @@ public class CategoryServlet extends BaseController {
             } else if ("deactivate".equals(action)) {
                 success = handleDeactivate(req);
                 message = success ? "Ngung hoat dong danh muc thanh cong!" : "Ngung hoat dong that bai.";
+            } else if ("reactivate".equals(action)) {
+                success = handleReactivate(req);
+                message = success ? "Kich hoat lai danh muc thanh cong!" : "Kich hoat lai that bai.";
             } else {
                 message = "Hanh dong khong hop le.";
             }
@@ -143,7 +158,6 @@ public class CategoryServlet extends BaseController {
     private boolean handleUpdate(HttpServletRequest req) throws Exception {
         String categoryIdStr = req.getParameter("categoryId");
         String name = req.getParameter("categoryName");
-        String code = req.getParameter("categoryCode");
         String parentIdStr = req.getParameter("parentId");
 
         if (isNullOrEmpty(categoryIdStr) || isNullOrEmpty(name)) {
@@ -151,40 +165,17 @@ public class CategoryServlet extends BaseController {
         }
 
         int categoryId = Integer.parseInt(categoryIdStr);
-        Category category = categoryService.findById(categoryId);
-        if (category == null) {
-            return false;
-        }
-
-        // Validate category code if provided
-        if (!isNullOrEmpty(code)) {
-            CategoryService.ValidationResult codeValidation = categoryService.validateCategoryCode(code);
-            if (!codeValidation.isSuccess()) {
-                throw new IllegalArgumentException(codeValidation.getMessage());
-            }
-        }
-
-        // Get existing category to check immutability
         Category existing = categoryService.findById(categoryId);
         if (existing == null) {
             return false;
         }
 
-        // If code is immutable, don't allow update
-        if (existing.isImmutable()) {
-            // Category code is locked, update without code
-            category.setCategoryName(name.trim());
-            category.setDescription(req.getParameter("description"));
-            category.setParentId(parseParentId(parentIdStr));
-            return categoryService.updateCategory(category, null);
-        } else {
-            // Code not locked yet, allow update with new code
-            category.setCategoryName(name.trim());
-            category.setDescription(req.getParameter("description"));
-            category.setParentId(parseParentId(parentIdStr));
-            category.setImmutable(true); // Lock after first update
-            return categoryService.updateCategory(category, code);
-        }
+        // Ma dinh danh da bi khoa vinh vien ngay khi tao: update chi sua
+        // name / description / parent. Khong can (va khong duoc) sua code.
+        existing.setCategoryName(name.trim());
+        existing.setDescription(req.getParameter("description"));
+        existing.setParentId(parseParentId(parentIdStr));
+        return categoryService.updateCategory(existing, null);
     }
 
     private boolean handleDelete(HttpServletRequest req) throws Exception {
@@ -215,9 +206,42 @@ public class CategoryServlet extends BaseController {
         }
         try {
             int categoryId = Integer.parseInt(categoryIdStr);
-            return categoryService.deactivateCategory(categoryId);
+            int affected = categoryService.deactivateCategory(categoryId);
+            if (affected > 1) {
+                req.getSession().setAttribute("categoryMessage",
+                    "Da ngung hoat dong danh muc va " + (affected - 1) + " danh muc con (cascade).");
+                req.getSession().setAttribute("categorySuccess", true);
+                req.getSession().setAttribute("categoryDeactivated", true);
+            }
+            return affected > 0;
         } catch (NumberFormatException e) {
             LOGGER.log(Level.WARNING, "CategoryServlet: Invalid categoryId for deactivate: " + categoryIdStr);
+            return false;
+        }
+    }
+
+    private boolean handleReactivate(HttpServletRequest req) throws Exception {
+        String categoryIdStr = req.getParameter("categoryId");
+        if (isNullOrEmpty(categoryIdStr)) {
+            return false;
+        }
+        try {
+            int categoryId = Integer.parseInt(categoryIdStr);
+            Category existing = categoryService.findById(categoryId);
+            if (existing == null) {
+                return false;
+            }
+            // Reactivation would break the cascade invariant if any ancestor
+            // is still inactive. Delegate the ancestor check to the service.
+            Category blockedBy = categoryService.findInactiveAncestor(categoryId);
+            if (blockedBy != null) {
+                throw new IllegalArgumentException(
+                    "Khong the kich hoat lai: danh muc cha '" + blockedBy.getCategoryName()
+                    + "' dang ngung hoat dong. Hay kich hoat danh muc cha truoc.");
+            }
+            return categoryService.reactivateCategory(categoryId);
+        } catch (NumberFormatException e) {
+            LOGGER.log(Level.WARNING, "CategoryServlet: Invalid categoryId for reactivate: " + categoryIdStr);
             return false;
         }
     }

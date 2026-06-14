@@ -31,10 +31,6 @@ public class ProductService {
         }
     }
 
-    public List<Product> findApproved() {
-        return productDAO.findApproved();
-    }
-
     public List<Category> findAllCategories() {
         return categoryDAO.findAll();
     }
@@ -51,11 +47,10 @@ public class ProductService {
         if (product.getUnit() == null || product.getUnit().trim().isEmpty()) {
             product.setUnit("Cái");
         }
-        product.setStatus(Product.STATUS_APPROVED);
         product.setCreatedBy(createdByUserId);
         boolean success = productDAO.insertWithZones(product, createdByUserId, zones);
         if (success) {
-            log.info("Product created (approved): name={} sku={} userId={} zones={}",
+            log.info("Product created: name={} sku={} userId={} zones={}",
                     product.getProductName(), product.getSkuCode(), createdByUserId, zones.size());
         } else {
             log.error("Product create failed: name={} sku={}", product.getProductName(), product.getSkuCode());
@@ -141,26 +136,6 @@ public class ProductService {
             }
         }
         return null;
-    }
-
-    public boolean approveProductWithZones(int productId, int approvedBy, List<Product.LocationConfig> configs) {
-        boolean ok = productDAO.approveProductWithZones(productId, approvedBy, configs);
-        if (ok) {
-            log.info("Product approved with zones: productId={} approvedBy={}", productId, approvedBy);
-        } else {
-            log.error("Product approve with zones failed: productId={}", productId);
-        }
-        return ok;
-    }
-
-    public boolean rejectProduct(int productId, String reason) {
-        boolean ok = productDAO.reject(productId, reason);
-        if (ok) {
-            log.info("Product rejected: productId={} reason={}", productId, reason);
-        } else {
-            log.error("Product reject failed: productId={}", productId);
-        }
-        return ok;
     }
 
     public static class UpdateResult {

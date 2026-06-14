@@ -1,5 +1,11 @@
 <%@ page language="java" contentType="text/html; charset=UTF-8" pageEncoding="UTF-8" %>
 <%@ taglib prefix="c" uri="jakarta.tags.core" %>
+<%
+    // Disable JSP/response caching so the browser always gets the latest fragment.
+    response.setHeader("Cache-Control", "no-store, no-cache, must-revalidate, max-age=0");
+    response.setHeader("Pragma", "no-cache");
+    response.setDateHeader("Expires", 0);
+%>
 
 <style>
     /* ─── Stats Grid ─── */
@@ -400,9 +406,6 @@
     <button class="ic-tab" data-tab="in_progress">
         Đang kiểm đếm <span class="ic-tab-badge" id="badge-progress">0</span>
     </button>
-    <button class="ic-tab" data-tab="completed">
-        Chờ phê duyệt <span class="ic-tab-badge" id="badge-completed">0</span>
-    </button>
     <button class="ic-tab" data-tab="approved">
         Đã duyệt & Cân bằng <span class="ic-tab-badge" id="badge-approved">0</span>
     </button>
@@ -410,7 +413,7 @@
 
 <!-- ═══ SHEETS CONTAINER ═══ -->
 <div class="ic-list-container" id="sheetsContainer">
-    <!-- Rendered by JS -->
+    <div class="ic-empty">Đang tải danh sách phiếu kiểm kê...</div>
 </div>
 
 <!-- ═══ MODAL: TẠO PHIẾU KIỂM KÊ ═══ -->
@@ -507,11 +510,17 @@
 </div>
 
 <%
-    com.fasterxml.jackson.databind.ObjectMapper mapper = new com.fasterxml.jackson.databind.ObjectMapper();
-    String warehousesJson = mapper.writeValueAsString(request.getAttribute("warehouses"));
-    String zonesJson = mapper.writeValueAsString(request.getAttribute("zones"));
-    String categoriesJson = mapper.writeValueAsString(request.getAttribute("categories"));
-    String productsJson = mapper.writeValueAsString(request.getAttribute("products"));
+    // Use pre-serialized JSON attributes (set by servlet)
+    String warehousesJson = (String) request.getAttribute("warehousesJson");
+    String zonesJson = (String) request.getAttribute("zonesJson");
+    String categoriesJson = (String) request.getAttribute("categoriesJson");
+    String productsJson = (String) request.getAttribute("productsJson");
+
+    // Fallback to empty arrays if null
+    if (warehousesJson == null) warehousesJson = "[]";
+    if (zonesJson == null) zonesJson = "[]";
+    if (categoriesJson == null) categoriesJson = "[]";
+    if (productsJson == null) productsJson = "[]";
 %>
 <div id="warehousesJson" style="display:none"><%= warehousesJson %></div>
 <div id="zonesJson" style="display:none"><%= zonesJson %></div>
@@ -523,6 +532,14 @@
 (function () {
     'use strict';
 
+    // ─── Debug helper ───
+    function dbg(msg, data) {
+        console.log('[inventory-check] ' + msg, data != null ? JSON.stringify(data) : '');
+    }
+    function dbgObj(msg, obj) {
+        console.log('[inventory-check] ' + msg, obj);
+    }
+
     // ─── Master Data (from server) ───
     var WAREHOUSES = [];
     var ZONES = [];
@@ -533,13 +550,18 @@
     (function() {
         try {
             var wEl = document.getElementById('warehousesJson');
+            dbg('warehousesJson raw', wEl ? wEl.textContent.trim() : 'MISSING');
             if (wEl && wEl.textContent.trim()) {
                 var wData = JSON.parse(wEl.textContent);
+                dbgObj('warehousesJson parsed', wData);
                 WAREHOUSES = wData.map(function(w) {
                     return { id: w.warehouseId, code: w.warehouseCode, name: w.warehouseName };
                 });
+                dbg('WAREHOUSES loaded', WAREHOUSES.length + ' items');
+            } else {
+                dbg('WARNING: warehousesJson is empty or missing', null);
             }
-        } catch(e) {}
+        } catch(e) { console.error('[inventory-check] Error parsing warehousesJson:', e); }
         try {
             var zEl = document.getElementById('zonesJson');
             if (zEl && zEl.textContent.trim()) {
@@ -547,30 +569,42 @@
                 ZONES = zData.map(function(z) {
                     return { id: z.zoneId, warehouseId: z.warehouseId, code: z.zoneCode, name: z.zoneName, type: z.zoneType };
                 });
+                dbg('ZONES loaded', ZONES.length + ' items');
+            } else {
+                dbg('WARNING: zonesJson is empty or missing', null);
             }
-        } catch(e) {}
+        } catch(e) { console.error('[inventory-check] Error parsing zonesJson:', e); }
         try {
             var cEl = document.getElementById('categoriesJson');
             if (cEl && cEl.textContent.trim()) {
                 var cData = JSON.parse(cEl.textContent);
+                dbgObj('categoriesJson raw', cData);
                 CATEGORIES = cData.map(function(c) {
-                    return { id: c.id, name: c.categoryName || c.name };
+                    // Handle both field names from Jackson serialization
+                    return { id: c.categoryId || c.id, name: c.categoryName || c.name };
                 });
+                dbg('CATEGORIES loaded', CATEGORIES.length + ' items');
+            } else {
+                dbg('WARNING: categoriesJson is empty or missing', null);
             }
-        } catch(e) {}
+        } catch(e) { console.error('[inventory-check] Error parsing categoriesJson:', e); }
         try {
             var pEl = document.getElementById('productsJson');
             if (pEl && pEl.textContent.trim()) {
                 PRODUCTS = JSON.parse(pEl.textContent);
+                dbg('PRODUCTS loaded', PRODUCTS.length + ' items');
+            } else {
+                dbg('WARNING: productsJson is empty or missing', null);
             }
-        } catch(e) {}
+        } catch(e) { console.error('[inventory-check] Error parsing productsJson:', e); }
     })();
 
     // ─── State ───
     var sheets = [];
+    var expandedSheetId = null;
+    var itemsBySheetId = {};  // checkId -> CheckDetail[] (lazy loaded on expand)
     var activeTab = 'all';
     var searchText = '';
-    var expandedSheetId = null;
 
     // ─── DOM refs ───
     var sheetsContainer = document.getElementById('sheetsContainer');
@@ -586,11 +620,6 @@
     var formNote        = document.getElementById('formNote');
     var categorySelectWrap = document.getElementById('categorySelectWrap');
     var skuSelectWrap   = document.getElementById('skuSelectWrap');
-
-    var statTotal       = document.getElementById('statTotal');
-    var statPending     = document.getElementById('statPending');
-    var statCompleted   = document.getElementById('statCompleted');
-    var statApproved    = document.getElementById('statApproved');
 
     // ─── Initialize master selects ───
     function populateWarehouseSelect() {
@@ -659,53 +688,47 @@
         e.preventDefault();
         var title = formTitle.value.trim();
         if (!title) { alert('Vui lòng nhập Tiêu đề phiếu'); return; }
+        if (!formWarehouse.value) { alert('Vui lòng chọn chi nhánh kho'); return; }
 
         var scopeType = document.querySelector('input[name="scopeType"]:checked').value;
-        var selectedItems = [];
+        var scopeValue = '';
+        if (scopeType === 'category') scopeValue = formCategory.value;
+        else if (scopeType === 'sku') scopeValue = formSKU.value;
 
-        if (scopeType === 'all') {
-            selectedItems = PRODUCTS.map(function (p) {
-                return { skuCode: p.sku, skuName: p.name, systemQty: p.systemQty, countedQty: null };
-            });
-        } else if (scopeType === 'category') {
-            var cat = formCategory.value;
-            var filtered = PRODUCTS.filter(function (p) { return p.category === cat; });
-            selectedItems = filtered.map(function (p) {
-                return { skuCode: p.sku, skuName: p.name, systemQty: p.systemQty, countedQty: null };
-            });
-        } else if (scopeType === 'sku') {
-            var sku = formSKU.value;
-            if (!sku) { alert('Vui lòng chọn sản phẩm (SKU) cần kiểm kê'); return; }
-            var prod = PRODUCTS.find(function (p) { return p.sku === sku; });
-            selectedItems = [{
-                skuCode: prod.sku,
-                skuName: prod.name,
-                systemQty: prod.systemQty,
-                countedQty: null
-            }];
-        }
-
-        var nextNum = String(sheets.length + 1).padStart(3, '0');
-        var now = new Date();
-        var nowStr = now.getFullYear() + '-' +
-                      String(now.getMonth() + 1).padStart(2, '0') + '-' +
-                      String(now.getDate()).padStart(2, '0') + ' ' +
-                      String(now.getHours()).padStart(2, '0') + ':' +
-                      String(now.getMinutes()).padStart(2, '0');
-
-        var newSheet = {
-            id: 'IC-2026-' + nextNum,
-            title: title + ' [' + formWarehouse.value + ' — ' + formZone.value + ']',
-            createdAt: nowStr,
-            status: 'in_progress',
-            items: selectedItems,
-            note: formNote.value.trim() || null
+        var payload = {
+            action: 'create',
+            title: title,
+            warehouseId: parseInt(formWarehouse.value, 10),
+            zoneId: formZone.value ? parseInt(formZone.value, 10) : null,
+            scopeType: scopeType,
+            scopeValue: scopeValue,
+            note: formNote.value.trim()
         };
 
-        sheets.unshift(newSheet);
-        expandedSheetId = newSheet.id; // Auto expand new sheet
-        createOverlay.style.display = 'none';
-        render();
+        var btnSubmit = frmCreateCheck.querySelector('button[type="submit"]');
+        if (btnSubmit) btnSubmit.disabled = true;
+
+        fetch(window.location.pathname, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        })
+        .then(function (r) { return r.json(); })
+        .then(function (data) {
+            if (btnSubmit) btnSubmit.disabled = false;
+            if (data && data.success) {
+                createOverlay.style.display = 'none';
+                frmCreateCheck.reset();
+                document.querySelector('input[name="scopeType"][value="all"]').click();
+                loadChecks();
+            } else {
+                alert('Lỗi tạo phiếu: ' + (data && data.message ? data.message : 'Không rõ'));
+            }
+        })
+        .catch(function (err) {
+            if (btnSubmit) btnSubmit.disabled = false;
+            alert('Lỗi mạng: ' + err.message);
+        });
     });
 
     // ─── Tab switching ───
@@ -721,87 +744,7 @@
     // ─── Search ───
     icSearch.addEventListener('input', function () { searchText = this.value; render(); });
 
-    // ─── Inline edit quantity ───
-    window.handleUpdateCountedQty = function (sheetId, skuCode, value) {
-        var sheet = sheets.find(function (s) { return s.id === sheetId; });
-        if (!sheet) return;
-        var item = sheet.items.find(function (i) { return i.skuCode === skuCode; });
-        if (!item) return;
-
-        item.countedQty = value === '' ? null : parseInt(value, 10);
-        
-        // Re-render only statistical/state values or full table seamlessly
-        updateCountsAndDeltas(sheet);
-    };
-
-    function updateCountsAndDeltas(sheet) {
-        var countedItems = sheet.items.filter(function (i) { return i.countedQty !== null; }).length;
-        var totalDelta = sheet.items.reduce(function (sum, i) {
-            var d = i.countedQty !== null ? (i.countedQty - i.systemQty) : 0;
-            return sum + d;
-        }, 0);
-
-        var badgeCounted = document.getElementById('counted-' + sheet.id);
-        if (badgeCounted) {
-            badgeCounted.textContent = countedItems;
-            if (countedItems === sheet.items.length) {
-                badgeCounted.className = 'text-emerald-600';
-            } else {
-                badgeCounted.className = 'text-navy';
-            }
-        }
-
-        var badgeDelta = document.getElementById('delta-' + sheet.id);
-        if (badgeDelta) {
-            badgeDelta.textContent = totalDelta > 0 ? ('+' + totalDelta) : totalDelta;
-            if (totalDelta < 0) {
-                badgeDelta.className = 'ic-sheet-stat-val text-red-600';
-            } else if (totalDelta > 0) {
-                badgeDelta.className = 'ic-sheet-stat-val text-blue-600';
-            } else {
-                badgeDelta.className = 'ic-sheet-stat-val text-emerald-600';
-            }
-        }
-
-        // Check if discrepancy exists
-        var hasDiscrepancy = sheet.items.some(function (i) {
-            return i.countedQty !== null && (i.countedQty - i.systemQty) !== 0;
-        });
-        var alertBadge = document.getElementById('alert-' + sheet.id);
-        if (alertBadge) {
-            alertBadge.style.display = hasDiscrepancy ? 'inline-flex' : 'none';
-        }
-
-        // Update single row badge & input delta
-        sheet.items.forEach(function (item) {
-            var row = document.getElementById('row-' + sheet.id + '-' + item.skuCode);
-            var deltaCell = document.getElementById('dtcell-' + sheet.id + '-' + item.skuCode);
-            var iconCell = document.getElementById('iconcell-' + sheet.id + '-' + item.skuCode);
-            
-            if (row && deltaCell && iconCell) {
-                var d = item.countedQty !== null ? (item.countedQty - item.systemQty) : null;
-                if (d !== null && d !== 0) {
-                    row.classList.add('row-discrepancy');
-                } else {
-                    row.classList.remove('row-discrepancy');
-                }
-
-                // Render delta badge
-                deltaCell.innerHTML = renderDeltaBadge(d);
-
-                // Render icon
-                if (item.countedQty !== null) {
-                    if (d === 0) {
-                        iconCell.innerHTML = '<svg class="text-emerald-500 mx-auto" style="width:16px;height:16px;" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>';
-                    } else {
-                        iconCell.innerHTML = '<svg class="text-orange mx-auto" style="width:16px;height:16px;" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>';
-                    }
-                } else {
-                    iconCell.innerHTML = '<div class="w-4 h-4 border-2 border-navy/20 rounded mx-auto"></div>';
-                }
-            }
-        });
-    }
+    // (Inline edit moved below to handleUpdateCountedQty in the action triggers section)
 
     function renderDeltaBadge(d) {
         if (d === null) return '<span style="color:rgba(16,55,92,0.30);">—</span>';
@@ -811,69 +754,208 @@
     }
 
     // ─── Status badge helper ───
+    // DB status: DRAFT | IN_PROGRESS | APPROVED
+    // Frontend tab keys: all | in_progress | completed | approved
+    // (Schema only has 3 statuses — we treat DRAFT as "in_progress" tab for the UI.)
+    function statusToTab(status) {
+        if (status === 'APPROVED') return 'approved';
+        return 'in_progress';  // DRAFT and IN_PROGRESS both go under "Đang kiểm đếm"
+    }
+
     function getStatusConfig(status) {
         var cfg = {
-            in_progress: { label: "Đang kiểm đếm", cls: "ic-badge--progress", icon: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>' },
-            completed:   { label: "Chờ phê duyệt", cls: "ic-badge--completed", icon: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>' },
-            approved:    { label: "Đã duyệt", cls: "ic-badge--approved", icon: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>' },
-            adjusted:    { label: "Đã điều chỉnh", cls: "ic-badge--approved", icon: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>' }
+            DRAFT:        { label: "Nháp",            cls: "ic-badge--draft",     icon: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>' },
+            IN_PROGRESS:  { label: "Đang kiểm đếm",  cls: "ic-badge--progress",  icon: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>' },
+            APPROVED:     { label: "Đã duyệt",        cls: "ic-badge--approved",  icon: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>' }
         };
-        return cfg[status] || cfg.in_progress;
+        return cfg[status] || cfg.IN_PROGRESS;
     }
 
     // ─── Action triggers ───
     window.toggleExpand = function (id) {
-        expandedSheetId = expandedSheetId === id ? null : id;
-        render();
+        var ck = Number(id);
+        if (expandedSheetId === ck) {
+            expandedSheetId = null;
+            render();
+        } else {
+            expandedSheetId = ck;
+            render();
+            if (!itemsBySheetId[ck]) loadDetails(ck);
+        }
     };
 
     window.triggerComplete = function (e, id) {
         e.stopPropagation();
-        var sheet = sheets.find(function (s) { return s.id === id; });
-        if (sheet) {
-            sheet.status = 'completed';
-            render();
-        }
+        var ck = Number(id);
+        if (!confirm('Xác nhận hoàn tất kiểm đếm và trình duyệt phiếu này?')) return;
+        var details = itemsBySheetId[ck] || [];
+        var results = details.map(function (d) {
+            return { checkDetailId: d.checkDetailId, actualQty: d.actualQty != null ? Number(d.actualQty) : 0 };
+        });
+        fetch(window.location.pathname, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ action: 'submit', checkId: ck, resultsJson: JSON.stringify(results) })
+        })
+        .then(function (r) { return r.json(); })
+        .then(function (data) {
+            if (data && data.success) loadChecks();
+            else alert('Lỗi: ' + (data && data.message ? data.message : 'Không rõ'));
+        });
     };
 
     window.triggerAdjust = function (e, id) {
         e.stopPropagation();
-        var sheet = sheets.find(function (s) { return s.id === id; });
-        if (sheet) {
-            sheet.status = 'adjusted';
-            render();
-        }
+        var ck = Number(id);
+        if (!confirm('Xác nhận điều chỉnh tồn kho theo kết quả kiểm kê này?')) return;
+        var details = itemsBySheetId[ck] || [];
+        var adjustments = details
+            .filter(function (d) { return d.deltaQty != null && Number(d.deltaQty) !== 0; })
+            .map(function (d) {
+                return { checkDetailId: d.checkDetailId, deltaQty: Number(d.deltaQty) };
+            });
+        fetch(window.location.pathname, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ action: 'adjust', checkId: ck, adjustmentsJson: JSON.stringify(adjustments) })
+        })
+        .then(function (r) { return r.json(); })
+        .then(function (data) {
+            if (data && data.success) loadChecks();
+            else alert('Lỗi: ' + (data && data.message ? data.message : 'Không rõ'));
+        });
     };
+
+    // Inline edit quantity: persist the single row update immediately
+    window.handleUpdateCountedQty = function (checkId, detailId, value) {
+        var ck = Number(checkId);
+        var details = itemsBySheetId[ck];
+        if (!details) return;
+        var d = details.find(function (x) { return x.checkDetailId === Number(detailId); });
+        if (!d) return;
+        d.actualQty = (value === '' || value == null) ? null : Number(value);
+        d.deltaQty = (d.actualQty == null) ? null : (Number(d.actualQty) - Number(d.systemQty));
+        fetch(window.location.pathname, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                action: 'submit',
+                checkId: ck,
+                resultsJson: JSON.stringify([{ checkDetailId: d.checkDetailId, actualQty: d.actualQty != null ? d.actualQty : 0 }])
+            })
+        });
+        render();
+    };
+
+    // ─── Data loaders ───
+    function loadChecks() {
+        var url = window.location.pathname + '?ajax=1&action=checks';
+        dbg('loadChecks: fetching', url);
+        
+        fetch(url, { method: 'GET', headers: { 'Accept': 'application/json' } })
+            .then(function (r) {
+                dbg('loadChecks: response status', r.status);
+                dbg('loadChecks: content-type', r.headers.get('Content-Type'));
+                if (!r.ok) {
+                    throw new Error('HTTP ' + r.status + ' ' + r.statusText);
+                }
+                return r.text().then(function(text) {
+                    dbg('loadChecks: raw response', text.substring(0, 200) + (text.length > 200 ? '...' : ''));
+                    try {
+                        return JSON.parse(text);
+                    } catch(e) {
+                        throw new Error('Invalid JSON: ' + e.message + '\nResponse: ' + text.substring(0, 500));
+                    }
+                });
+            })
+            .then(function (data) {
+                dbgObj('loadChecks: parsed data', data);
+                if (Array.isArray(data)) {
+                    sheets = data;
+                    dbg('loadChecks: loaded', sheets.length + ' inventory checks');
+                } else if (data && typeof data === 'object') {
+                    // Handle error response
+                    dbg('loadChecks: received object instead of array', data);
+                    if (data.success === false) {
+                        sheetsContainer.innerHTML = '<div class="ic-empty">Lỗi: ' + (data.message || 'Không rõ') + '</div>';
+                        return;
+                    }
+                    sheets = [];
+                } else {
+                    dbg('loadChecks: unexpected data type', typeof data);
+                    sheets = [];
+                }
+                itemsBySheetId = {};
+                render();
+            })
+            .catch(function (err) {
+                console.error('[inventory-check] loadChecks failed:', err);
+                sheetsContainer.innerHTML = '<div class="ic-empty">Lỗi tải danh sách: ' + err.message +
+                    '<br><small>Xem Console (F12) để biết chi tiết.</small></div>';
+            });
+    }
+
+    function loadDetails(checkId) {
+        var url = window.location.pathname + '?ajax=1&action=checkDetails&checkId=' + encodeURIComponent(checkId);
+        dbg('loadDetails: fetching', url);
+        fetch(url)
+            .then(function (r) {
+                dbg('loadDetails: status', r.status);
+                if (!r.ok) throw new Error('HTTP ' + r.status);
+                return r.json();
+            })
+            .then(function (data) {
+                dbgObj('loadDetails: data', data);
+                if (Array.isArray(data)) {
+                    itemsBySheetId[checkId] = data;
+                } else if (data && data.success === false) {
+                    console.error('loadDetails error:', data.message);
+                    itemsBySheetId[checkId] = [];
+                } else {
+                    itemsBySheetId[checkId] = [];
+                }
+                render();
+            })
+            .catch(function (err) { console.error('loadDetails failed:', err); });
+    }
 
     // ─── Render ───
     function render() {
         // Stats
         var counts = {
             all:        sheets.length,
-            progress:   sheets.filter(function (s) { return s.status === 'in_progress'; }).length,
-            completed:  sheets.filter(function (s) { return s.status === 'completed'; }).length,
-            approved:   sheets.filter(function (s) { return s.status === 'approved' || s.status === 'adjusted'; }).length
+            progress:   sheets.filter(function (s) { return s.status === 'DRAFT' || s.status === 'IN_PROGRESS'; }).length,
+            approved:   sheets.filter(function (s) { return s.status === 'APPROVED'; }).length
         };
+        counts.completed = 0; // No "completed" status in current schema (handled together with progress)
 
-        statTotal.textContent     = counts.all;
-        statPending.textContent   = counts.progress;
-        statCompleted.textContent = counts.completed;
-        statApproved.textContent  = counts.approved;
+        // Stats - with null checks for safety
+        var statTotalEl = document.getElementById('statTotal');
+        var statPendingEl = document.getElementById('statPending');
+        var statCompletedEl = document.getElementById('statCompleted');
+        var statApprovedEl = document.getElementById('statApproved');
+        var badgeAllEl = document.getElementById('badge-all');
+        var badgeProgressEl = document.getElementById('badge-progress');
+        var badgeApprovedEl = document.getElementById('badge-approved');
 
-        document.getElementById('badge-all').textContent      = counts.all;
-        document.getElementById('badge-progress').textContent = counts.progress;
-        document.getElementById('badge-completed').textContent= counts.completed;
-        document.getElementById('badge-approved').textContent = counts.approved;
+        if (statTotalEl) statTotalEl.textContent = counts.all;
+        if (statPendingEl) statPendingEl.textContent = counts.progress;
+        if (statCompletedEl) statCompletedEl.textContent = counts.completed;
+        if (statApprovedEl) statApprovedEl.textContent = counts.approved;
+        if (badgeAllEl) badgeAllEl.textContent = counts.all;
+        if (badgeProgressEl) badgeProgressEl.textContent = counts.progress;
+        if (badgeApprovedEl) badgeApprovedEl.textContent = counts.approved;
 
         // Filter
         var q = searchText.toLowerCase();
         var filtered = sheets.filter(function (s) {
             var matchTab = activeTab === 'all' ||
-                (activeTab === 'in_progress' && s.status === 'in_progress') ||
-                (activeTab === 'completed' && s.status === 'completed') ||
-                (activeTab === 'approved' && (s.status === 'approved' || s.status === 'adjusted'));
-            
-            var matchSearch = !q || s.id.toLowerCase().includes(q) || s.title.toLowerCase().includes(q);
+                (activeTab === 'in_progress' && (s.status === 'DRAFT' || s.status === 'IN_PROGRESS')) ||
+                (activeTab === 'completed' && false) ||
+                (activeTab === 'approved' && s.status === 'APPROVED');
+
+            var haystack = (s.checkCode + ' ' + (s.warehouseName || '') + ' ' + (s.note || '')).toLowerCase();
+            var matchSearch = !q || haystack.indexOf(q) >= 0;
             return matchTab && matchSearch;
         });
 
@@ -884,25 +966,21 @@
 
         sheetsContainer.innerHTML = filtered.map(function (sheet) {
             var sc = getStatusConfig(sheet.status);
-            var isExpanded = expandedSheetId === sheet.id;
-            var countedItems = sheet.items.filter(function (i) { return i.countedQty !== null; }).length;
-            var totalDelta = sheet.items.reduce(function (sum, i) {
-                var d = i.countedQty !== null ? (i.countedQty - i.systemQty) : 0;
-                return sum + d;
-            }, 0);
-            var hasDiscrepancy = sheet.items.some(function (i) {
-                return i.countedQty !== null && (i.countedQty - i.systemQty) !== 0;
-            });
+            var sheetKey = sheet.checkId;
+            var isExpanded = expandedSheetId === sheetKey;
+            var items = itemsBySheetId[sheetKey] || [];
+            var totalItems = sheet.totalItems || items.length;
+            var countedItems = sheet.countedItems != null ? sheet.countedItems : items.filter(function (i) { return i.actualQty != null; }).length;
+            var totalDelta = Number(sheet.totalDelta || 0);
+            var hasDiscrepancy = (typeof totalDelta === 'number' && totalDelta !== 0);
 
             // Action button
             var actionBtn = '';
-            if (sheet.status === 'in_progress') {
-                actionBtn = '<button class="ic-btn-action ic-btn-action--orange" onclick="triggerComplete(event, \'' + sheet.id + '\')">' +
+            if (sheet.status === 'DRAFT' || sheet.status === 'IN_PROGRESS') {
+                actionBtn = '<button class="ic-btn-action ic-btn-action--orange" onclick="triggerComplete(event, ' + sheetKey + ')">' +
                             'Hoàn tất & Trình duyệt</button>';
-            } else if (sheet.status === 'completed') {
-                actionBtn = '<span class="ic-badge ic-badge--completed"><span class="ic-badge__dot"></span>Chờ duyệt</span>';
-            } else if (sheet.status === 'approved') {
-                actionBtn = '<button class="ic-btn-action ic-btn-action--blue" onclick="triggerAdjust(event, \'' + sheet.id + '\')">' +
+            } else if (sheet.status === 'APPROVED') {
+                actionBtn = '<button class="ic-btn-action ic-btn-action--blue" onclick="triggerAdjust(event, ' + sheetKey + ')">' +
                             'Điều chỉnh</button>';
             }
 
@@ -912,22 +990,23 @@
             else if (totalDelta > 0) deltaClass = 'ic-sheet-stat-val text-blue-600';
 
             // Items table rows
-            var tableRows = sheet.items.map(function (item) {
-                var d = item.countedQty !== null ? (item.countedQty - item.systemQty) : null;
+            var tableRows = items.map(function (item) {
+                var d = (item.actualQty != null && item.systemQty != null)
+                        ? (Number(item.actualQty) - Number(item.systemQty)) : null;
                 var rowClass = (d !== null && d !== 0) ? 'row-discrepancy' : '';
-                
+
                 var countField = '';
-                if (item.countedQty !== null) {
-                    countField = '<span style="font-size:13px; font-weight:700;">' + item.countedQty.toLocaleString() + '</span>';
-                } else if (sheet.status === 'in_progress') {
+                if (item.actualQty != null) {
+                    countField = '<span style="font-size:13px; font-weight:700;">' + Number(item.actualQty).toLocaleString() + '</span>';
+                } else if (sheet.status === 'DRAFT' || sheet.status === 'IN_PROGRESS') {
                     countField = '<input class="ic-input-count" type="number" placeholder="Nhập..." ' +
-                                 'oninput="handleUpdateCountedQty(\'' + sheet.id + '\', \'' + item.skuCode + '\', this.value)"/>';
+                                 'oninput="handleUpdateCountedQty(' + sheetKey + ', ' + item.checkDetailId + ', this.value)"/>';
                 } else {
                     countField = '<span style="color:rgba(16,55,92,0.30);">—</span>';
                 }
 
                 var statusIcon = '';
-                if (item.countedQty !== null) {
+                if (item.actualQty != null) {
                     if (d === 0) {
                         statusIcon = '<svg class="text-emerald-500 mx-auto" style="width:16px;height:16px;" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>';
                     } else {
@@ -937,27 +1016,19 @@
                     statusIcon = '<div class="w-4 h-4 border-2 border-navy/20 rounded mx-auto"></div>';
                 }
 
-                return '<tr id="row-' + sheet.id + '-' + item.skuCode + '" class="' + rowClass + '">' +
+                return '<tr id="row-' + sheetKey + '-' + item.checkDetailId + '" class="' + rowClass + '">' +
                        '<td><div class="ic-sku-code"><svg style="width:14px;height:14px;" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>' + esc(item.skuCode) + '</div></td>' +
-                       '<td><div class="ic-sku-name">' + esc(item.skuName) + '</div></td>' +
-                       '<td class="text-right ic-system-qty">' + item.systemQty.toLocaleString() + '</td>' +
+                       '<td><div class="ic-sku-name">' + esc(item.productName) + '</div></td>' +
+                       '<td class="text-right ic-system-qty">' + Number(item.systemQty).toLocaleString() + '</td>' +
                        '<td class="text-right">' + countField + '</td>' +
-                       '<td class="text-right" id="dtcell-' + sheet.id + '-' + item.skuCode + '">' + renderDeltaBadge(d) + '</td>' +
-                       '<td class="text-center" id="iconcell-' + sheet.id + '-' + item.skuCode + '">' + statusIcon + '</td>' +
+                       '<td class="text-right" id="dtcell-' + sheetKey + '-' + item.checkDetailId + '">' + renderDeltaBadge(d) + '</td>' +
+                       '<td class="text-center" id="iconcell-' + sheetKey + '-' + item.checkDetailId + '">' + statusIcon + '</td>' +
                        '</tr>';
             }).join('');
 
             var expandedClass = isExpanded ? 'expanded' : '';
             var expandSection = '';
             if (isExpanded) {
-                var adjustedBanner = '';
-                if (sheet.status === 'adjusted') {
-                    adjustedBanner = '<div class="ic-adjusted-banner">' +
-                                     '<span><svg style="width:12px;height:12px;margin-right:6px;" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"/></svg>Phiếu đã được điều chỉnh và áp dụng vào hệ thống</span>' +
-                                     '<span style="font-weight:700;"><svg style="width:12px;height:12px;margin-right:6px;" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>Đã cân bằng tồn kho</span>' +
-                                     '</div>';
-                }
-
                 expandSection = '<div class="ic-sheet-body">' +
                                 '<table class="ic-table">' +
                                 '<thead>' +
@@ -970,37 +1041,38 @@
                                 '<th class="text-center">Trạng thái</th>' +
                                 '</tr>' +
                                 '</thead>' +
-                                '<tbody>' + tableRows + '</tbody>' +
+                                '<tbody>' + (items.length > 0 ? tableRows : '<tr><td colspan="6" style="text-align:center;color:rgba(16,55,92,0.4);padding:20px;">Đang tải chi tiết...</td></tr>') + '</tbody>' +
                                 '</table>' +
-                                adjustedBanner +
                                 '</div>';
             }
 
+            var createdAtStr = sheet.createdAt ? sheet.createdAt.replace('T', ' ').substring(0, 16) : '';
+
             return '<div class="ic-sheet-card ' + expandedClass + '">' +
-                   '  <div class="ic-sheet-hd" onclick="toggleExpand(\'' + sheet.id + '\')">' +
+                   '  <div class="ic-sheet-hd" onclick="toggleExpand(' + sheetKey + ')">' +
                    '    <div class="ic-sheet-icon" style="background: rgba(16,55,92,0.05);">' +
                    '      <svg class="text-navy" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>' +
                    '    </div>' +
                    '    <div class="ic-sheet-info">' +
                    '      <div class="ic-sheet-info-row">' +
-                   '        <span class="ic-sheet-id">' + esc(sheet.id) + '</span>' +
+                   '        <span class="ic-sheet-id">' + esc(sheet.checkCode) + '</span>' +
                    '        <span class="ic-badge ' + sc.cls + '"><span class="ic-badge__dot"></span>' + esc(sc.label) + '</span>' +
-                   '        <span class="ic-badge ic-badge--discrepancy" id="alert-' + sheet.id + '" style="display:' + (hasDiscrepancy ? 'inline-flex' : 'none') + ';"><svg style="width:10px;height:10px;margin-right:4px;" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>Có lệch</span>' +
+                   '        <span class="ic-badge ic-badge--discrepancy" id="alert-' + sheetKey + '" style="display:' + (hasDiscrepancy ? 'inline-flex' : 'none') + ';"><svg style="width:10px;height:10px;margin-right:4px;" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>Có lệch</span>' +
                    '      </div>' +
-                   '      <div class="ic-sheet-title">' + esc(sheet.title) + '</div>' +
-                   '      <div class="ic-sheet-meta">' + esc(sheet.createdBy) + ' · ' + esc(sheet.createdAt) + '</div>' +
+                   '      <div class="ic-sheet-title">' + esc(sheet.warehouseName || ('Kho #' + sheet.warehouseId)) + ' — ' + esc(sheet.note || 'Kiểm kê định kỳ') + '</div>' +
+                   '      <div class="ic-sheet-meta">' + esc(sheet.creatorName || 'N/A') + ' · ' + esc(createdAtStr) + '</div>' +
                    '    </div>' +
                    '    <div class="ic-sheet-stats">' +
                    '      <div class="ic-sheet-stat">' +
                    '        <div class="ic-sheet-stat-lbl">Đã đếm</div>' +
                    '        <div class="ic-sheet-stat-val">' +
-                   '          <span id="counted-' + sheet.id + '" class="' + (countedItems === sheet.items.length ? 'text-emerald-600' : 'text-navy') + '">' + countedItems + '</span>' +
-                   '          <span style="color:rgba(16,55,92,0.30); font-size:12px;">/' + sheet.items.length + '</span>' +
+                   '          <span id="counted-' + sheetKey + '" class="' + (countedItems === totalItems && totalItems > 0 ? 'text-emerald-600' : 'text-navy') + '">' + countedItems + '</span>' +
+                   '          <span style="color:rgba(16,55,92,0.30); font-size:12px;">/' + totalItems + '</span>' +
                    '        </div>' +
                    '      </div>' +
                    '      <div class="ic-sheet-stat">' +
                    '        <div class="ic-sheet-stat-lbl">Tổng lệch</div>' +
-                   '        <div id="delta-' + sheet.id + '" class="' + deltaClass + '">' + (totalDelta > 0 ? ('+' + totalDelta) : totalDelta) + '</div>' +
+                   '        <div id="delta-' + sheetKey + '" class="' + deltaClass + '">' + (totalDelta > 0 ? ('+' + totalDelta) : totalDelta) + '</div>' +
                    '      </div>' +
                    '    </div>' +
                    '    <div style="margin-right:16px; flex-shrink:0;">' + actionBtn + '</div>' +
@@ -1020,6 +1092,6 @@
     }
 
     // ─── Init ───
-    render();
+    loadChecks();
 })();
 </script>

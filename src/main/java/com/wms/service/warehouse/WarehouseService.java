@@ -1,5 +1,6 @@
 package com.wms.service.warehouse;
 
+import com.wms.dao.InventoryCheckDAO;
 import com.wms.dao.ProductDAO;
 import com.wms.dao.TransferDAO;
 import com.wms.dao.UserDAO;
@@ -86,6 +87,20 @@ public class WarehouseService {
     }
     public Warehouse findById(int warehouseId) throws SQLException {
         return warehouseDAO.findById(warehouseId);
+    }
+
+    private final InventoryCheckDAO inventoryCheckDAO = new InventoryCheckDAO();
+
+    public List<InventoryCheckDAO.CheckHeader> findAllInventoryChecks() {
+        return inventoryCheckDAO.findAll();
+    }
+
+    public List<InventoryCheckDAO.CheckHeader> findInventoryChecksByWarehouse(int warehouseId) {
+        return inventoryCheckDAO.findByWarehouse(warehouseId);
+    }
+
+    public List<InventoryCheckDAO.CheckDetail> findInventoryCheckDetails(int checkId) {
+        return inventoryCheckDAO.findDetailsByCheckId(checkId);
     }
 
     public SaveResult saveWarehouse(Warehouse warehouse) {

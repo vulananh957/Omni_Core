@@ -1,6 +1,6 @@
 <mxfile host="app.diagrams.net" agent="Antigravity">
   <diagram name="SD_ViewCategoriesList" id="sd-view-categories-list">
-    <mxGraphModel dx="849" dy="470" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1800" pageHeight="1300" math="0" shadow="0">
+    <mxGraphModel dx="1334" dy="739" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1800" pageHeight="1300" math="0" shadow="0">
       <root>
         <mxCell id="0" />
         <mxCell id="1" parent="0" />
@@ -72,7 +72,8 @@
           </mxGeometry>
         </mxCell>
         <mxCell id="m1_1" edge="1" parent="1" style="html=1;verticalAlign=bottom;endArrow=block;endFill=1;curved=0;rounded=0;fontSize=11;strokeColor=#006EAF;fontColor=#10375C;" value="1.1. doGet(request, response)">
-          <mxGeometry relative="1" as="geometry">
+          <mxGeometry relative="1" x="-0.0012" as="geometry">
+            <mxPoint as="offset" />
             <mxPoint x="312" y="240" as="sourcePoint" />
             <mxPoint x="558" y="240" as="targetPoint" />
           </mxGeometry>
@@ -230,9 +231,6 @@
         </mxCell>
         <mxCell id="alt1_else_guard" parent="1" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontSize=10;fontStyle=2;fontColor=#CC3333;" value="[SQLException]" vertex="1">
           <mxGeometry height="18" width="120" x="540" y="472" as="geometry" />
-        </mxCell>
-        <mxCell id="legend" parent="1" style="shape=note;whiteSpace=wrap;html=1;backgroundOutline=1;size=15;fillColor=#E6F3FF;strokeColor=#006EAF;fontSize=10;fontStyle=0;align=left;spacingLeft=10;spacingTop=5;spacingRight=10;" value="CHÚ THÍCH&#xa;────────────────────────────────&#xa;→  Synchronous call (solid arrow)&#xa;--→ Return / Response (dashed arrow)&#xa;▐   Activation bar (#00CCFF)&#xa;&#xa;MAPPING TỪ CODE&#xa;────────────────────────────────&#xa;• Actor  = Business Manager&#xa;• frm    = categories.jsp (Boundary)&#xa;• ctrl   = CategoryServlet (Control)&#xa;• svc    = CategoryService (Control)&#xa;• dao    = CategoryDAO (Entity)&#xa;• DB     = categories table (Entity)&#xa;&#xa;QUY TẮC SỐ THỨ TỰ&#xa;────────────────────────────────&#xa;Actor→frm : 1.&#xa;frm→ctrl  : 1.1., 1.2.&#xa;ctrl→svc  : 1.1.1.&#xa;svc→dao   : 1.1.1.1.&#xa;dao→DB    : 1.1.1.1.1." vertex="1">
-          <mxGeometry height="310" width="300" x="40" y="1060" as="geometry" />
         </mxCell>
         <mxCell id="kvBi-4dPPb28T8EezRTo-2" parent="1" style="shape=umlFrame;whiteSpace=wrap;html=1;width=40;height=18;fillColor=none;strokeColor=#CC3333;fontSize=10;fontStyle=1;align=left;verticalAlign=top;spacingLeft=5;dashed=1;dashPattern=4 4;movable=1;resizable=1;rotatable=1;deletable=1;editable=1;locked=0;connectable=1;" value="alt" vertex="1">
           <mxGeometry height="260" width="830" x="530" y="246" as="geometry" />

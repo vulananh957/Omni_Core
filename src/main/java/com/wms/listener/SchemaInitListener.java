@@ -238,23 +238,82 @@ public class SchemaInitListener implements ServletContextListener {
             addColumnIfMissing(conn, md, "categories", "is_immutable", "TINYINT(1) NOT NULL DEFAULT 0");
             addColumnIfMissing(conn, md, "categories", "created_at", "DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP");
             addColumnIfMissing(conn, md, "categories", "updated_at", "DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP");
+            // One-time migration: lock all existing rows so the new "code is
+            // permanently immutable from creation" rule applies retroactively.
+            lockAllExistingCategoryCodes();
+        }
+    }
+
+    /**
+     * One-time data migration: set is_immutable=1 for every category that has
+     * a non-null category_code. Runs at every startup but is idempotent —
+     * rows that are already locked are simply re-asserted (no harm done).
+     */
+    private void lockAllExistingCategoryCodes() throws SQLException {
+        try (Connection conn = DBConnection.getConnection();
+             Statement st = conn.createStatement()) {
+            int updated = st.executeUpdate(
+                "UPDATE categories SET is_immutable = 1 " +
+                "WHERE category_code IS NOT NULL AND is_immutable = 0");
+            if (updated > 0) {
+                LOGGER.info("SchemaInitListener: Locked " + updated
+                    + " existing category code(s) (set is_immutable=1).");
+            }
         }
     }
 
     private void ensureProductsTable() throws SQLException {
         try (Connection conn = DBConnection.getConnection()) {
             createTableIfNotExists(conn, "products",
-                "CREATE TABLE products (product_id INT AUTO_INCREMENT PRIMARY KEY, category_id INT, sku_code VARCHAR(50) NOT NULL UNIQUE, product_name VARCHAR(255) NOT NULL, base_price DECIMAL(15,2) NOT NULL DEFAULT 0, attributes_text VARCHAR(255), weight_kg DECIMAL(8,3), is_new_arrival TINYINT(1) NOT NULL DEFAULT 0, active TINYINT(1) NOT NULL DEFAULT 1, created_by INT, created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP, updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP, barcode VARCHAR(50) DEFAULT NULL, unit VARCHAR(30) DEFAULT 'Cái', min_stock DECIMAL(12,3) DEFAULT 0, max_stock DECIMAL(12,3) DEFAULT 0, status VARCHAR(20) DEFAULT 'PENDING', approved_at DATETIME DEFAULT NULL, approved_by INT DEFAULT NULL, review_note VARCHAR(255) DEFAULT NULL) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+                "CREATE TABLE products (product_id INT AUTO_INCREMENT PRIMARY KEY, category_id INT, sku_code VARCHAR(50) NOT NULL UNIQUE, product_name VARCHAR(255) NOT NULL, base_price DECIMAL(15,2) NOT NULL DEFAULT 0, attributes_text VARCHAR(255), weight_kg DECIMAL(8,3), is_new_arrival TINYINT(1) NOT NULL DEFAULT 0, active TINYINT(1) NOT NULL DEFAULT 1, created_by INT, created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP, updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP, barcode VARCHAR(50) DEFAULT NULL, unit VARCHAR(30) DEFAULT 'Cái', min_stock DECIMAL(12,3) DEFAULT 0, max_stock DECIMAL(12,3) DEFAULT 0) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
 
             DatabaseMetaData md = conn.getMetaData();
             addColumnIfMissing(conn, md, "products", "barcode", "VARCHAR(50) DEFAULT NULL");
             addColumnIfMissing(conn, md, "products", "unit", "VARCHAR(30) DEFAULT 'Cái'");
             addColumnIfMissing(conn, md, "products", "min_stock", "DECIMAL(12,3) DEFAULT 0");
             addColumnIfMissing(conn, md, "products", "max_stock", "DECIMAL(12,3) DEFAULT 0");
-            addColumnIfMissing(conn, md, "products", "status", "VARCHAR(20) DEFAULT 'PENDING'");
-            addColumnIfMissing(conn, md, "products", "approved_at", "DATETIME DEFAULT NULL");
-            addColumnIfMissing(conn, md, "products", "approved_by", "INT DEFAULT NULL");
-            addColumnIfMissing(conn, md, "products", "review_note", "VARCHAR(255) DEFAULT NULL");
+            // Status workflow is gone: drop the legacy columns if they still exist.
+            dropProductApprovalColumnsIfExist(conn, md);
+        }
+    }
+
+    /**
+     * One-time migration: drop the legacy approval-workflow columns
+     * (status, approved_at, approved_by, review_note) once we've confirmed
+     * no rows are still in PENDING/REJECTED. Idempotent — re-running is a no-op.
+     */
+    private void dropProductApprovalColumnsIfExist(Connection conn, DatabaseMetaData md) throws SQLException {
+        // Only run the safety UPDATE if the column still exists (first-time migration).
+        // On subsequent boots the column is already gone — skip the UPDATE to avoid SQL error.
+        boolean statusColExists = false;
+        try (java.sql.ResultSet rs = md.getColumns(null, null, "products", "status")) {
+            statusColExists = rs.next();
+        }
+        if (statusColExists) {
+            try (java.sql.Statement st = conn.createStatement()) {
+                st.executeUpdate(
+                    "UPDATE products SET status = 'APPROVED' " +
+                    "WHERE status IN ('PENDING', 'REJECTED') OR status IS NULL");
+            }
+        }
+
+        dropColumnIfExists(conn, md, "products", "status");
+        dropColumnIfExists(conn, md, "products", "approved_at");
+        dropColumnIfExists(conn, md, "products", "approved_by");
+        dropColumnIfExists(conn, md, "products", "review_note");
+    }
+
+    private void dropColumnIfExists(Connection conn, DatabaseMetaData md, String table, String column) {
+        try (java.sql.Statement st = conn.createStatement()) {
+            java.sql.ResultSet rs = md.getColumns(null, null, table, column);
+            boolean exists = rs.next();
+            rs.close();
+            if (exists) {
+                st.executeUpdate("ALTER TABLE " + table + " DROP COLUMN " + column);
+                LOGGER.info("SchemaInitListener: Dropped column " + table + "." + column);
+            }
+        } catch (SQLException e) {
+            LOGGER.log(Level.WARNING, "SchemaInitListener: Failed to drop column " + table + "." + column, e);
         }
     }
 

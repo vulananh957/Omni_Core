@@ -1,0 +1,372 @@
+<mxfile host="app.diagrams.net" agent="Mozilla/5.0">
+  <diagram name="View Master SKU Catalog" id="seq-view-master-sku">
+    <mxGraphModel dx="1190" dy="692" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="2100" pageHeight="1600" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        
+        <!-- Title -->
+        <mxCell id="title" parent="1" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontSize=16;fontStyle=1;fontColor=#10375C;" value="SEQUENCE DIAGRAM — View Master SKU Catalog" vertex="1">
+          <mxGeometry height="30" width="1200" x="450" y="20" as="geometry" />
+        </mxCell>
+        
+        <!-- Lifelines (Objects) -->
+        <mxCell id="actor_user" parent="1" style="shape=umlActor;verticalLabelPosition=bottom;verticalAlign=top;html=1;outlineConnect=0;fillColor=#00CCFF;strokeColor=#10375C;fontColor=#10375C;fontSize=12;fontStyle=1;labelBackgroundColor=none;" value="Business Manager&#xa;(User)" vertex="1">
+          <mxGeometry height="60" width="40" x="80" y="80" as="geometry" />
+        </mxCell>
+        
+        <mxCell id="frm_box" parent="1" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#00CCFF;strokeColor=#10375C;fontColor=#10375C;fontSize=12;fontStyle=1;" value="frm: master-sku.jsp&#xa;«Boundary»&#xa;Master SKU Screen" vertex="1">
+          <mxGeometry height="60" width="180" x="240" y="80" as="geometry" />
+        </mxCell>
+        <mxCell id="frm_lifeline" edge="1" parent="1" source="frm_box" style="endArrow=none;dashed=1;html=1;strokeColor=#10375C;strokeWidth=1;" target="frm_end">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="frm_end" parent="1" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#00CCFF;strokeColor=#10375C;" value="" vertex="1">
+          <mxGeometry height="10" width="10" x="325" y="1520" as="geometry" />
+        </mxCell>
+        
+        <mxCell id="ctrl_box" parent="1" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#00CCFF;strokeColor=#10375C;fontColor=#10375C;fontSize=12;fontStyle=1;" value="ctrl: MasterSKUServlet&#xa;«Control»&#xa;Request Controller" vertex="1">
+          <mxGeometry height="60" width="180" x="480" y="80" as="geometry" />
+        </mxCell>
+        <mxCell id="ctrl_lifeline" edge="1" parent="1" source="ctrl_box" style="endArrow=none;dashed=1;html=1;strokeColor=#10375C;strokeWidth=1;" target="ctrl_end">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="ctrl_end" parent="1" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#00CCFF;strokeColor=#10375C;" value="" vertex="1">
+          <mxGeometry height="10" width="10" x="565" y="1520" as="geometry" />
+        </mxCell>
+        
+        <mxCell id="prod_svc_box" parent="1" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#00CCFF;strokeColor=#10375C;fontColor=#10375C;fontSize=12;fontStyle=1;" value="model: ProductService&#xa;«Control»&#xa;Product Service" vertex="1">
+          <mxGeometry height="60" width="180" x="720" y="80" as="geometry" />
+        </mxCell>
+        <mxCell id="prod_svc_lifeline" edge="1" parent="1" source="prod_svc_box" style="endArrow=none;dashed=1;html=1;strokeColor=#10375C;strokeWidth=1;" target="prod_svc_end">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="prod_svc_end" parent="1" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#00CCFF;strokeColor=#10375C;" value="" vertex="1">
+          <mxGeometry height="10" width="10" x="805" y="1520" as="geometry" />
+        </mxCell>
+        
+        <mxCell id="wh_svc_box" parent="1" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#00CCFF;strokeColor=#10375C;fontColor=#10375C;fontSize=12;fontStyle=1;" value="model: WarehouseService&#xa;«Control»&#xa;Warehouse Service" vertex="1">
+          <mxGeometry height="60" width="180" x="960" y="80" as="geometry" />
+        </mxCell>
+        <mxCell id="wh_svc_lifeline" edge="1" parent="1" source="wh_svc_box" style="endArrow=none;dashed=1;html=1;strokeColor=#10375C;strokeWidth=1;" target="wh_svc_end">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="wh_svc_end" parent="1" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#00CCFF;strokeColor=#10375C;" value="" vertex="1">
+          <mxGeometry height="10" width="10" x="1045" y="1520" as="geometry" />
+        </mxCell>
+        
+        <mxCell id="prod_dao_box" parent="1" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#00CCFF;strokeColor=#10375C;fontColor=#10375C;fontSize=12;fontStyle=1;" value="entity: ProductDAO&#xa;«Entity»&#xa;Product DB Access" vertex="1">
+          <mxGeometry height="60" width="180" x="1200" y="80" as="geometry" />
+        </mxCell>
+        <mxCell id="prod_dao_lifeline" edge="1" parent="1" source="prod_dao_box" style="endArrow=none;dashed=1;html=1;strokeColor=#10375C;strokeWidth=1;" target="prod_dao_end">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="prod_dao_end" parent="1" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#00CCFF;strokeColor=#10375C;" value="" vertex="1">
+          <mxGeometry height="10" width="10" x="1285" y="1520" as="geometry" />
+        </mxCell>
+        
+        <mxCell id="cat_dao_box" parent="1" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#00CCFF;strokeColor=#10375C;fontColor=#10375C;fontSize=12;fontStyle=1;" value="entity: CategoryDAO&#xa;«Entity»&#xa;Category DB Access" vertex="1">
+          <mxGeometry height="60" width="180" x="1440" y="80" as="geometry" />
+        </mxCell>
+        <mxCell id="cat_dao_lifeline" edge="1" parent="1" source="cat_dao_box" style="endArrow=none;dashed=1;html=1;strokeColor=#10375C;strokeWidth=1;" target="cat_dao_end">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="cat_dao_end" parent="1" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#00CCFF;strokeColor=#10375C;" value="" vertex="1">
+          <mxGeometry height="10" width="10" x="1525" y="1520" as="geometry" />
+        </mxCell>
+        
+        <mxCell id="wh_dao_box" parent="1" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#00CCFF;strokeColor=#10375C;fontColor=#10375C;fontSize=12;fontStyle=1;" value="entity: WarehouseDAO&#xa;«Entity»&#xa;Warehouse DB Access" vertex="1">
+          <mxGeometry height="60" width="180" x="1680" y="80" as="geometry" />
+        </mxCell>
+        <mxCell id="wh_dao_lifeline" edge="1" parent="1" source="wh_dao_box" style="endArrow=none;dashed=1;html=1;strokeColor=#10375C;strokeWidth=1;" target="wh_dao_end">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="wh_dao_end" parent="1" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#00CCFF;strokeColor=#10375C;" value="" vertex="1">
+          <mxGeometry height="10" width="10" x="1765" y="1520" as="geometry" />
+        </mxCell>
+        
+        <mxCell id="db_box" parent="1" style="shape=datastore;html=1;fillColor=#00CCFF;strokeColor=#10375C;fontColor=#10375C;fontSize=12;fontStyle=1;verticalLabelPosition=bottom;verticalAlign=top;" value="DB: MySQL" vertex="1">
+          <mxGeometry height="60" width="100" x="1920" y="80" as="geometry" />
+        </mxCell>
+        <mxCell id="db_lifeline" edge="1" parent="1" source="db_box" style="endArrow=none;dashed=1;html=1;strokeColor=#10375C;strokeWidth=1;" target="db_end">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="db_end" parent="1" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#00CCFF;strokeColor=#10375C;" value="" vertex="1">
+          <mxGeometry height="10" width="10" x="1965" y="1520" as="geometry" />
+        </mxCell>
+
+        <!-- Activation Bars -->
+        <mxCell id="frm_act" parent="1" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#00CCFF;strokeColor=#10375C;" vertex="1">
+          <mxGeometry height="1320" width="10" x="325" y="180" as="geometry" />
+        </mxCell>
+        
+        <mxCell id="ctrl_act" parent="1" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#00CCFF;strokeColor=#10375C;" vertex="1">
+          <mxGeometry height="880" width="10" x="565" y="240" as="geometry" />
+        </mxCell>
+        
+        <mxCell id="prod_svc_act" parent="1" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#00CCFF;strokeColor=#10375C;" vertex="1">
+          <mxGeometry height="500" width="10" x="805" y="290" as="geometry" />
+        </mxCell>
+        
+        <mxCell id="prod_dao_act" parent="1" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#00CCFF;strokeColor=#10375C;" vertex="1">
+          <mxGeometry height="200" width="10" x="1285" y="340" as="geometry" />
+        </mxCell>
+        
+        <mxCell id="db_act1" parent="1" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#00CCFF;strokeColor=#10375C;" vertex="1">
+          <mxGeometry height="60" width="10" x="1965" y="390" as="geometry" />
+        </mxCell>
+        
+        <mxCell id="db_act2" parent="1" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#00CCFF;strokeColor=#10375C;" vertex="1">
+          <mxGeometry height="50" width="10" x="1965" y="470" as="geometry" />
+        </mxCell>
+        
+        <mxCell id="cat_dao_act" parent="1" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#00CCFF;strokeColor=#10375C;" vertex="1">
+          <mxGeometry height="140" width="10" x="1525" y="570" as="geometry" />
+        </mxCell>
+        
+        <mxCell id="db_act3" parent="1" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#00CCFF;strokeColor=#10375C;" vertex="1">
+          <mxGeometry height="50" width="10" x="1965" y="620" as="geometry" />
+        </mxCell>
+        
+        <mxCell id="wh_svc_act" parent="1" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#00CCFF;strokeColor=#10375C;" vertex="1">
+          <mxGeometry height="250" width="10" x="1045" y="810" as="geometry" />
+        </mxCell>
+        
+        <mxCell id="wh_dao_act" parent="1" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#00CCFF;strokeColor=#10375C;" vertex="1">
+          <mxGeometry height="140" width="10" x="1765" y="860" as="geometry" />
+        </mxCell>
+        
+        <mxCell id="db_act4" parent="1" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#00CCFF;strokeColor=#10375C;" vertex="1">
+          <mxGeometry height="50" width="10" x="1965" y="910" as="geometry" />
+        </mxCell>
+
+        <!-- Messages -->
+        <!-- Step 1: Open Menu -->
+        <mxCell id="msg1" edge="1" parent="1" style="html=1;verticalAlign=bottom;endArrow=block;labelBackgroundColor=white;strokeColor=#10375C;fontSize=11;fontColor=#10375C;fontStyle=0;" value="1. Open &quot;Master SKU Catalog&quot; menu (click on sidebar)">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="100" y="190" as="sourcePoint" />
+            <mxPoint x="325" y="190" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        
+        <!-- Step 1.1: HTTP GET -->
+        <mxCell id="msg1_1" edge="1" parent="1" style="html=1;verticalAlign=bottom;endArrow=block;labelBackgroundColor=white;strokeColor=#10375C;fontSize=11;fontColor=#10375C;fontStyle=0;" value="1.1. HTTP GET /business/master-sku">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="335" y="250" as="sourcePoint" />
+            <mxPoint x="565" y="250" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        
+        <!-- Step 1.1.1: productService.findAll -->
+        <mxCell id="msg1_1_1" edge="1" parent="1" style="html=1;verticalAlign=bottom;endArrow=block;labelBackgroundColor=white;strokeColor=#10375C;fontSize=11;fontColor=#10375C;fontStyle=0;" value="1.1.1. productService.findAll()">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="575" y="300" as="sourcePoint" />
+            <mxPoint x="805" y="300" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        
+        <!-- Step 1.1.1.1: productDAO.findAll -->
+        <mxCell id="msg1_1_1_1" edge="1" parent="1" style="html=1;verticalAlign=bottom;endArrow=block;labelBackgroundColor=white;strokeColor=#10375C;fontSize=11;fontColor=#10375C;fontStyle=0;" value="1.1.1.1. productDAO.findAll()">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="815" y="350" as="sourcePoint" />
+            <mxPoint x="1285" y="350" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        
+        <!-- Step 1.1.1.1.1: batchFindDefaultZones (SELECT locations mappings) -->
+        <mxCell id="msg1_1_1_1_1" edge="1" parent="1" style="html=1;verticalAlign=bottom;endArrow=block;labelBackgroundColor=white;strokeColor=#10375C;fontSize=11;fontColor=#10375C;fontStyle=0;" value="1.1.1.1.1. SELECT * FROM product_default_zones (Batch fetch to avoid N+1 query)">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="1295" y="400" as="sourcePoint" />
+            <mxPoint x="1965" y="400" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        
+        <!-- Return DB 1 -->
+        <mxCell id="ret_db_1" edge="1" parent="1" style="html=1;verticalAlign=bottom;endArrow=open;dashed=1;labelBackgroundColor=white;strokeColor=#10375C;fontSize=10;fontColor=#10375C;" value="ResultSet (Location config mapping)">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="1965" y="430" as="sourcePoint" />
+            <mxPoint x="1295" y="430" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        
+        <!-- Step 1.1.1.1.2: SELECT core products -->
+        <mxCell id="msg1_1_1_1_2" edge="1" parent="1" style="html=1;verticalAlign=bottom;endArrow=block;labelBackgroundColor=white;strokeColor=#10375C;fontSize=11;fontColor=#10375C;fontStyle=0;" value="1.1.1.1.2. SELECT products (With category, creator, and qty_on_hand count)">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="1295" y="480" as="sourcePoint" />
+            <mxPoint x="1965" y="480" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        
+        <!-- Return DB 2 -->
+        <mxCell id="ret_db_2" edge="1" parent="1" style="html=1;verticalAlign=bottom;endArrow=open;dashed=1;labelBackgroundColor=white;strokeColor=#10375C;fontSize=10;fontColor=#10375C;" value="ResultSet (Master products list)">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="1965" y="500" as="sourcePoint" />
+            <mxPoint x="1295" y="500" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        
+        <!-- Return DAO 1 -->
+        <mxCell id="ret_dao_1" edge="1" parent="1" style="html=1;verticalAlign=bottom;endArrow=open;dashed=1;labelBackgroundColor=white;strokeColor=#10375C;fontSize=10;fontColor=#10375C;" value="List&lt;Product&gt; products">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="1285" y="520" as="sourcePoint" />
+            <mxPoint x="805" y="520" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        
+        <!-- Step 1.1.1.2: productService.findAllCategories -->
+        <mxCell id="msg1_1_1_2" edge="1" parent="1" style="html=1;verticalAlign=bottom;endArrow=block;labelBackgroundColor=white;strokeColor=#10375C;fontSize=11;fontColor=#10375C;fontStyle=0;" value="1.1.1.2. findAllCategories()">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="805" y="550" as="sourcePoint" />
+            <mxPoint x="1525" y="550" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        
+        <!-- Step 1.1.1.2.1: SELECT categories -->
+        <mxCell id="msg1_1_1_2_1" edge="1" parent="1" style="html=1;verticalAlign=bottom;endArrow=block;labelBackgroundColor=white;strokeColor=#10375C;fontSize=11;fontColor=#10375C;fontStyle=0;" value="1.1.1.2.1. SELECT * FROM categories">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="1535" y="630" as="sourcePoint" />
+            <mxPoint x="1965" y="630" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        
+        <!-- Return DB 3 -->
+        <mxCell id="ret_db_3" edge="1" parent="1" style="html=1;verticalAlign=bottom;endArrow=open;dashed=1;labelBackgroundColor=white;strokeColor=#10375C;fontSize=10;fontColor=#10375C;" value="ResultSet (Categories)">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="1965" y="660" as="sourcePoint" />
+            <mxPoint x="1525" y="660" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        
+        <!-- Return DAO 2 -->
+        <mxCell id="ret_dao_2" edge="1" parent="1" style="html=1;verticalAlign=bottom;endArrow=open;dashed=1;labelBackgroundColor=white;strokeColor=#10375C;fontSize=10;fontColor=#10375C;" value="List&lt;Category&gt; categories">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="1525" y="690" as="sourcePoint" />
+            <mxPoint x="805" y="690" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        
+        <!-- Return Service 1 -->
+        <mxCell id="ret_svc_1" edge="1" parent="1" style="html=1;verticalAlign=bottom;endArrow=open;dashed=1;labelBackgroundColor=white;strokeColor=#10375C;fontSize=10;fontColor=#10375C;" value="List&lt;Product&gt; and List&lt;Category&gt;">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="805" y="740" as="sourcePoint" />
+            <mxPoint x="565" y="740" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        
+        <!-- Step 1.1.2: warehouseService.findAllActive -->
+        <mxCell id="msg1_1_2" edge="1" parent="1" style="html=1;verticalAlign=bottom;endArrow=block;labelBackgroundColor=white;strokeColor=#10375C;fontSize=11;fontColor=#10375C;fontStyle=0;" value="1.1.2. warehouseService.findAllActive()">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="565" y="820" as="sourcePoint" />
+            <mxPoint x="1045" y="820" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        
+        <!-- Step 1.1.2.1: warehouseDAO.findAll -->
+        <mxCell id="msg1_1_2_1" edge="1" parent="1" style="html=1;verticalAlign=bottom;endArrow=block;labelBackgroundColor=white;strokeColor=#10375C;fontSize=11;fontColor=#10375C;fontStyle=0;" value="1.1.2.1. warehouseDAO.findAll()">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="1055" y="870" as="sourcePoint" />
+            <mxPoint x="1765" y="870" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        
+        <!-- Step 1.1.2.1.1: SELECT warehouses -->
+        <mxCell id="msg1_1_2_1_1" edge="1" parent="1" style="html=1;verticalAlign=bottom;endArrow=block;labelBackgroundColor=white;strokeColor=#10375C;fontSize=11;fontColor=#10375C;fontStyle=0;" value="1.1.2.1.1. SELECT * FROM warehouses">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="1775" y="920" as="sourcePoint" />
+            <mxPoint x="1965" y="920" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        
+        <!-- Return DB 4 -->
+        <mxCell id="ret_db_4" edge="1" parent="1" style="html=1;verticalAlign=bottom;endArrow=open;dashed=1;labelBackgroundColor=white;strokeColor=#10375C;fontSize=10;fontColor=#10375C;" value="ResultSet (Warehouses)">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="1965" y="950" as="sourcePoint" />
+            <mxPoint x="1765" y="950" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        
+        <!-- Return DAO 3 -->
+        <mxCell id="ret_dao_3" edge="1" parent="1" style="html=1;verticalAlign=bottom;endArrow=open;dashed=1;labelBackgroundColor=white;strokeColor=#10375C;fontSize=10;fontColor=#10375C;" value="List&lt;Warehouse&gt; warehouses">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="1765" y="980" as="sourcePoint" />
+            <mxPoint x="1045" y="980" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        
+        <!-- Return Service 2 -->
+        <mxCell id="ret_svc_2" edge="1" parent="1" style="html=1;verticalAlign=bottom;endArrow=open;dashed=1;labelBackgroundColor=white;strokeColor=#10375C;fontSize=10;fontColor=#10375C;" value="List&lt;Warehouse&gt; activeWarehouses">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="1045" y="1020" as="sourcePoint" />
+            <mxPoint x="565" y="1020" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        
+        <!-- Note Servlet Processing -->
+        <mxCell id="note_servlet_process" parent="1" style="shape=note;whiteSpace=wrap;html=1;fillColor=#FFF2CC;strokeColor=#D6B656;fontSize=10;fontColor=#10375C;align=left;verticalAlign=top;" value="Servlet processes and prepares JSON data:&#xa;1. req.setAttribute(&quot;products&quot;, products)&#xa;2. categoriesJson = objectMapper.writeValueAsString(categories)&#xa;3. warehousesJson = objectMapper.writeValueAsString(warehouses)&#xa;4. Sets attributes: categoriesJson, warehousesJson, pageTitle, contentPage" vertex="1">
+          <mxGeometry height="80" width="410" x="590" y="1040" as="geometry" />
+        </mxCell>
+        
+        <!-- Step 1.1.3: Forward -->
+        <mxCell id="msg1_1_3" edge="1" parent="1" style="html=1;verticalAlign=bottom;endArrow=open;dashed=1;labelBackgroundColor=white;strokeColor=#10375C;fontSize=11;fontColor=#10375C;fontStyle=0;" value="1.1.3. forward → /WEB-INF/views/layout/dashboard-layout.jsp (includes master-sku.jsp)">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="565" y="1140" as="sourcePoint" />
+            <mxPoint x="335" y="1140" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        
+        <!-- Note Client JS -->
+        <mxCell id="note_client_js" parent="1" style="shape=note;whiteSpace=wrap;html=1;fillColor=#FFF2CC;strokeColor=#D6B656;fontSize=10;fontColor=#10375C;align=left;verticalAlign=top;" value="Client-side Javascript execution on page load:&#xa;1. Parses productsJson, categoriesJson, and warehousesJson&#xa;2. Maps locations (LOCATIONS array) and builds lookup dictionary&#xa;3. Calls renderAll() to draw the Master SKU table on UI" vertex="1">
+          <mxGeometry height="70" width="360" x="180" y="1170" as="geometry" />
+        </mxCell>
+        
+        <!-- Alt Block (Rẽ nhánh kết quả render) -->
+        <mxCell id="alt_block" parent="1" style="shape=umlFrame;whiteSpace=wrap;html=1;pointerEvents=0;fillColor=none;strokeColor=#10375C;dashed=0;width=40;height=20;fontSize=12;fontStyle=1;fontColor=#10375C;" value="alt" vertex="1">
+          <mxGeometry height="200" width="360" x="60" y="1270" as="geometry" />
+        </mxCell>
+        
+        <!-- Alt Condition 1 -->
+        <mxCell id="alt_cond1" parent="1" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;whiteSpace=wrap;fontSize=10;fontStyle=2;fontColor=#10375C;" value="[ products is empty / no matching results ]" vertex="1">
+          <mxGeometry height="20" width="220" x="110" y="1270" as="geometry" />
+        </mxCell>
+        
+        <!-- Empty state render -->
+        <mxCell id="msg1_2_empty" edge="1" parent="1" style="html=1;verticalAlign=bottom;endArrow=open;dashed=1;labelBackgroundColor=white;strokeColor=#10375C;fontSize=10;fontColor=#10375C;" value="1.2. Displays empty-state row on table:&#xa;&quot;No matching SKU found&quot;">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="325" y="1320" as="sourcePoint" />
+            <mxPoint x="100" y="1320" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        
+        <!-- Alt Divider -->
+        <mxCell id="alt_divider" edge="1" parent="1" style="endArrow=none;dashed=1;html=1;strokeColor=#10375C;">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="60" y="1360" as="sourcePoint" />
+            <mxPoint x="420" y="1360" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        
+        <!-- Alt Condition 2 -->
+        <mxCell id="alt_cond2" parent="1" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;whiteSpace=wrap;fontSize=10;fontStyle=2;fontColor=#10375C;" value="[ products contains data ]" vertex="1">
+          <mxGeometry height="20" width="180" x="110" y="1360" as="geometry" />
+        </mxCell>
+        
+        <!-- Data table render -->
+        <mxCell id="msg1_2_data" edge="1" parent="1" style="html=1;verticalAlign=bottom;endArrow=open;dashed=1;labelBackgroundColor=white;strokeColor=#10375C;fontSize=10;fontColor=#10375C;" value="1.2. Renders SKU list on table (dimensions, weight, barcode, categories,&#xa;default storage locations, and creator metadata)">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="325" y="1420" as="sourcePoint" />
+            <mxPoint x="100" y="1420" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        
+        <!-- Step 2: Final View -->
+        <mxCell id="msg2" edge="1" parent="1" style="html=1;verticalAlign=bottom;endArrow=open;dashed=1;labelBackgroundColor=white;strokeColor=#10375C;fontSize=11;fontColor=#10375C;fontStyle=0;" value="2. User views and manages the Master SKU catalog">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="100" y="1480" as="sourcePoint" />
+            <mxPoint x="325" y="1480" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

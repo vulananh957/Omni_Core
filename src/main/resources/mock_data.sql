@@ -27,14 +27,16 @@ REPLACE INTO categories (category_id, category_code, category_name, level_depth,
 (4, 'MP', 'Mỹ phẩm', 0, 1);
 
 -- 4. PRODUCTS (Master SKU)
-REPLACE INTO products (product_id, category_id, sku_code, product_name, base_price, unit, min_stock, max_stock, status, active, created_by) VALUES
-(1, 1, 'TSH-NAM-001', 'Áo Thun Nam Cotton Organic Coolmate', 189000.00, 'Cái', 20.000, 500.000, 'APPROVED', 1, 1),
-(2, 1, 'JEAN-SLIM-002', 'Quần Jeans Nam Slim Fit Co Giãn', 399000.00, 'Cái', 15.000, 300.000, 'APPROVED', 1, 1),
-(3, 1, 'SUN-CLASS-003', 'Kính Râm Nam Polarized Chống UV', 299000.00, 'Cái', 10.000, 200.000, 'APPROVED', 1, 1),
-(4, 2, 'MOU-WIRE-004', 'Chuột Không Dây Logitech Pebble M350', 550000.00, 'Cái', 5.000, 100.000, 'APPROVED', 1, 1),
-(5, 2, 'KEY-MECH-005', 'Bàn Phím Cơ Không Dây Logitech Signature K650', 1250000.00, 'Cái', 5.000, 100.000, 'APPROVED', 1, 1),
-(6, 3, 'BOT-THER-006', 'Bình Giữ Nhiệt LocknLock 480ml', 320000.00, 'Cái', 10.000, 150.000, 'APPROVED', 1, 1),
-(7, 4, 'SUN-SCRE-007', 'Kem Chống Nắng La Roche-Posay 50ml', 480000.00, 'Hộp', 15.000, 250.000, 'APPROVED', 1, 1);
+-- Người tạo các Master SKU là Business Manager (Vũ Lan Anh, user_id=8)
+-- vì Manager là role duy nhất được phép tạo Master SKU.
+REPLACE INTO products (product_id, category_id, sku_code, product_name, base_price, unit, min_stock, max_stock, active, created_by) VALUES
+(1, 1, 'TSH-NAM-001', 'Áo Thun Nam Cotton Organic Coolmate', 189000.00, 'Cái', 20.000, 500.000, 1, 8),
+(2, 1, 'JEAN-SLIM-002', 'Quần Jeans Nam Slim Fit Co Giãn', 399000.00, 'Cái', 15.000, 300.000, 1, 8),
+(3, 1, 'SUN-CLASS-003', 'Kính Râm Nam Polarized Chống UV', 299000.00, 'Cái', 10.000, 200.000, 1, 8),
+(4, 2, 'MOU-WIRE-004', 'Chuột Không Dây Logitech Pebble M350', 550000.00, 'Cái', 5.000, 100.000, 1, 8),
+(5, 2, 'KEY-MECH-005', 'Bàn Phím Cơ Không Dây Logitech Signature K650', 1250000.00, 'Cái', 5.000, 100.000, 1, 8),
+(6, 3, 'BOT-THER-006', 'Bình Giữ Nhiệt LocknLock 480ml', 320000.00, 'Cái', 10.000, 150.000, 1, 8),
+(7, 4, 'SUN-SCRE-007', 'Kem Chống Nắng La Roche-Posay 50ml', 480000.00, 'Hộp', 15.000, 250.000, 1, 8);
 
 -- 5. SKUs
 REPLACE INTO skus (sku_id, sku_code, product_name, category, unit, min_stock, active) VALUES
@@ -278,7 +280,11 @@ REPLACE INTO physical_inventory_details (check_detail_id, inventory_check_id, pr
 (4, 1, 5, 24.000, 23.000, -1.000, 10, '2026-06-13 10:30:00'),
 -- Khu B (đã kiểm xong)
 (5, 2, 1, 290.000, 288.000, -2.000, 10, '2026-06-12 09:15:00'),
-(6, 2, 2, 145.000, 146.000, 1.000, 10, '2026-06-12 09:20:00');
+(6, 2, 2, 145.000, 146.000, 1.000, 10, '2026-06-12 09:20:00'),
+-- Warehouse 2 - Kho HCM (đang kiểm) - sản phẩm tồn kho tại WH-02
+(7, 3, 1, 30.000, 28.000, -2.000, 144, '2026-06-14 10:30:00'),
+(8, 3, 2, 20.000, 21.000, 1.000, 144, '2026-06-14 10:35:00'),
+(9, 3, 7, 95.000, 93.000, -2.000, 144, '2026-06-14 10:40:00');
 
 -- ============================================================
 -- STEP 10: SỔ KHO (Inventory Ledger / Stock Book)

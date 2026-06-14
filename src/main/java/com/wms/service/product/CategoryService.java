@@ -49,12 +49,29 @@ public class CategoryService {
             throw new IllegalArgumentException("Ma dinh danh da ton tai.");
         }
 
+        // Reject if parent (or any ancestor) is inactive — invariant: a child cannot be active
+        // under an inactive ancestor.
+        if (parentId != null) {
+            Category parent = categoryDAO.findById(parentId);
+            if (parent == null) {
+                throw new IllegalArgumentException("Danh muc cha khong ton tai.");
+            }
+            Category inactiveAncestor = findInactiveAncestor(parentId);
+            if (inactiveAncestor != null) {
+                throw new IllegalArgumentException(
+                    "Khong the tao danh muc con: danh muc cha '" + parent.getCategoryName()
+                    + "' dang ngung hoat dong (hoac co to tien dang ngung hoat dong). "
+                    + "Hay kich hoat danh muc cha truoc.");
+            }
+        }
+
         Category category = new Category();
         category.setCategoryName(name.trim());
         category.setCategoryCode(categoryCode);
         category.setParentId(parentId);
         category.setActive(true);
-        category.setImmutable(false);
+        // Ma dinh danh bi khoa vinh vien ngay khi tao, khong the sua bat ky luc nao.
+        category.setImmutable(true);
 
         return categoryDAO.insert(category);
     }
@@ -72,32 +89,38 @@ public class CategoryService {
             return false;
         }
 
-        // Check if code is immutable
-        boolean codeIsLocked = existing.isImmutable() || categoryDAO.hasProducts(category.getCategoryId());
-
-        if (codeIsLocked && newCategoryCode != null && !newCategoryCode.isEmpty()) {
-            throw new IllegalArgumentException("Ma dinh danh da bi khoa, khong the sua.");
+        // Khong cho phep sua khi danh muc da bi vo hieu hoa
+        if (!existing.isActive()) {
+            throw new IllegalArgumentException("Danh muc da ngung hoat dong, khong the sua. Hay kich hoat lai truoc.");
         }
 
-        // Validate new code if provided
-        if (newCategoryCode != null && !newCategoryCode.trim().isEmpty()) {
-            newCategoryCode = newCategoryCode.trim().toUpperCase();
-            if (!CATEGORY_CODE_PATTERN.matcher(newCategoryCode).matches()) {
-                throw new IllegalArgumentException("Ma dinh danh phai la 3-4 ky tu, chi gom chu hoa va so.");
+        // Reject when the new parent (or any of its ancestors) is inactive.
+        if (category.getParentId() != null) {
+            if (category.getParentId().equals(category.getCategoryId())) {
+                throw new IllegalArgumentException("Danh muc khong the la danh muc cha cua chinh no.");
             }
-            if (categoryDAO.existsByCategoryCode(newCategoryCode, category.getCategoryId())) {
-                throw new IllegalArgumentException("Ma dinh danh da ton tai.");
+            Category newParent = categoryDAO.findById(category.getParentId());
+            if (newParent == null) {
+                throw new IllegalArgumentException("Danh muc cha moi khong ton tai.");
             }
-            category.setCategoryCode(newCategoryCode);
-            boolean updated = categoryDAO.update(category, true);
-            // Lock code after first update if not already locked
-            if (updated && !categoryDAO.hasProducts(category.getCategoryId())) {
-                categoryDAO.setImmutable(category.getCategoryId(), true);
+            Category inactiveAncestor = findInactiveAncestor(category.getParentId());
+            if (inactiveAncestor != null) {
+                throw new IllegalArgumentException(
+                    "Khong the chuyen danh muc vao nhanh dang ngung hoat dong ("
+                    + inactiveAncestor.getCategoryName()
+                    + "). Hay kich hoat danh muc cha truoc.");
             }
-            return updated;
-        } else {
-            return categoryDAO.update(category, false);
         }
+
+        // Ma dinh danh bi khoa vinh vien ngay khi tao, khong the sua. Server-side
+        // guard: loi ngay neu form co gui len gia tri code moi (bao ve khi UI loi).
+        if (newCategoryCode != null && !newCategoryCode.isEmpty()
+                && !newCategoryCode.equalsIgnoreCase(existing.getCategoryCode())) {
+            throw new IllegalArgumentException("Ma dinh danh da bi khoa vinh vien, khong the sua.");
+        }
+        // Re-sync immutable flag in case DB row was migrated.
+        category.setCategoryCode(existing.getCategoryCode());
+        return categoryDAO.update(category, false);
     }
 
     public ValidationResult validateCategoryData(String name, Integer categoryId, Integer parentId) {
@@ -145,9 +168,9 @@ public class CategoryService {
      */
     public DeleteResult deleteCategory(int categoryId) throws SQLException {
         if (categoryDAO.hasProducts(categoryId)) {
-            // Soft delete - just deactivate
-            boolean deactivated = categoryDAO.deactivate(categoryId);
-            return new DeleteResult(deactivated, true, "Danh muc da co san pham. Da ngung hoat dong.");
+            // Soft delete - cascade-deactivate root + descendants
+            int affected = categoryDAO.deactivateWithDescendants(categoryId);
+            return new DeleteResult(affected > 0, true, "Danh muc da co san pham. Da ngung hoat dong (gom ca danh muc con).");
         } else {
             // Hard delete
             boolean deleted = categoryDAO.delete(categoryId);
@@ -156,13 +179,79 @@ public class CategoryService {
     }
 
     /**
-     * Deactivates a category (soft delete).
+     * Walks up the parent chain from the given category. Returns the first
+     * ancestor that is inactive, or null if every ancestor is active. Useful
+     * to enforce the "no active descendant under inactive ancestor" rule.
+     */
+    public Category findInactiveAncestor(int categoryId) throws SQLException {
+        Integer parentId = categoryId;
+        // Re-resolve to handle the case where caller passed an already-known id.
+        Category current = categoryDAO.findById(categoryId);
+        if (current == null) {
+            return null;
+        }
+        parentId = current.getParentId();
+        while (parentId != null) {
+            Category parent = categoryDAO.findById(parentId);
+            if (parent == null) {
+                return null;
+            }
+            if (!parent.isActive()) {
+                return parent;
+            }
+            parentId = parent.getParentId();
+        }
+        return null;
+    }
+
+    /**
+     * Repairs inconsistent state where some descendant is active while one
+     * of its ancestors is inactive. Sets active = 0 on every such descendant.
+     *
+     * @return Number of categories that were deactivated by this repair.
+     */
+    public int ensureCascadeConsistency() throws SQLException {
+        List<Category> all = categoryDAO.findAll();
+        int repaired = 0;
+        for (Category c : all) {
+            if (!c.isActive()) {
+                continue;
+            }
+            if (findInactiveAncestor(c.getCategoryId()) != null) {
+                categoryDAO.deactivate(c.getCategoryId());
+                repaired++;
+            }
+        }
+        return repaired;
+    }
+
+    /**
+     * Deactivates a category and all its descendants (cascade).
      *
      * @param categoryId The category ID.
+     * @return Number of categories deactivated (root + descendants).
+     */
+    public int deactivateCategory(int categoryId) throws SQLException {
+        return categoryDAO.deactivateWithDescendants(categoryId);
+    }
+
+    /**
+     * Reactivates a previously deactivated category. Does NOT touch descendants
+     * because in the current model a parent is only deactivated by an explicit
+     * cascade, so children stay in whatever state they were left in.
+     *
+     * @param categoryId The category ID to reactivate.
      * @return true if successful.
      */
-    public boolean deactivateCategory(int categoryId) throws SQLException {
-        return categoryDAO.deactivate(categoryId);
+    public boolean reactivateCategory(int categoryId) throws SQLException {
+        Category existing = categoryDAO.findById(categoryId);
+        if (existing == null) {
+            return false;
+        }
+        if (existing.isActive()) {
+            return true;
+        }
+        return categoryDAO.activate(categoryId);
     }
 
     public static class ValidationResult {

@@ -1,6 +1,13 @@
 <%@ page language="java" contentType="text/html; charset=UTF-8" pageEncoding="UTF-8" %>
 <%@ taglib prefix="c" uri="jakarta.tags.core" %>
 <%@ taglib prefix="fn" uri="jakarta.tags.functions" %>
+<c:if test="${not empty documents}">
+<script type="application/json" id="ledger-docs-data">${documentsJson}</script>
+</c:if>
+<script>
+window.__CURRENT_ROLE__ = '<c:out value="${currentRole}" default="STAFF"/>';
+window.__USER_WAREHOUSE_ID__ = <c:out value="${userWarehouseId}" default="0"/>;
+</script>
 
 <style>
     /* ─── Variables & Base Theme overrides for isolation ─── */
@@ -973,75 +980,6 @@
     </div>
 </div>
 
-<!-- 2. Create Document Modal -->
-<div class="doc-overlay" id="createDocOverlay">
-    <div class="doc-modal" style="max-width: 500px;">
-        <div class="doc-modal-header">
-            <div class="doc-modal-icon-box orange">
-                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
-                    <path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4"/>
-                </svg>
-            </div>
-            <div>
-                <h3 class="doc-modal-title">Tạo chứng từ kho mới</h3>
-                <p class="doc-modal-subtitle">Ghi nhận thông tin phiếu kho trực tiếp vào sổ kho</p>
-            </div>
-        </div>
-
-        <div class="create-modal-layout">
-            <div class="doc-form-group create-modal-span-2">
-                <label class="doc-form-label">Loại Chứng Từ</label>
-                <select class="doc-select-field" id="createDocType">
-                    <option value="Phiếu Nhập Kho">Phiếu Nhập Kho (GRN)</option>
-                    <option value="Phiếu Xuất Kho">Phiếu Xuất Kho (GI)</option>
-                    <option value="Phiếu Kiểm Kê">Phiếu Kiểm Kê (Physical Check)</option>
-                    <option value="Phiếu Chuyển Kho">Phiếu Chuyển Kho (Transfer)</option>
-                    <option value="Phiếu Hoàn Hàng">Phiếu Hoàn Hàng (RMA)</option>
-                </select>
-            </div>
-
-            <div class="doc-form-group">
-                <label class="doc-form-label">Mã Phiếu (Auto)</label>
-                <input type="text" class="doc-select-field" id="createDocId" style="font-family: monospace; font-weight: 700;" placeholder="GRN-2026-XXXX" />
-            </div>
-
-            <div class="doc-form-group">
-                <label class="doc-form-label">Trạng Thái Ban Đầu</label>
-                <select class="doc-select-field" id="createDocStatus">
-                    <!-- Loaded dynamically based on Doc Type -->
-                </select>
-            </div>
-
-            <div class="doc-form-group create-modal-span-2">
-                <label class="doc-form-label">Khu Vực / Kho</label>
-                <select class="doc-select-field" id="createDocWarehouse">
-                    <!-- Populated dynamically from localStorage `wms_warehouses` or defaults -->
-                </select>
-            </div>
-
-            <div class="doc-form-group create-modal-span-2" id="createDocPartyGroup">
-                <label class="doc-form-label" id="createDocPartyLabel">Đối Tác</label>
-                <input type="text" class="doc-select-field" id="createDocParty" placeholder="Nhập tên đối tác hoặc để trống..." />
-            </div>
-
-            <div class="doc-form-group">
-                <label class="doc-form-label">Người Tạo</label>
-                <input type="text" class="doc-select-field" id="createDocCreator" value="Nguyễn Văn An" readonly />
-            </div>
-
-            <div class="doc-form-group">
-                <label class="doc-form-label">Số Mặt Hàng</label>
-                <input type="number" class="doc-select-field" id="createDocItems" value="10" min="1" max="1000" />
-            </div>
-        </div>
-
-        <div class="doc-modal-actions" style="margin-top: 10px;">
-            <button class="btn-modal-cancel" id="btnCancelCreateModal">Hủy</button>
-            <button class="btn-doc-create" id="btnConfirmCreateModal" style="flex: 1; justify-content: center;">Tạo Phiếu</button>
-        </div>
-    </div>
-</div>
-
 <!-- 3. Printable Detail Modal Viewer -->
 <div class="doc-overlay" id="detailModalOverlay">
     <div class="doc-detail-modal">
@@ -1083,9 +1021,15 @@
     (function() {
         'use strict';
 
-        // ─── Data Initialization (no seed/hardcoded records initially) ───
-        var savedDocs = localStorage.getItem('wms_ledger_docs');
-        var docs = savedDocs ? JSON.parse(savedDocs) : [];
+        // ─── Data Initialization ───
+        // Load from server via embedded JSON script tag, fallback to localStorage
+        function safeJsonParse(raw, fallback) {
+            if (!raw || typeof raw !== 'string') return fallback;
+            try { return JSON.parse(raw); } catch (e) { return fallback; }
+        }
+        var rawDocs = document.getElementById('ledger-docs-data');
+        var savedDocs = rawDocs ? safeJsonParse(rawDocs.textContent, null) : null;
+        var docs = (savedDocs !== null) ? savedDocs : (localStorage.getItem('wms_ledger_docs') ? JSON.parse(localStorage.getItem('wms_ledger_docs')) : []);
 
         var savedSKUs = localStorage.getItem('wms_skus');
         var PRODUCTS = savedSKUs ? JSON.parse(savedSKUs) : [];
@@ -1171,21 +1115,6 @@
         var btnConfirmRmaModal = document.getElementById('btnConfirmRmaModal');
         var btnCancelRmaModal = document.getElementById('btnCancelRmaModal');
 
-        var createDocOverlay = document.getElementById('createDocOverlay');
-        var btnOpenCreateModal = document.getElementById('btnOpenCreateModal');
-        var btnCancelCreateModal = document.getElementById('btnCancelCreateModal');
-        var btnConfirmCreateModal = document.getElementById('btnConfirmCreateModal');
-
-        var createDocType = document.getElementById('createDocType');
-        var createDocId = document.getElementById('createDocId');
-        var createDocStatus = document.getElementById('createDocStatus');
-        var createDocWarehouse = document.getElementById('createDocWarehouse');
-        var createDocPartyGroup = document.getElementById('createDocPartyGroup');
-        var createDocPartyLabel = document.getElementById('createDocPartyLabel');
-        var createDocParty = document.getElementById('createDocParty');
-        var createDocCreator = document.getElementById('createDocCreator');
-        var createDocItems = document.getElementById('createDocItems');
-
         var detailModalOverlay = document.getElementById('detailModalOverlay');
         var detailModalTitle = document.getElementById('detailModalTitle');
         var detailModalBody = document.getElementById('detailModalBody');
@@ -1255,50 +1184,6 @@
             rmaDoc = null;
         });
 
-        // Create Modal Open
-        if (btnOpenCreateModal) {
-            btnOpenCreateModal.addEventListener('click', function() {
-                // Setup creator name
-                createDocCreator.value = loggedInUserFullName;
-                
-                // Populating warehouses dynamic select dropdown
-                createDocWarehouse.innerHTML = '';
-                if (WAREHOUSES.length > 0) {
-                    WAREHOUSES.forEach(function(w) {
-                        var opt = document.createElement('option');
-                        opt.value = w.name;
-                        opt.textContent = w.name + " (" + w.code + ")";
-                        createDocWarehouse.appendChild(opt);
-                    });
-                } else {
-                    // No warehouses available — user must create one first
-                    var opt = document.createElement('option');
-                    opt.value = '';
-                    opt.textContent = '(Khong co kho — vui long tao kho truoc)';
-                    opt.disabled = true;
-                    createDocWarehouse.appendChild(opt);
-                }
-
-                // Sync type changes immediately
-                handleCreateTypeChange();
-                createDocOverlay.classList.add('active');
-            });
-        }
-
-        if (btnCancelCreateModal) {
-            btnCancelCreateModal.addEventListener('click', function() {
-                createDocOverlay.classList.remove('active');
-            });
-        }
-
-        if (createDocType) {
-            createDocType.addEventListener('change', handleCreateTypeChange);
-        }
-
-        if (btnConfirmCreateModal) {
-            btnConfirmCreateModal.addEventListener('click', createNewDocument);
-        }
-
         // Details Closures
         btnDetailClose.addEventListener('click', closeDetails);
         btnDetailCloseFooter.addEventListener('click', closeDetails);
@@ -1333,128 +1218,6 @@
 
         function isRejected(doc) {
             return doc.status === "Từ chối";
-        }
-
-        function handleCreateTypeChange() {
-            var type = createDocType.value;
-            var rand = Math.floor(1000 + Math.random() * 9000);
-            
-            // Prefill ID
-            if (type === "Phiếu Nhập Kho") {
-                createDocId.value = "GRN-2026-" + rand;
-                createDocStatus.innerHTML = '<option value="Nháp">Nháp</option><option value="Chờ duyệt">Chờ duyệt</option><option value="Hoàn thành">Hoàn thành</option>';
-                createDocPartyGroup.style.display = 'block';
-                createDocPartyLabel.textContent = "Nhà Cung Cấp (Supplier)";
-                createDocParty.placeholder = "Tên nhà cung cấp...";
-            } else if (type === "Phiếu Xuất Kho") {
-                createDocId.value = "GI-2026-" + rand;
-                createDocStatus.innerHTML = '<option value="Nháp">Nháp</option><option value="Chờ duyệt">Chờ duyệt</option><option value="Đã duyệt">Đã duyệt</option>';
-                createDocPartyGroup.style.display = 'block';
-                createDocPartyLabel.textContent = "Khách Hàng (Customer)";
-                createDocParty.placeholder = "Tên người nhận...";
-            } else if (type === "Phiếu Kiểm Kê") {
-                createDocId.value = "KK-2026-" + rand;
-                createDocStatus.innerHTML = '<option value="Nháp">Nháp</option><option value="Chờ duyệt">Chờ duyệt</option><option value="Hoàn thành">Hoàn thành</option>';
-                createDocPartyGroup.style.display = 'none';
-            } else if (type === "Phiếu Chuyển Kho") {
-                createDocId.value = "TR-2026-" + rand;
-                createDocStatus.innerHTML = '<option value="Nháp">Nháp</option><option value="Hoàn thành">Hoàn thành</option>';
-                createDocPartyGroup.style.display = 'none';
-            } else if (type === "Phiếu Hoàn Hàng") {
-                createDocId.value = "RMA-2026-" + rand;
-                createDocStatus.innerHTML = '<option value="Chờ xác nhận WH">Chờ xác nhận WH</option><option value="Đã xử lý">Đã xử lý</option>';
-                createDocPartyGroup.style.display = 'block';
-                createDocPartyLabel.textContent = "Khách Hàng Hoàn Trả (Customer)";
-                createDocParty.placeholder = "Tên khách hàng trả hàng...";
-            }
-        }
-
-        // Tạo phiếu mới
-        function createNewDocument() {
-            var id = createDocId.value.trim().toUpperCase();
-            if (!id) {
-                alert('Vui lòng nhập hoặc sử dụng mã phiếu tự động!');
-                return;
-            }
-
-            // Check duplicate
-            var duplicate = docs.some(function(d) { return d.id === id; });
-            if (duplicate) {
-                alert('Mã phiếu này đã tồn tại trong hệ thống!');
-                return;
-            }
-
-            var type = createDocType.value;
-            var status = createDocStatus.value;
-            var warehouse = createDocWarehouse.value;
-            var party = createDocParty.value.trim();
-            var itemsCount = parseInt(createDocItems.value) || 1;
-            
-            // Set status color
-            var statusColor = "#6b7280"; // Draft gray
-            if (status === "Hoàn thành" || status === "Đã duyệt" || status === "Đã xử lý" || status === "WH đã xác nhận") {
-                statusColor = "var(--color-green)";
-            } else if (status === "Chờ duyệt" || status === "Chờ xác nhận WH") {
-                statusColor = "var(--color-orange)";
-            }
-
-            // Generate date string
-            var now = new Date();
-            var dateString = pad(now.getDate()) + "/" + pad(now.getMonth()+1) + "/" + now.getFullYear() + " " + pad(now.getHours()) + ":" + pad(now.getMinutes());
-
-            // Build mock items array
-            var docItems = [];
-            for (var i = 0; i < itemsCount; i++) {
-                var lotRand = Math.floor(10 + Math.random() * 90);
-                var qtyRand = Math.floor(5 + Math.random() * 195);
-                var priceRand = Math.random() > 0.5 ? 150000 : 95000;
-                
-                // Select dynamic SKU if available
-                var sku = "SKU-TEMP-" + lotRand;
-                var name = "Sản phẩm thử nghiệm " + (i + 1);
-                
-                if (PRODUCTS.length > 0) {
-                    var pIndex = i % PRODUCTS.length;
-                    sku = PRODUCTS[pIndex].skuCode || PRODUCTS[pIndex].sku || sku;
-                    name = PRODUCTS[pIndex].skuName || PRODUCTS[pIndex].name || name;
-                }
-
-                docItems.push({
-                    stt: i + 1,
-                    sku: sku,
-                    name: name,
-                    uom: "Cái",
-                    lot: "LOT-2026-05-" + lotRand,
-                    hsd: "31/12/2028",
-                    ordered: qtyRand,
-                    received: qtyRand,
-                    accepted: qtyRand,
-                    rejected: 0,
-                    remarks: "",
-                    price: priceRand
-                });
-            }
-
-            var newDoc = {
-                id: id,
-                type: type,
-                date: dateString,
-                warehouse: warehouse,
-                createdBy: createDocCreator.value,
-                items: itemsCount,
-                itemsList: docItems,
-                status: status,
-                statusColor: statusColor,
-                supplier: type === "Phiếu Nhập Kho" ? party : undefined,
-                customer: (type === "Phiếu Xuất Kho" || type === "Phiếu Hoàn Hàng") ? party : undefined
-            };
-
-            docs.unshift(newDoc);
-            localStorage.setItem('wms_ledger_docs', JSON.stringify(docs));
-            
-            // Sync counts immediately
-            createDocOverlay.classList.remove('active');
-            renderDocs();
         }
 
         // Trình duyệt phiếu (Draft -> Awaiting Approval)

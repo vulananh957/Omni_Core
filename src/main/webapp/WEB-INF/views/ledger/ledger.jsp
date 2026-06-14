@@ -1,5 +1,8 @@
 <%@ page language="java" contentType="text/html; charset=UTF-8" pageEncoding="UTF-8" %>
 <%@ taglib prefix="c" uri="jakarta.tags.core" %>
+<c:if test="${not empty documents}">
+<script type="application/json" id="ledger-docs-data">${documentsJson}</script>
+</c:if>
 
 <style>
     /* ─── Metric Alert Banner ─── */
@@ -959,9 +962,14 @@
     JAVASCRIPT STATE & LOGIC
     ════════════════════════════════════════════════════ -->
 <script>
-    // Persist ledger docs to localStorage. Starts empty (no hardcoded/seed data).
-    var savedDocs = localStorage.getItem('wms_ledger_docs');
-    window.WMS_LEDGER_DATA = savedDocs ? JSON.parse(savedDocs) : [];
+    // Load ledger docs from server via embedded JSON script tag
+    function safeJsonParse(raw, fallback) {
+        if (!raw || typeof raw !== 'string') return fallback;
+        try { return JSON.parse(raw); } catch (e) { return fallback; }
+    }
+    var rawData = document.getElementById('ledger-docs-data');
+    var savedDocs = rawData ? safeJsonParse(rawData.textContent, []) : [];
+    window.WMS_LEDGER_DATA = Array.isArray(savedDocs) ? savedDocs : [];
 
     (function() {
         'use strict';

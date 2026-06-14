@@ -9,6 +9,7 @@ import com.wms.util.AppConstants;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import java.io.IOException;
 import java.util.List;
 
@@ -20,6 +21,7 @@ import java.util.List;
 public class LedgerServlet extends BaseController {
 
     private final LedgerService ledgerService = new LedgerService();
+    private final ObjectMapper objectMapper = new ObjectMapper();
 
     @Override
     protected void doGet(HttpServletRequest req, HttpServletResponse resp)
@@ -28,8 +30,10 @@ public class LedgerServlet extends BaseController {
         try {
             List<LedgerDAO.LedgerDocument> docs = ledgerService.findAllDocuments();
             req.setAttribute("documents", docs);
+            req.setAttribute("documentsJson", objectMapper.writeValueAsString(docs));
         } catch (Exception e) {
             req.setAttribute("documents", List.of());
+            req.setAttribute("documentsJson", "[]");
         }
 
         try {

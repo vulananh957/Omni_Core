@@ -304,9 +304,9 @@ public class OrderService {
         Map<String, BigDecimal> data = new LinkedHashMap<>();
         LocalDateRange range = parsePeriod(period);
         if (range == null) return data;
-        String sql = "SELECT COALESCE(c.channel_name, 'Khác') AS channel, SUM(o.total_amount) AS revenue "
-                   + "FROM orders o LEFT JOIN channels c ON o.channel_id = c.channel_id "
-                   + "WHERE o.created_at >= ? AND o.created_at < ? GROUP BY c.channel_name ORDER BY revenue DESC";
+        String sql = "SELECT COALESCE(o.channel, 'Khác') AS channel, SUM(o.total_amount) AS revenue "
+                   + "FROM orders o "
+                   + "WHERE o.created_at >= ? AND o.created_at < ? GROUP BY o.channel ORDER BY revenue DESC";
         try (Connection conn = com.wms.util.DBConnection.getConnection();
              PreparedStatement ps = conn.prepareStatement(sql)) {
             ps.setTimestamp(1, Timestamp.valueOf(range.start));

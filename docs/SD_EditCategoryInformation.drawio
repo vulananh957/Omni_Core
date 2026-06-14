@@ -1,0 +1,657 @@
+<mxfile host="app.diagrams.net" modified="2026-06-14T01:24:00.000Z" agent="Antigravity" version="24.7.0" type="device">
+  <diagram name="SD_EditCategoryInformation" id="sd-edit-category-info">
+    <mxGraphModel dx="1900" dy="1100" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1900" pageHeight="2100" math="0" shadow="0">
+      <root>
+        <mxCell id="0"/>
+        <mxCell id="1" parent="0"/>
+
+        <!-- ══════════════════════════════════════════════════════════ -->
+        <!--  TITLE                                                    -->
+        <!-- ══════════════════════════════════════════════════════════ -->
+        <mxCell id="title" value="Sequence Diagram: Edit Category Information&#xa;(Chỉnh sửa tên hoặc cấp độ của danh mục hiện có)" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontSize=16;fontStyle=1;fontColor=#10375C;" vertex="1" parent="1">
+          <mxGeometry x="40" y="10" width="600" height="40" as="geometry"/>
+        </mxCell>
+
+        <!-- ══════════════════════════════════════════════════════════ -->
+        <!--  PARTICIPANTS                                             -->
+        <!-- ══════════════════════════════════════════════════════════ -->
+
+        <!-- Actor: Business Manager -->
+        <mxCell id="actor" value="Business Manager" style="shape=umlActor;verticalLabelPosition=bottom;verticalAlign=top;html=1;outlineConnect=0;fillColor=#00CCFF;strokeColor=#006EAF;fontSize=12;fontStyle=1;" vertex="1" parent="1">
+          <mxGeometry x="80" y="60" width="30" height="55" as="geometry"/>
+        </mxCell>
+        <mxCell id="actor_ll" value="" style="html=1;points=[];perimeter=orthogonalPerimeter;dashed=1;dashPattern=8 4;strokeColor=#006EAF;" vertex="1" parent="1">
+          <mxGeometry x="94.5" y="130" width="1" height="1870" as="geometry"/>
+        </mxCell>
+
+        <!-- Boundary: categories.jsp -->
+        <mxCell id="frm" value="«boundary»&#xa;frm : categories.jsp" style="shape=umlBoundary;whiteSpace=wrap;html=1;fillColor=#00CCFF;strokeColor=#006EAF;fontSize=11;fontStyle=1;" vertex="1" parent="1">
+          <mxGeometry x="220" y="55" width="170" height="65" as="geometry"/>
+        </mxCell>
+        <mxCell id="frm_ll" value="" style="html=1;points=[];perimeter=orthogonalPerimeter;dashed=1;dashPattern=8 4;strokeColor=#006EAF;" vertex="1" parent="1">
+          <mxGeometry x="304.5" y="130" width="1" height="1870" as="geometry"/>
+        </mxCell>
+
+        <!-- Control: CategoryServlet -->
+        <mxCell id="ctrl" value="«control»&#xa;ctrl : CategoryServlet" style="shape=umlControl;whiteSpace=wrap;html=1;fillColor=#00CCFF;strokeColor=#006EAF;fontSize=11;fontStyle=1;" vertex="1" parent="1">
+          <mxGeometry x="480" y="55" width="170" height="65" as="geometry"/>
+        </mxCell>
+        <mxCell id="ctrl_ll" value="" style="html=1;points=[];perimeter=orthogonalPerimeter;dashed=1;dashPattern=8 4;strokeColor=#006EAF;" vertex="1" parent="1">
+          <mxGeometry x="564.5" y="130" width="1" height="1870" as="geometry"/>
+        </mxCell>
+
+        <!-- Control: CategoryService -->
+        <mxCell id="svc" value="«control»&#xa;svc : CategoryService" style="shape=umlControl;whiteSpace=wrap;html=1;fillColor=#00CCFF;strokeColor=#006EAF;fontSize=11;fontStyle=1;" vertex="1" parent="1">
+          <mxGeometry x="740" y="55" width="170" height="65" as="geometry"/>
+        </mxCell>
+        <mxCell id="svc_ll" value="" style="html=1;points=[];perimeter=orthogonalPerimeter;dashed=1;dashPattern=8 4;strokeColor=#006EAF;" vertex="1" parent="1">
+          <mxGeometry x="824.5" y="130" width="1" height="1870" as="geometry"/>
+        </mxCell>
+
+        <!-- Entity: CategoryDAO -->
+        <mxCell id="dao" value="«entity»&#xa;dao : CategoryDAO" style="shape=umlEntity;whiteSpace=wrap;html=1;fillColor=#00CCFF;strokeColor=#006EAF;fontSize=11;fontStyle=1;" vertex="1" parent="1">
+          <mxGeometry x="1000" y="55" width="160" height="65" as="geometry"/>
+        </mxCell>
+        <mxCell id="dao_ll" value="" style="html=1;points=[];perimeter=orthogonalPerimeter;dashed=1;dashPattern=8 4;strokeColor=#006EAF;" vertex="1" parent="1">
+          <mxGeometry x="1079.5" y="130" width="1" height="1870" as="geometry"/>
+        </mxCell>
+
+        <!-- Entity: Database -->
+        <mxCell id="db" value="«entity»&#xa;DB : categories" style="shape=umlEntity;whiteSpace=wrap;html=1;fillColor=#00CCFF;strokeColor=#006EAF;fontSize=11;fontStyle=1;" vertex="1" parent="1">
+          <mxGeometry x="1260" y="55" width="160" height="65" as="geometry"/>
+        </mxCell>
+        <mxCell id="db_ll" value="" style="html=1;points=[];perimeter=orthogonalPerimeter;dashed=1;dashPattern=8 4;strokeColor=#006EAF;" vertex="1" parent="1">
+          <mxGeometry x="1339.5" y="130" width="1" height="1870" as="geometry"/>
+        </mxCell>
+
+        <!-- ══════════════════════════════════════════════════════════ -->
+        <!--  ACTIVATION BARS                                          -->
+        <!-- ══════════════════════════════════════════════════════════ -->
+
+        <!-- frm: activate suốt use case -->
+        <mxCell id="frm_bar" value="" style="html=1;points=[];fillColor=#00CCFF;strokeColor=#006EAF;opacity=50;" vertex="1" parent="1">
+          <mxGeometry x="298" y="170" width="14" height="1780" as="geometry"/>
+        </mxCell>
+
+        <!-- ctrl: activate khi nhận POST đến khi redirect -->
+        <mxCell id="ctrl_bar" value="" style="html=1;points=[];fillColor=#00CCFF;strokeColor=#006EAF;opacity=50;" vertex="1" parent="1">
+          <mxGeometry x="558" y="230" width="14" height="1530" as="geometry"/>
+        </mxCell>
+
+        <!-- svc bar 1: findById (lần 1 qua ctrl) -->
+        <mxCell id="svc_bar1" value="" style="html=1;points=[];fillColor=#00CCFF;strokeColor=#006EAF;opacity=50;" vertex="1" parent="1">
+          <mxGeometry x="818" y="340" width="14" height="100" as="geometry"/>
+        </mxCell>
+
+        <!-- dao bar 1: findById (lần 1) -->
+        <mxCell id="dao_bar1" value="" style="html=1;points=[];fillColor=#00CCFF;strokeColor=#006EAF;opacity=50;" vertex="1" parent="1">
+          <mxGeometry x="1073" y="370" width="14" height="55" as="geometry"/>
+        </mxCell>
+
+        <!-- db bar 1: SELECT findById -->
+        <mxCell id="db_bar1" value="" style="html=1;points=[];fillColor=#00CCFF;strokeColor=#006EAF;opacity=50;" vertex="1" parent="1">
+          <mxGeometry x="1333" y="390" width="14" height="25" as="geometry"/>
+        </mxCell>
+
+        <!-- svc bar 2: validateCategoryCode -->
+        <mxCell id="svc_bar2" value="" style="html=1;points=[];fillColor=#00CCFF;strokeColor=#006EAF;opacity=50;" vertex="1" parent="1">
+          <mxGeometry x="818" y="490" width="14" height="65" as="geometry"/>
+        </mxCell>
+
+        <!-- svc bar 3: findById (lần 2 qua ctrl) — check immutable -->
+        <mxCell id="svc_bar3" value="" style="html=1;points=[];fillColor=#00CCFF;strokeColor=#006EAF;opacity=50;" vertex="1" parent="1">
+          <mxGeometry x="818" y="590" width="14" height="100" as="geometry"/>
+        </mxCell>
+
+        <!-- dao bar 2: findById (lần 2) -->
+        <mxCell id="dao_bar2" value="" style="html=1;points=[];fillColor=#00CCFF;strokeColor=#006EAF;opacity=50;" vertex="1" parent="1">
+          <mxGeometry x="1073" y="620" width="14" height="55" as="geometry"/>
+        </mxCell>
+
+        <!-- db bar 2: SELECT findById (lần 2) -->
+        <mxCell id="db_bar2" value="" style="html=1;points=[];fillColor=#00CCFF;strokeColor=#006EAF;opacity=50;" vertex="1" parent="1">
+          <mxGeometry x="1333" y="640" width="14" height="25" as="geometry"/>
+        </mxCell>
+
+        <!-- ===== ALT IMMUTABLE branch (code locked) ===== -->
+
+        <!-- svc bar 4a: updateCategory (immutable branch) -->
+        <mxCell id="svc_bar4a" value="" style="html=1;points=[];fillColor=#00CCFF;strokeColor=#006EAF;opacity=50;" vertex="1" parent="1">
+          <mxGeometry x="818" y="830" width="14" height="220" as="geometry"/>
+        </mxCell>
+
+        <!-- dao bar 3a: findById inside updateCategory (immutable) -->
+        <mxCell id="dao_bar3a" value="" style="html=1;points=[];fillColor=#00CCFF;strokeColor=#006EAF;opacity=50;" vertex="1" parent="1">
+          <mxGeometry x="1073" y="860" width="14" height="55" as="geometry"/>
+        </mxCell>
+
+        <!-- db bar 3a: SELECT findById inside updateCategory -->
+        <mxCell id="db_bar3a" value="" style="html=1;points=[];fillColor=#00CCFF;strokeColor=#006EAF;opacity=50;" vertex="1" parent="1">
+          <mxGeometry x="1333" y="880" width="14" height="25" as="geometry"/>
+        </mxCell>
+
+        <!-- dao bar 4a: update(category, false) -->
+        <mxCell id="dao_bar4a" value="" style="html=1;points=[];fillColor=#00CCFF;strokeColor=#006EAF;opacity=50;" vertex="1" parent="1">
+          <mxGeometry x="1073" y="950" width="14" height="80" as="geometry"/>
+        </mxCell>
+
+        <!-- db bar 4a: UPDATE SQL (no code) -->
+        <mxCell id="db_bar4a" value="" style="html=1;points=[];fillColor=#00CCFF;strokeColor=#006EAF;opacity=50;" vertex="1" parent="1">
+          <mxGeometry x="1333" y="970" width="14" height="40" as="geometry"/>
+        </mxCell>
+
+        <!-- ===== ALT NOT-IMMUTABLE branch (code editable) ===== -->
+
+        <!-- svc bar 4b: updateCategory (not-immutable branch) -->
+        <mxCell id="svc_bar4b" value="" style="html=1;points=[];fillColor=#00CCFF;strokeColor=#006EAF;opacity=50;" vertex="1" parent="1">
+          <mxGeometry x="818" y="1160" width="14" height="450" as="geometry"/>
+        </mxCell>
+
+        <!-- dao bar 3b: findById inside updateCategory -->
+        <mxCell id="dao_bar3b" value="" style="html=1;points=[];fillColor=#00CCFF;strokeColor=#006EAF;opacity=50;" vertex="1" parent="1">
+          <mxGeometry x="1073" y="1190" width="14" height="55" as="geometry"/>
+        </mxCell>
+
+        <!-- db bar 3b -->
+        <mxCell id="db_bar3b" value="" style="html=1;points=[];fillColor=#00CCFF;strokeColor=#006EAF;opacity=50;" vertex="1" parent="1">
+          <mxGeometry x="1333" y="1210" width="14" height="25" as="geometry"/>
+        </mxCell>
+
+        <!-- dao bar hasProducts -->
+        <mxCell id="dao_bar_hp" value="" style="html=1;points=[];fillColor=#00CCFF;strokeColor=#006EAF;opacity=50;" vertex="1" parent="1">
+          <mxGeometry x="1073" y="1270" width="14" height="55" as="geometry"/>
+        </mxCell>
+
+        <!-- db bar hasProducts -->
+        <mxCell id="db_bar_hp" value="" style="html=1;points=[];fillColor=#00CCFF;strokeColor=#006EAF;opacity=50;" vertex="1" parent="1">
+          <mxGeometry x="1333" y="1290" width="14" height="25" as="geometry"/>
+        </mxCell>
+
+        <!-- dao bar existsByCode -->
+        <mxCell id="dao_bar_ex" value="" style="html=1;points=[];fillColor=#00CCFF;strokeColor=#006EAF;opacity=50;" vertex="1" parent="1">
+          <mxGeometry x="1073" y="1370" width="14" height="55" as="geometry"/>
+        </mxCell>
+
+        <!-- db bar existsByCode -->
+        <mxCell id="db_bar_ex" value="" style="html=1;points=[];fillColor=#00CCFF;strokeColor=#006EAF;opacity=50;" vertex="1" parent="1">
+          <mxGeometry x="1333" y="1390" width="14" height="25" as="geometry"/>
+        </mxCell>
+
+        <!-- dao bar update(category, true) -->
+        <mxCell id="dao_bar_upd" value="" style="html=1;points=[];fillColor=#00CCFF;strokeColor=#006EAF;opacity=50;" vertex="1" parent="1">
+          <mxGeometry x="1073" y="1480" width="14" height="80" as="geometry"/>
+        </mxCell>
+
+        <!-- db bar UPDATE SQL (with code) -->
+        <mxCell id="db_bar_upd" value="" style="html=1;points=[];fillColor=#00CCFF;strokeColor=#006EAF;opacity=50;" vertex="1" parent="1">
+          <mxGeometry x="1333" y="1500" width="14" height="40" as="geometry"/>
+        </mxCell>
+
+        <!-- dao bar setImmutable -->
+        <mxCell id="dao_bar_imm" value="" style="html=1;points=[];fillColor=#00CCFF;strokeColor=#006EAF;opacity=50;" vertex="1" parent="1">
+          <mxGeometry x="1073" y="1570" width="14" height="30" as="geometry"/>
+        </mxCell>
+
+        <!-- db bar setImmutable -->
+        <mxCell id="db_bar_imm" value="" style="html=1;points=[];fillColor=#00CCFF;strokeColor=#006EAF;opacity=50;" vertex="1" parent="1">
+          <mxGeometry x="1333" y="1570" width="14" height="25" as="geometry"/>
+        </mxCell>
+
+        <!-- ══════════════════════════════════════════════════════════ -->
+        <!--  MESSAGES — Main Flow                                     -->
+        <!-- ══════════════════════════════════════════════════════════ -->
+
+        <!-- ─── 1. Actor → frm ─── -->
+        <mxCell id="m1" value="1. Chỉnh sửa thông tin danh mục hiện có&#xa;     (sửa tên, mã, mô tả, danh mục cha)&#xa;     và nhấn nút &quot;Cập nhật&quot;" style="html=1;verticalAlign=bottom;endArrow=block;endFill=1;curved=0;rounded=0;fontSize=11;strokeColor=#006EAF;fontColor=#10375C;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="95" y="195" as="sourcePoint"/>
+            <mxPoint x="298" y="195" as="targetPoint"/>
+          </mxGeometry>
+        </mxCell>
+
+        <!-- ─── 1.1. frm → ctrl: doPost ─── -->
+        <mxCell id="m1_1" value="1.1. doPost(request, response)&#xa;  [action=&quot;update&quot;, categoryId, categoryName,&#xa;   categoryCode, parentId, description]" style="html=1;verticalAlign=bottom;endArrow=block;endFill=1;curved=0;rounded=0;fontSize=10;strokeColor=#006EAF;fontColor=#10375C;align=left;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="312" y="250" as="sourcePoint"/>
+            <mxPoint x="558" y="250" as="targetPoint"/>
+          </mxGeometry>
+        </mxCell>
+
+        <!-- ─── 1.1.1. ctrl self-call: handleUpdate → getParameters ─── -->
+        <mxCell id="m1_1_1" value="1.1.1. handleUpdate(req)&#xa;  categoryIdStr = getParameter(&quot;categoryId&quot;)&#xa;  name = getParameter(&quot;categoryName&quot;)&#xa;  code = getParameter(&quot;categoryCode&quot;)&#xa;  parentIdStr = getParameter(&quot;parentId&quot;)" style="html=1;verticalAlign=bottom;endArrow=block;endFill=1;curved=0;rounded=0;fontSize=10;strokeColor=#006EAF;fontColor=#10375C;align=left;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="572" y="280" as="sourcePoint"/>
+            <mxPoint x="625" y="280" as="targetPoint"/>
+            <Array as="points">
+              <mxPoint x="625" y="280"/>
+              <mxPoint x="625" y="315"/>
+              <mxPoint x="572" y="315"/>
+            </Array>
+          </mxGeometry>
+        </mxCell>
+
+        <!-- ══ ALT: categoryId/name rỗng ══ -->
+        <mxCell id="alt_empty" value="alt" style="shape=umlFrame;whiteSpace=wrap;html=1;width=40;height=18;fillColor=none;strokeColor=#CC3333;fontSize=10;fontStyle=1;align=left;verticalAlign=top;spacingLeft=5;dashed=1;dashPattern=4 4;" vertex="1" parent="1">
+          <mxGeometry x="540" y="320" width="155" height="50" as="geometry"/>
+        </mxCell>
+        <mxCell id="alt_empty_guard" value="[categoryId hoặc name rỗng]" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontSize=10;fontStyle=2;fontColor=#CC3333;" vertex="1" parent="1">
+          <mxGeometry x="585" y="320" width="200" height="18" as="geometry"/>
+        </mxCell>
+        <mxCell id="alt_empty_msg" value="return false → &quot;Cap nhat danh muc that bai.&quot;" style="text;html=1;strokeColor=none;fillColor=#FFF2CC;align=left;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontSize=9;fontStyle=0;fontColor=#CC3333;spacingLeft=5;" vertex="1" parent="1">
+          <mxGeometry x="550" y="340" width="135" height="25" as="geometry"/>
+        </mxCell>
+
+        <!-- ─── 1.1.2. ctrl → svc: findById (lần 1) ─── -->
+        <mxCell id="m1_1_2" value="1.1.2. findById(categoryId)" style="html=1;verticalAlign=bottom;endArrow=block;endFill=1;curved=0;rounded=0;fontSize=11;strokeColor=#006EAF;fontColor=#10375C;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="572" y="360" as="sourcePoint"/>
+            <mxPoint x="818" y="360" as="targetPoint"/>
+          </mxGeometry>
+        </mxCell>
+
+        <!-- ─── 1.1.2.1. svc → dao: findById ─── -->
+        <mxCell id="m1_1_2_1" value="1.1.2.1. findById(categoryId)" style="html=1;verticalAlign=bottom;endArrow=block;endFill=1;curved=0;rounded=0;fontSize=11;strokeColor=#006EAF;fontColor=#10375C;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="832" y="385" as="sourcePoint"/>
+            <mxPoint x="1073" y="385" as="targetPoint"/>
+          </mxGeometry>
+        </mxCell>
+
+        <!-- ─── 1.1.2.1.1. dao → DB: SELECT ─── -->
+        <mxCell id="m1_1_2_1_1" value="1.1.2.1.1. &quot;SELECT * FROM categories&#xa;  WHERE category_id = ?&quot;" style="html=1;verticalAlign=bottom;endArrow=block;endFill=1;curved=0;rounded=0;fontSize=10;strokeColor=#006EAF;fontColor=#10375C;align=left;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="1087" y="400" as="sourcePoint"/>
+            <mxPoint x="1333" y="400" as="targetPoint"/>
+          </mxGeometry>
+        </mxCell>
+
+        <!-- ─── 1.1.2.1.2. DB → dao → svc → ctrl: return Category ─── -->
+        <mxCell id="m1_1_2_1_2" value="1.1.2.1.2. return Category" style="html=1;verticalAlign=bottom;endArrow=open;endFill=0;dashed=1;curved=0;rounded=0;fontSize=10;strokeColor=#006EAF;fontColor=#10375C;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="1333" y="413" as="sourcePoint"/>
+            <mxPoint x="1087" y="413" as="targetPoint"/>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="m1_1_2_2" value="1.1.2.2. return Category" style="html=1;verticalAlign=bottom;endArrow=open;endFill=0;dashed=1;curved=0;rounded=0;fontSize=10;strokeColor=#006EAF;fontColor=#10375C;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="1073" y="422" as="sourcePoint"/>
+            <mxPoint x="832" y="422" as="targetPoint"/>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="m1_1_2_3" value="1.1.2.3. return Category" style="html=1;verticalAlign=bottom;endArrow=open;endFill=0;dashed=1;curved=0;rounded=0;fontSize=10;strokeColor=#006EAF;fontColor=#10375C;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="818" y="435" as="sourcePoint"/>
+            <mxPoint x="572" y="435" as="targetPoint"/>
+          </mxGeometry>
+        </mxCell>
+
+        <!-- ══ ALT: category == null ══ -->
+        <mxCell id="alt_notfound" value="alt" style="shape=umlFrame;whiteSpace=wrap;html=1;width=40;height=18;fillColor=none;strokeColor=#CC3333;fontSize=10;fontStyle=1;align=left;verticalAlign=top;spacingLeft=5;dashed=1;dashPattern=4 4;" vertex="1" parent="1">
+          <mxGeometry x="540" y="450" width="155" height="40" as="geometry"/>
+        </mxCell>
+        <mxCell id="alt_notfound_guard" value="[category == null] → return false" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontSize=10;fontStyle=2;fontColor=#CC3333;" vertex="1" parent="1">
+          <mxGeometry x="585" y="450" width="250" height="18" as="geometry"/>
+        </mxCell>
+
+        <!-- ─── 1.1.3. ctrl → svc: validateCategoryCode (nếu code có giá trị) ─── -->
+        <mxCell id="opt_code" value="opt" style="shape=umlFrame;whiteSpace=wrap;html=1;width=40;height=18;fillColor=none;strokeColor=#006EAF;fontSize=10;fontStyle=1;align=left;verticalAlign=top;spacingLeft=5;" vertex="1" parent="1">
+          <mxGeometry x="540" y="498" width="380" height="80" as="geometry"/>
+        </mxCell>
+        <mxCell id="opt_code_guard" value="[code != null &amp;&amp; code != empty]" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontSize=10;fontStyle=2;fontColor=#006EAF;" vertex="1" parent="1">
+          <mxGeometry x="585" y="498" width="250" height="18" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="m1_1_3" value="1.1.3. validateCategoryCode(code)" style="html=1;verticalAlign=bottom;endArrow=block;endFill=1;curved=0;rounded=0;fontSize=11;strokeColor=#006EAF;fontColor=#10375C;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="572" y="525" as="sourcePoint"/>
+            <mxPoint x="818" y="525" as="targetPoint"/>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="m1_1_3_ret" value="1.1.3.1. return ValidationResult" style="html=1;verticalAlign=bottom;endArrow=open;endFill=0;dashed=1;curved=0;rounded=0;fontSize=10;strokeColor=#006EAF;fontColor=#10375C;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="818" y="548" as="sourcePoint"/>
+            <mxPoint x="572" y="548" as="targetPoint"/>
+          </mxGeometry>
+        </mxCell>
+
+        <!-- ─── 1.1.4. ctrl → svc: findById (lần 2) — check immutability ─── -->
+        <mxCell id="m1_1_4" value="1.1.4. findById(categoryId)&#xa;  (lấy existing → kiểm tra isImmutable)" style="html=1;verticalAlign=bottom;endArrow=block;endFill=1;curved=0;rounded=0;fontSize=10;strokeColor=#006EAF;fontColor=#10375C;align=left;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="572" y="610" as="sourcePoint"/>
+            <mxPoint x="818" y="610" as="targetPoint"/>
+          </mxGeometry>
+        </mxCell>
+
+        <mxCell id="m1_1_4_1" value="1.1.4.1. findById(categoryId)" style="html=1;verticalAlign=bottom;endArrow=block;endFill=1;curved=0;rounded=0;fontSize=10;strokeColor=#006EAF;fontColor=#10375C;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="832" y="635" as="sourcePoint"/>
+            <mxPoint x="1073" y="635" as="targetPoint"/>
+          </mxGeometry>
+        </mxCell>
+
+        <mxCell id="m1_1_4_1_1" value="1.1.4.1.1. SELECT * FROM categories&#xa;  WHERE category_id = ?" style="html=1;verticalAlign=bottom;endArrow=block;endFill=1;curved=0;rounded=0;fontSize=10;strokeColor=#006EAF;fontColor=#10375C;align=left;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="1087" y="650" as="sourcePoint"/>
+            <mxPoint x="1333" y="650" as="targetPoint"/>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="m1_1_4_1_2" value="return existing Category" style="html=1;verticalAlign=bottom;endArrow=open;endFill=0;dashed=1;curved=0;rounded=0;fontSize=10;strokeColor=#006EAF;fontColor=#10375C;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="1333" y="663" as="sourcePoint"/>
+            <mxPoint x="572" y="663" as="targetPoint"/>
+          </mxGeometry>
+        </mxCell>
+
+        <!-- ─── 1.1.5. ctrl self-call: set fields trên category ─── -->
+        <mxCell id="m1_1_5" value="1.1.5. category.setCategoryName(name.trim())&#xa;  category.setDescription(description)&#xa;  category.setParentId(parseParentId(parentIdStr))" style="html=1;verticalAlign=bottom;endArrow=block;endFill=1;curved=0;rounded=0;fontSize=10;strokeColor=#006EAF;fontColor=#10375C;align=left;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="572" y="700" as="sourcePoint"/>
+            <mxPoint x="625" y="700" as="targetPoint"/>
+            <Array as="points">
+              <mxPoint x="625" y="700"/>
+              <mxPoint x="625" y="730"/>
+              <mxPoint x="572" y="730"/>
+            </Array>
+          </mxGeometry>
+        </mxCell>
+
+        <!-- ══════════════════════════════════════════════════════════ -->
+        <!--  MASTER ALT: immutable vs not-immutable                   -->
+        <!-- ══════════════════════════════════════════════════════════ -->
+        <mxCell id="alt_main" value="alt" style="shape=umlFrame;whiteSpace=wrap;html=1;width=40;height=18;fillColor=none;strokeColor=#006EAF;fontSize=10;fontStyle=1;align=left;verticalAlign=top;spacingLeft=5;dashed=0;" vertex="1" parent="1">
+          <mxGeometry x="540" y="750" width="870" height="900" as="geometry"/>
+        </mxCell>
+        <mxCell id="alt_main_guard" value="[existing.isImmutable() == true] — Mã định danh đã bị khóa" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontSize=11;fontStyle=3;fontColor=#006EAF;" vertex="1" parent="1">
+          <mxGeometry x="585" y="750" width="400" height="18" as="geometry"/>
+        </mxCell>
+
+        <!-- ═════ BRANCH A: IMMUTABLE (code locked) ═════ -->
+
+        <!-- ─── 1.1.6a. ctrl → svc: updateCategory(category, null) ─── -->
+        <mxCell id="m1_1_6a" value="1.1.6a. updateCategory(category, null)&#xa;  (không cập nhật mã định danh)" style="html=1;verticalAlign=bottom;endArrow=block;endFill=1;curved=0;rounded=0;fontSize=10;strokeColor=#006EAF;fontColor=#10375C;align=left;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="572" y="845" as="sourcePoint"/>
+            <mxPoint x="818" y="845" as="targetPoint"/>
+          </mxGeometry>
+        </mxCell>
+
+        <!-- 1.1.6a.1. svc → dao: findById (inside updateCategory) -->
+        <mxCell id="m1_1_6a_1" value="1.1.6a.1. findById(categoryId)&#xa;  (verify existing)" style="html=1;verticalAlign=bottom;endArrow=block;endFill=1;curved=0;rounded=0;fontSize=10;strokeColor=#006EAF;fontColor=#10375C;align=left;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="832" y="875" as="sourcePoint"/>
+            <mxPoint x="1073" y="875" as="targetPoint"/>
+          </mxGeometry>
+        </mxCell>
+
+        <mxCell id="m1_1_6a_1_1" value="SELECT * WHERE category_id = ?" style="html=1;verticalAlign=bottom;endArrow=block;endFill=1;curved=0;rounded=0;fontSize=9;strokeColor=#006EAF;fontColor=#10375C;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="1087" y="893" as="sourcePoint"/>
+            <mxPoint x="1333" y="893" as="targetPoint"/>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="m1_1_6a_1_2" value="return existing" style="html=1;verticalAlign=bottom;endArrow=open;endFill=0;dashed=1;curved=0;rounded=0;fontSize=9;strokeColor=#006EAF;fontColor=#10375C;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="1333" y="904" as="sourcePoint"/>
+            <mxPoint x="832" y="904" as="targetPoint"/>
+          </mxGeometry>
+        </mxCell>
+
+        <!-- 1.1.6a.2. svc → dao: update(category, false) — only name/description/parent -->
+        <mxCell id="m1_1_6a_2" value="1.1.6a.2. update(category, false)&#xa;  → chỉ cập nhật name, parent_id,&#xa;     description, level_depth" style="html=1;verticalAlign=bottom;endArrow=block;endFill=1;curved=0;rounded=0;fontSize=10;strokeColor=#006EAF;fontColor=#10375C;align=left;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="832" y="960" as="sourcePoint"/>
+            <mxPoint x="1073" y="960" as="targetPoint"/>
+          </mxGeometry>
+        </mxCell>
+
+        <!-- 1.1.6a.2.1. dao → DB: UPDATE (no code) -->
+        <mxCell id="m1_1_6a_2_1" value="1.1.6a.2.1. &quot;UPDATE categories SET&#xa;  category_name=?, parent_id=?,&#xa;  description=?, level_depth=?&#xa;  WHERE category_id=?&quot;" style="html=1;verticalAlign=bottom;endArrow=block;endFill=1;curved=0;rounded=0;fontSize=9;strokeColor=#006EAF;fontColor=#10375C;align=left;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="1087" y="980" as="sourcePoint"/>
+            <mxPoint x="1333" y="980" as="targetPoint"/>
+          </mxGeometry>
+        </mxCell>
+
+        <mxCell id="m1_1_6a_2_2" value="return rowsAffected &gt; 0" style="html=1;verticalAlign=bottom;endArrow=open;endFill=0;dashed=1;curved=0;rounded=0;fontSize=9;strokeColor=#006EAF;fontColor=#10375C;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="1333" y="1008" as="sourcePoint"/>
+            <mxPoint x="832" y="1008" as="targetPoint"/>
+          </mxGeometry>
+        </mxCell>
+
+        <!-- 1.1.6a.3. svc → ctrl: return true -->
+        <mxCell id="m1_1_6a_3" value="1.1.6a.3. return true" style="html=1;verticalAlign=bottom;endArrow=open;endFill=0;dashed=1;curved=0;rounded=0;fontSize=10;strokeColor=#006EAF;fontColor=#10375C;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="818" y="1043" as="sourcePoint"/>
+            <mxPoint x="572" y="1043" as="targetPoint"/>
+          </mxGeometry>
+        </mxCell>
+
+        <!-- ═════ ALT ELSE SEPARATOR ═════ -->
+        <mxCell id="alt_main_else" value="" style="html=1;verticalAlign=top;endArrow=none;dashed=1;dashPattern=6 4;curved=0;rounded=0;strokeColor=#006EAF;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="540" y="1100" as="sourcePoint"/>
+            <mxPoint x="1410" y="1100" as="targetPoint"/>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="alt_main_else_guard" value="[existing.isImmutable() == false] — Mã định danh chưa bị khóa, cho phép cập nhật code" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontSize=11;fontStyle=3;fontColor=#006EAF;" vertex="1" parent="1">
+          <mxGeometry x="545" y="1103" width="500" height="18" as="geometry"/>
+        </mxCell>
+
+        <!-- ═════ BRANCH B: NOT IMMUTABLE (code editable) ═════ -->
+
+        <!-- ctrl self-call: setImmutable(true) — lock after update -->
+        <mxCell id="m1_1_5b" value="1.1.5b. category.setImmutable(true)&#xa;  → khóa mã định danh sau lần sửa đầu" style="html=1;verticalAlign=bottom;endArrow=block;endFill=1;curved=0;rounded=0;fontSize=10;strokeColor=#006EAF;fontColor=#10375C;align=left;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="572" y="1130" as="sourcePoint"/>
+            <mxPoint x="625" y="1130" as="targetPoint"/>
+            <Array as="points">
+              <mxPoint x="625" y="1130"/>
+              <mxPoint x="625" y="1150"/>
+              <mxPoint x="572" y="1150"/>
+            </Array>
+          </mxGeometry>
+        </mxCell>
+
+        <!-- 1.1.6b. ctrl → svc: updateCategory(category, code) -->
+        <mxCell id="m1_1_6b" value="1.1.6b. updateCategory(category, code)&#xa;  (cập nhật cả mã định danh)" style="html=1;verticalAlign=bottom;endArrow=block;endFill=1;curved=0;rounded=0;fontSize=10;strokeColor=#006EAF;fontColor=#10375C;align=left;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="572" y="1175" as="sourcePoint"/>
+            <mxPoint x="818" y="1175" as="targetPoint"/>
+          </mxGeometry>
+        </mxCell>
+
+        <!-- 1.1.6b.1. svc → dao: findById (verify) -->
+        <mxCell id="m1_1_6b_1" value="1.1.6b.1. findById(categoryId)" style="html=1;verticalAlign=bottom;endArrow=block;endFill=1;curved=0;rounded=0;fontSize=10;strokeColor=#006EAF;fontColor=#10375C;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="832" y="1205" as="sourcePoint"/>
+            <mxPoint x="1073" y="1205" as="targetPoint"/>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="m1_1_6b_1_1" value="SELECT * WHERE category_id = ?" style="html=1;verticalAlign=bottom;endArrow=block;endFill=1;curved=0;rounded=0;fontSize=9;strokeColor=#006EAF;fontColor=#10375C;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="1087" y="1220" as="sourcePoint"/>
+            <mxPoint x="1333" y="1220" as="targetPoint"/>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="m1_1_6b_1_2" value="return existing" style="html=1;verticalAlign=bottom;endArrow=open;endFill=0;dashed=1;curved=0;rounded=0;fontSize=9;strokeColor=#006EAF;fontColor=#10375C;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="1333" y="1233" as="sourcePoint"/>
+            <mxPoint x="832" y="1233" as="targetPoint"/>
+          </mxGeometry>
+        </mxCell>
+
+        <!-- 1.1.6b.2. svc → dao: hasProducts (check code lock) -->
+        <mxCell id="m1_1_6b_2" value="1.1.6b.2. hasProducts(categoryId)&#xa;  → kiểm tra có sản phẩm không" style="html=1;verticalAlign=bottom;endArrow=block;endFill=1;curved=0;rounded=0;fontSize=10;strokeColor=#006EAF;fontColor=#10375C;align=left;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="832" y="1285" as="sourcePoint"/>
+            <mxPoint x="1073" y="1285" as="targetPoint"/>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="m1_1_6b_2_1" value="&quot;SELECT COUNT(*) FROM products&#xa;  WHERE category_id = ?&quot;" style="html=1;verticalAlign=bottom;endArrow=block;endFill=1;curved=0;rounded=0;fontSize=9;strokeColor=#006EAF;fontColor=#10375C;align=left;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="1087" y="1300" as="sourcePoint"/>
+            <mxPoint x="1333" y="1300" as="targetPoint"/>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="m1_1_6b_2_2" value="return false (chưa có SP)" style="html=1;verticalAlign=bottom;endArrow=open;endFill=0;dashed=1;curved=0;rounded=0;fontSize=9;strokeColor=#006EAF;fontColor=#10375C;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="1333" y="1313" as="sourcePoint"/>
+            <mxPoint x="832" y="1313" as="targetPoint"/>
+          </mxGeometry>
+        </mxCell>
+
+        <!-- ══ ALT: codeIsLocked ══ -->
+        <mxCell id="alt_locked" value="alt" style="shape=umlFrame;whiteSpace=wrap;html=1;width=40;height=18;fillColor=none;strokeColor=#CC3333;fontSize=10;fontStyle=1;align=left;verticalAlign=top;spacingLeft=5;dashed=1;dashPattern=4 4;" vertex="1" parent="1">
+          <mxGeometry x="800" y="1330" width="340" height="38" as="geometry"/>
+        </mxCell>
+        <mxCell id="alt_locked_guard" value="[codeIsLocked &amp;&amp; newCode != null] → throw &quot;Ma dinh danh da bi khoa&quot;" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontSize=9;fontStyle=2;fontColor=#CC3333;" vertex="1" parent="1">
+          <mxGeometry x="845" y="1330" width="340" height="18" as="geometry"/>
+        </mxCell>
+
+        <!-- 1.1.6b.3. svc → dao: existsByCategoryCode (excluding current) -->
+        <mxCell id="m1_1_6b_3" value="1.1.6b.3. existsByCategoryCode(code, categoryId)&#xa;  (exclude current category)" style="html=1;verticalAlign=bottom;endArrow=block;endFill=1;curved=0;rounded=0;fontSize=10;strokeColor=#006EAF;fontColor=#10375C;align=left;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="832" y="1385" as="sourcePoint"/>
+            <mxPoint x="1073" y="1385" as="targetPoint"/>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="m1_1_6b_3_1" value="&quot;SELECT COUNT(*) FROM categories&#xa;  WHERE category_code = ?&#xa;  AND category_id != ?&quot;" style="html=1;verticalAlign=bottom;endArrow=block;endFill=1;curved=0;rounded=0;fontSize=9;strokeColor=#006EAF;fontColor=#10375C;align=left;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="1087" y="1400" as="sourcePoint"/>
+            <mxPoint x="1333" y="1400" as="targetPoint"/>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="m1_1_6b_3_2" value="return false (chưa trùng)" style="html=1;verticalAlign=bottom;endArrow=open;endFill=0;dashed=1;curved=0;rounded=0;fontSize=9;strokeColor=#006EAF;fontColor=#10375C;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="1333" y="1413" as="sourcePoint"/>
+            <mxPoint x="832" y="1413" as="targetPoint"/>
+          </mxGeometry>
+        </mxCell>
+
+        <!-- ══ ALT: code đã tồn tại ══ -->
+        <mxCell id="alt_dup" value="alt" style="shape=umlFrame;whiteSpace=wrap;html=1;width=40;height=18;fillColor=none;strokeColor=#CC3333;fontSize=10;fontStyle=1;align=left;verticalAlign=top;spacingLeft=5;dashed=1;dashPattern=4 4;" vertex="1" parent="1">
+          <mxGeometry x="800" y="1430" width="340" height="35" as="geometry"/>
+        </mxCell>
+        <mxCell id="alt_dup_guard" value="[exists = true] → throw &quot;Ma dinh danh da ton tai.&quot;" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontSize=9;fontStyle=2;fontColor=#CC3333;" vertex="1" parent="1">
+          <mxGeometry x="845" y="1432" width="290" height="18" as="geometry"/>
+        </mxCell>
+
+        <!-- 1.1.6b.4. svc self-call: setCategoryCode(newCode) -->
+        <mxCell id="m1_1_6b_4" value="1.1.6b.4. category.setCategoryCode(&#xa;  newCode.trim().toUpperCase())" style="html=1;verticalAlign=bottom;endArrow=block;endFill=1;curved=0;rounded=0;fontSize=10;strokeColor=#006EAF;fontColor=#10375C;align=left;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="832" y="1475" as="sourcePoint"/>
+            <mxPoint x="885" y="1475" as="targetPoint"/>
+            <Array as="points">
+              <mxPoint x="885" y="1475"/>
+              <mxPoint x="885" y="1492"/>
+              <mxPoint x="832" y="1492"/>
+            </Array>
+          </mxGeometry>
+        </mxCell>
+
+        <!-- 1.1.6b.5. svc → dao: update(category, true) -->
+        <mxCell id="m1_1_6b_5" value="1.1.6b.5. update(category, true)&#xa;  → cập nhật kèm category_code" style="html=1;verticalAlign=bottom;endArrow=block;endFill=1;curved=0;rounded=0;fontSize=10;strokeColor=#006EAF;fontColor=#10375C;align=left;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="832" y="1500" as="sourcePoint"/>
+            <mxPoint x="1073" y="1500" as="targetPoint"/>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="m1_1_6b_5_1" value="&quot;UPDATE categories SET&#xa;  category_code=?, category_name=?,&#xa;  parent_id=?, description=?, level_depth=?&#xa;  WHERE category_id=?&quot;" style="html=1;verticalAlign=bottom;endArrow=block;endFill=1;curved=0;rounded=0;fontSize=9;strokeColor=#006EAF;fontColor=#10375C;align=left;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="1087" y="1510" as="sourcePoint"/>
+            <mxPoint x="1333" y="1510" as="targetPoint"/>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="m1_1_6b_5_2" value="return true" style="html=1;verticalAlign=bottom;endArrow=open;endFill=0;dashed=1;curved=0;rounded=0;fontSize=9;strokeColor=#006EAF;fontColor=#10375C;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="1333" y="1538" as="sourcePoint"/>
+            <mxPoint x="832" y="1538" as="targetPoint"/>
+          </mxGeometry>
+        </mxCell>
+
+        <!-- 1.1.6b.6. svc → dao: setImmutable(categoryId, true) — lock code -->
+        <mxCell id="m1_1_6b_6" value="1.1.6b.6. setImmutable(categoryId, true)&#xa;  → &quot;UPDATE categories SET is_immutable=1&#xa;        WHERE category_id=?&quot;" style="html=1;verticalAlign=bottom;endArrow=block;endFill=1;curved=0;rounded=0;fontSize=9;strokeColor=#006EAF;fontColor=#10375C;align=left;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="832" y="1580" as="sourcePoint"/>
+            <mxPoint x="1333" y="1580" as="targetPoint"/>
+          </mxGeometry>
+        </mxCell>
+
+        <!-- 1.1.6b.7. svc → ctrl: return true -->
+        <mxCell id="m1_1_6b_7" value="1.1.6b.7. return true" style="html=1;verticalAlign=bottom;endArrow=open;endFill=0;dashed=1;curved=0;rounded=0;fontSize=10;strokeColor=#006EAF;fontColor=#10375C;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="818" y="1608" as="sourcePoint"/>
+            <mxPoint x="572" y="1608" as="targetPoint"/>
+          </mxGeometry>
+        </mxCell>
+
+        <!-- ══════════════════════════════════════════════════════════ -->
+        <!--  POST-ALT: Session + Redirect                             -->
+        <!-- ══════════════════════════════════════════════════════════ -->
+
+        <!-- 1.1.7. ctrl self-call: message = success -->
+        <mxCell id="m1_1_7" value="1.1.7. message = &quot;Cap nhat danh muc thanh cong!&quot;&#xa;  success = true" style="html=1;verticalAlign=bottom;endArrow=block;endFill=1;curved=0;rounded=0;fontSize=10;strokeColor=#006EAF;fontColor=#10375C;align=left;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="572" y="1680" as="sourcePoint"/>
+            <mxPoint x="625" y="1680" as="targetPoint"/>
+            <Array as="points">
+              <mxPoint x="625" y="1680"/>
+              <mxPoint x="625" y="1700"/>
+              <mxPoint x="572" y="1700"/>
+            </Array>
+          </mxGeometry>
+        </mxCell>
+
+        <!-- 1.1.8. ctrl self-call: session.setAttribute -->
+        <mxCell id="m1_1_8" value="1.1.8. session.setAttribute(&#xa;  &quot;categoryMessage&quot;, message)&#xa;  session.setAttribute(&#xa;  &quot;categorySuccess&quot;, success)" style="html=1;verticalAlign=bottom;endArrow=block;endFill=1;curved=0;rounded=0;fontSize=10;strokeColor=#006EAF;fontColor=#10375C;align=left;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="572" y="1720" as="sourcePoint"/>
+            <mxPoint x="625" y="1720" as="targetPoint"/>
+            <Array as="points">
+              <mxPoint x="625" y="1720"/>
+              <mxPoint x="625" y="1748"/>
+              <mxPoint x="572" y="1748"/>
+            </Array>
+          </mxGeometry>
+        </mxCell>
+
+        <!-- 1.1.9. ctrl → frm: sendRedirect (PRG) -->
+        <mxCell id="m1_1_9" value="1.1.9. resp.sendRedirect(&#xa;  contextPath + &quot;/business/categories&quot;)&#xa;  [POST-Redirect-GET pattern]" style="html=1;verticalAlign=bottom;endArrow=open;endFill=0;dashed=1;curved=0;rounded=0;fontSize=10;strokeColor=#006EAF;fontColor=#10375C;align=left;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="558" y="1790" as="sourcePoint"/>
+            <mxPoint x="312" y="1790" as="targetPoint"/>
+          </mxGeometry>
+        </mxCell>
+
+        <!-- 1.2. frm → Actor: Redirect + toast -->
+        <mxCell id="m1_2" value="1.2. Redirect → GET /business/categories&#xa;  → Hiển thị trang + toast thông báo cập nhật thành công&#xa;  (Tham khảo SD_ViewCategoriesList)" style="html=1;verticalAlign=bottom;endArrow=open;endFill=0;dashed=1;curved=0;rounded=0;fontSize=11;strokeColor=#006EAF;fontColor=#10375C;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="298" y="1890" as="sourcePoint"/>
+            <mxPoint x="95" y="1890" as="targetPoint"/>
+          </mxGeometry>
+        </mxCell>
+
+        <!-- Ref -->
+        <mxCell id="ref1" value="ref  SD_ViewCategoriesList" style="shape=umlFrame;whiteSpace=wrap;html=1;width=200;height=18;fillColor=#E6F3FF;strokeColor=#006EAF;fontSize=10;fontStyle=1;align=left;verticalAlign=top;spacingLeft=5;" vertex="1" parent="1">
+          <mxGeometry x="130" y="1910" width="250" height="45" as="geometry"/>
+        </mxCell>
+
+        <!-- ══════════════════════════════════════════════════════════ -->
+        <!--  EXCEPTION NOTE                                           -->
+        <!-- ══════════════════════════════════════════════════════════ -->
+        <mxCell id="exc_note" value="XỬ LÝ LỖI TRONG doPost:&#xa;──────────────────────────────&#xa;catch (IllegalArgumentException e):&#xa;  → message = e.getMessage()&#xa;  → success = false&#xa;&#xa;Các lỗi IllegalArgumentException:&#xa;• &quot;Ma dinh danh da bi khoa, khong the sua.&quot;&#xa;• &quot;Ma dinh danh phai la 3-4 ky tu...&quot;&#xa;• &quot;Ma dinh danh da ton tai.&quot;&#xa;&#xa;catch (Exception e):&#xa;  → message = &quot;Da xay ra loi khi xu ly yeu cau.&quot;&#xa;&#xa;Tất cả → bước 1.1.8 → 1.1.9 (redirect)" style="shape=note;whiteSpace=wrap;html=1;backgroundOutline=1;size=15;fillColor=#FFF2CC;strokeColor=#CC3333;fontSize=10;fontStyle=0;align=left;spacingLeft=8;spacingTop=5;spacingRight=8;" vertex="1" parent="1">
+          <mxGeometry x="1470" y="250" width="310" height="240" as="geometry"/>
+        </mxCell>
+
+        <!-- ══════════════════════════════════════════════════════════ -->
+        <!--  LEGEND                                                   -->
+        <!-- ══════════════════════════════════════════════════════════ -->
+        <mxCell id="legend" value="CHÚ THÍCH&#xa;──────────────────────────────────&#xa;→  Synchronous call (solid arrow)&#xa;--→ Return / Response (dashed arrow)&#xa;▐   Activation bar (#00CCFF)&#xa;&#xa;LOGIC PHÂN NHÁNH CHÍNH&#xa;──────────────────────────────────&#xa;• existing.isImmutable() == true:&#xa;  → Chỉ cập nhật name, description, parentId&#xa;  → KHÔNG cập nhật category_code&#xa;  → Gọi update(category, false)&#xa;&#xa;• existing.isImmutable() == false:&#xa;  → Cho phép cập nhật category_code&#xa;  → Kiểm tra hasProducts + existsByCategoryCode&#xa;  → Gọi update(category, true)&#xa;  → Sau update: setImmutable(true) — khóa vĩnh viễn" style="shape=note;whiteSpace=wrap;html=1;backgroundOutline=1;size=15;fillColor=#E6F3FF;strokeColor=#006EAF;fontSize=10;fontStyle=0;align=left;spacingLeft=10;spacingTop=5;spacingRight=10;" vertex="1" parent="1">
+          <mxGeometry x="40" y="1690" width="310" height="290" as="geometry"/>
+        </mxCell>
+
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

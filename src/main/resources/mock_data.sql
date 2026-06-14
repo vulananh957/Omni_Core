@@ -57,18 +57,22 @@ REPLACE INTO users (user_id, username, password_hash, full_name, email, phone, o
 (8, 'anhvl', '$2a$12$uMVE2wnpLv8P8XLV75P3qO84Yzn95o2/2rxfq43NwKxwfFeRHd/xG', 'Vũ Lan Anh', 'vulananha9@gmail.com', NULL, 'EMAIL', 'MANAGER', 1, 1, '2026-06-04 20:43:34', '2026-06-13 09:35:56'),
 (10, 'lamna', '$2a$12$DRCJRXUWudZu9AvtxUlBXOqdvEuasna7dOKotHc3PDs9Xl1LDRL5K', 'Nguyễn Ánh Lâm', 'lamanhng.yds@gmail.com', NULL, 'EMAIL', 'WAREHOUSE_STAFF', 1, 1, '2026-06-04 21:21:41', '2026-06-13 10:01:04'),
 (16, 'tungnhn', '$2a$12$mO9B8FFvwhPgLIHAFqWdQOvoIDftDodcbjZjjABwYfCXu5zRf4PZa', 'Nguyễn Hữu Nhật Tùng', 'nguyentung031205@gmail.com', NULL, 'EMAIL', 'SALES_STAFF', 1, 1, '2026-06-06 00:52:42', '2026-06-07 15:31:46'),
-(144, 'trungbd', '$2a$12$jf/LBsYBszp1HeFhwNnmK.1Ez4c03bDR4r8HCi7ogUnw4AQ6K/Rfy', 'Bùi Đức Trung', 'ductrung3625@gmail.com', NULL, 'EMAIL', 'SALES_STAFF', 1, 1, '2026-06-10 22:08:24', '2026-06-12 14:21:20');
+(144, 'trungbd', '$2a$12$jf/LBsYBszp1HeFhwNnmK.1Ez4c03bDR4r8HCi7ogUnw4AQ6K/Rfy', 'Bùi Đức Trung', 'ductrung3625@gmail.com', NULL, 'EMAIL', 'WAREHOUSE_STAFF', 2, 1, '2026-06-10 22:08:24', '2026-06-12 14:21:20');
 
 -- 8. USER WAREHOUSE ASSIGNMENTS
+-- lamna (10) → warehouse_id=1 (Hà Nội)
+-- trungbd (144) → warehouse_id=2 (HCM)
+-- anhvl (8) → MANAGER - thấy tất cả kho
 REPLACE INTO user_warehouse_assignments (user_id, warehouse_id, is_primary) VALUES
-(1, 1, 1), (1, 2, 1),
-(8, 1, 1), (8, 2, 0),
-(10, 1, 1), (10, 2, 0),
-(16, 1, 1), (16, 2, 0),
-(144, 1, 1), (144, 2, 0);
+(1, 1, 1), (1, 2, 0),  -- ADMIN: cả 2 kho
+(8, 1, 1), (8, 2, 1),  -- MANAGER (anhvl): cả 2 kho
+(10, 1, 1), (10, 2, 0), -- WAREHOUSE_STAFF (lamna): chỉ WH-01
+(16, 1, 1), (16, 2, 0), -- SALES_STAFF: WH-01
+(144, 1, 0), (144, 2, 1); -- WAREHOUSE_STAFF (trungbd): chỉ WH-02
 
 -- 9. SALES CHANNELS (cần cho Ledger hiển thị đúng)
-REPLACE INTO channels (channel_id, channel_name, platform, active) VALUES
+-- Lưu ý: bảng channels có column is_active, không phải active
+REPLACE INTO channels (channel_id, channel_name, platform, is_active) VALUES
 (1, 'ONLINE', 'Omnichannel', 1),
 (2, 'Shopee', 'Shopee', 1),
 (3, 'TikTok', 'TikTok Shop', 1),
@@ -76,55 +80,71 @@ REPLACE INTO channels (channel_id, channel_name, platform, active) VALUES
 (5, 'Website', 'Website', 1);
 
 -- ============================================================
--- STEP 1: NHẬP KHO (Inbounds)
+-- STEP 1: NHẬP KHO (Inbounds) - WAREHOUSE 1
+-- WAREHOUSE STAFF tạo, MANAGER duyệt
 -- ============================================================
 -- IN-001: Coolmate giao Áo Thun + Quần Jeans → ĐÃ NHẬP KHO
 -- IN-002: Digiworld giao Chuột + Bàn Phím → ĐANG NHẬP
 -- IN-003: LocknLock giao Bình Giữ Nhiệt → CHỜ HÀNG VỀ
 REPLACE INTO inbound_orders (inbound_id, inbound_code, warehouse_id, supplier, status, received_by, note, created_at, received_at, created_by) VALUES
 (1, 'IN-20260612-001', 1, 'Công ty TNHH Coolmate Việt Nam', 'RECEIVED', 10, 'Đợt 1: Áo Thun + Quần Jeans đã nhập đủ', '2026-06-12 08:00:00', '2026-06-12 09:30:00', 10),
-(2, 'IN-20260613-001', 1, 'Nhà Phân Phối Logitech Digiworld', 'IN_PROGRESS', NULL, 'Đợt 2: Chuột + Bàn Phím - đang kiểm hàng', '2026-06-13 08:00:00', NULL, 10),
+(2, 'IN-20260613-001', 1, 'Nhà Phân Phối Logitech Digiworld', 'IN_PROGRESS', 10, 'Đợt 2: Chuột + Bàn Phím - đang kiểm hàng', '2026-06-13 08:00:00', NULL, 10),
 (3, 'IN-20260613-002', 1, 'Công ty TNHH Khóa Lock&Lock', 'PENDING', NULL, 'Đợt 3: Bình giữ nhiệt - đang vận chuyển', '2026-06-13 10:00:00', NULL, 10);
+
+-- ============================================================
+-- STEP 1B: NHẬP KHO (Inbounds) - WAREHOUSE 2
+-- Để MANAGER thấy được nhiều kho, WH Staff khác phụ trách
+-- ============================================================
+REPLACE INTO inbound_orders (inbound_id, inbound_code, warehouse_id, supplier, status, received_by, note, created_at, received_at, created_by) VALUES
+(4, 'IN-20260614-001', 2, 'Công ty TNHH Mỹ Phẩm Sakura', 'RECEIVED', 144, 'Nhập lô Kem Chống Nắng mới', '2026-06-14 08:00:00', '2026-06-14 09:00:00', 144),
+(5, 'IN-20260614-002', 2, 'Nhà Phân Phối Apple Việt Nam', 'PENDING', NULL, 'Nhập iPhone 15 Pro - đang kiểm IMEI', '2026-06-14 10:00:00', NULL, 144);
 
 -- Inbound Items
 REPLACE INTO inbound_items (inbound_item_id, inbound_id, product_id, expected_qty, received_qty) VALUES
--- IN-001: Áo 300, Quần 150 → nhận đủ
+-- WH-01: IN-001: Áo 300, Quần 150 → nhận đủ
 (1, 1, 1, 300.000, 300.000),
 (2, 1, 2, 150.000, 150.000),
--- IN-002: Chuột 100, Bàn Phím 50 → nhận 1 nửa
+-- WH-01: IN-002: Chuột 100, Bàn Phím 50 → nhận 1 nửa
 (3, 2, 4, 100.000, 50.000),
 (4, 2, 5, 50.000, 25.000),
--- IN-003: Bình Giữ Nhiệt 80 → chờ
-(5, 3, 6, 80.000, 0.000);
+-- WH-01: IN-003: Bình Giữ Nhiệt 80 → chờ
+(5, 3, 6, 80.000, 0.000),
+-- WH-02: IN-004: Kem Chống Nắng 100 → nhận đủ
+(6, 4, 7, 100.000, 100.000),
+-- WH-02: IN-005: iPhone (product mới) 50 → chờ
+(7, 5, 1, 50.000, 0.000);
 
 -- ============================================================
--- STEP 2: TỒN KHO (Sau khi nhập IN-001 và IN-002)
--- ============================================================
+-- STEP 2: TỒN KHO (Sau khi nhập IN-001, IN-002, IN-004)
 -- inventory_id cố định để ledger refer đúng
+-- ============================================================
 DELETE FROM inventory WHERE product_id IN (1,2,3,4,5,6,7);
 INSERT INTO inventory (inventory_id, product_id, warehouse_id, qty_on_hand, holding, qty_available) VALUES
+-- WAREHOUSE 1 (Hà Nội)
 (1, 1, 1, 295.000, 0.000, 295.000),  -- Áo Thun Kho Hà Nội
 (2, 2, 1, 148.000, 0.000, 148.000),  -- Quần Jeans Kho Hà Nội
 (3, 3, 1, 0.000, 0.000, 0.000),      -- Kính Râm (chưa nhập)
 (4, 4, 1, 48.000, 0.000, 48.000),    -- Chuột Kho Hà Nội
 (5, 5, 1, 24.000, 0.000, 24.000),   -- Bàn Phím Kho Hà Nội
 (6, 6, 1, 0.000, 0.000, 0.000),      -- Bình Giữ Nhiệt (chưa nhập)
-(7, 7, 1, 0.000, 0.000, 0.000),      -- Kem Chống Nắng (chưa nhập)
-(8, 1, 2, 30.000, 0.000, 30.000),    -- Áo Thun Kho HCM (từ transfer)
-(9, 2, 2, 20.000, 0.000, 20.000);    -- Quần Jeans Kho HCM (từ transfer)
+(7, 7, 1, 0.000, 0.000, 0.000),      -- Kem Chống Nắng (chưa nhập vào WH1)
+-- WAREHOUSE 2 (HCM) - có tồn kho riêng
+(8, 1, 2, 30.000, 0.000, 30.000),    -- Áo Thun Kho HCM (từ transfer cũ)
+(9, 2, 2, 20.000, 0.000, 20.000),    -- Quần Jeans Kho HCM (từ transfer cũ)
+(10, 7, 2, 95.000, 0.000, 95.000);   -- Kem Chống Nắng Kho HCM (IN-20260614-001)
 
 -- ============================================================
 -- STEP 3: ĐƠN HÀNG (Từ sàn - Sales duyệt)
 -- ============================================================
--- SO-1001: Shopee (channel_id=2) - 5 Áo + 2 Quần → PICKING
--- SO-1002: Lazada (channel_id=4) - 3 Kính Râm → PENDING (chưa có stock)
--- SO-1003: TikTok (channel_id=3) - 2 Chuột → PACKED
--- SO-1004: Website (channel_id=5) - 1 Bàn Phím → SHIPPED
-REPLACE INTO orders (order_id, order_code, customer_id, warehouse_id, channel_id, status, total_amount, note, created_by, created_at) VALUES
-(1001, 'SO-2026-1001', 16, 1, 2, 'PICKING', 5*189000 + 2*399000, 'Shopee - Khách cần giao gấp buổi chiều', 16, '2026-06-13 09:00:00'),
-(1002, 'SO-2026-1002', 16, 1, 4, 'PENDING', 3*299000, 'Lazada - Khách đặt nhưng kho chưa có Kính Râm', 16, '2026-06-13 10:00:00'),
-(1003, 'SO-2026-1003', 16, 1, 3, 'PACKED', 2*550000, 'TikTok Shop - Đã đóng gói, chờ SPX lấy', 16, '2026-06-13 08:30:00'),
-(1004, 'SO-2026-1004', 16, 1, 5, 'SHIPPED', 1*1250000, 'Website - Đã giao cho GHN lúc 7:50', 16, '2026-06-13 07:45:00');
+-- SO-1001: Shopee (channel=ONLINE) - 5 Áo + 2 Quần → PICKING
+-- SO-1002: Lazada (channel=ONLINE) - 3 Kính Râm → PENDING (chưa có stock)
+-- SO-1003: TikTok (channel=ONLINE) - 2 Chuột → PACKED
+-- SO-1004: Website (channel=ONLINE) - 1 Bàn Phím → SHIPPED
+REPLACE INTO orders (order_id, order_code, customer_id, warehouse_id, channel, status, total_amount, note, created_by, created_at) VALUES
+(1001, 'SO-2026-1001', 16, 1, 'ONLINE', 'PICKING', 5*189000 + 2*399000, 'Shopee - Khách cần giao gấp buổi chiều', 16, '2026-06-13 09:00:00'),
+(1002, 'SO-2026-1002', 16, 1, 'ONLINE', 'PENDING', 3*299000, 'Lazada - Khách đặt nhưng kho chưa có Kính Râm', 16, '2026-06-13 10:00:00'),
+(1003, 'SO-2026-1003', 16, 1, 'ONLINE', 'PACKED', 2*550000, 'TikTok Shop - Đã đóng gói, chờ SPX lấy', 16, '2026-06-13 08:30:00'),
+(1004, 'SO-2026-1004', 16, 1, 'ONLINE', 'SHIPPED', 1*1250000, 'Website - Đã giao cho GHN lúc 7:50', 16, '2026-06-13 07:45:00');
 
 -- Order Items
 REPLACE INTO order_items (order_item_id, order_id, product_id, qty, unit_price) VALUES
@@ -158,18 +178,38 @@ REPLACE INTO fulfillment_request_items (request_id, sku_code, sku_name, qty) VAL
 ('FR-2026-0004', 'KEY-MECH-005', 'Bàn Phím Cơ Không Dây Logitech Signature K650', 1);
 
 -- ============================================================
--- STEP 5: PHIẾU XUẤT KHO (Outbound)
+-- STEP 5: PHIẾU XUẤT KHO (Outbound) - WAREHOUSE 1
+-- WAREHOUSE STAFF tạo, MANAGER duyệt
 -- ============================================================
 REPLACE INTO outbound_orders (outbound_id, order_id, warehouse_id, status, picked_by, shipped_at, note, created_at, outbound_code) VALUES
 (1, 1001, 1, 'PICKING', 10, NULL, 'FR-2026-0001: Xuất cho SO-2026-1001', '2026-06-13 09:05:00', 'DO-2026-0001'),
 (2, 1003, 1, 'PACKED', 10, NULL, 'FR-2026-0003: Xuất cho SO-2026-1003', '2026-06-13 08:35:00', 'DO-2026-0002'),
 (3, 1004, 1, 'SHIPPED', 10, '2026-06-13 07:50:00', 'FR-2026-0004: Xuất cho SO-2026-1004', '2026-06-13 07:46:00', 'DO-2026-0003');
 
+-- ============================================================
+-- STEP 5B: PHIẾU XUẤT KHO (Outbound) - WAREHOUSE 2
+-- Để MANAGER thấy được nhiều kho
+-- ============================================================
+REPLACE INTO outbound_orders (outbound_id, order_id, warehouse_id, status, picked_by, shipped_at, note, created_at, outbound_code) VALUES
+(4, 1005, 2, 'PICKING', 144, NULL, 'Xuất cho khách lẻ tại HCM', '2026-06-14 09:00:00', 'DO-2026-0004'),
+(5, 1006, 2, 'PENDING', NULL, NULL, 'Xuất bổ sung cho đơn online HCM', '2026-06-14 10:00:00', 'DO-2026-0005');
+
+-- Thêm orders cho WH-02
+REPLACE INTO orders (order_id, order_code, customer_id, warehouse_id, channel, status, total_amount, note, created_by, created_at) VALUES
+(1005, 'SO-2026-1005', 16, 2, 'ONLINE', 'PICKING', 5*480000, 'Khách lẻ tại HCM - Mỹ Phẩm Sakura', 16, '2026-06-14 09:00:00'),
+(1006, 'SO-2026-1006', 16, 2, 'ONLINE', 'PENDING', 10*480000, 'Online HCM - Kem Chống Nắng', 16, '2026-06-14 10:00:00');
+
+REPLACE INTO order_items (order_item_id, order_id, product_id, qty, unit_price) VALUES
+(10, 1005, 7, 5, 480000.00),
+(11, 1006, 7, 10, 480000.00);
+
 REPLACE INTO outbound_items (outbound_id, product_id, qty, picked_qty, shelf_location) VALUES
 (1, 1, 5.000, 5.000, 'A-01-02'),
 (1, 2, 2.000, 2.000, 'B-04-11'),
 (2, 4, 2.000, 2.000, 'C-02-05'),
-(3, 5, 1.000, 1.000, 'D-03-08');
+(3, 5, 1.000, 1.000, 'D-03-08'),
+(4, 7, 5.000, 5.000, 'E-01-01'),
+(5, 7, 10.000, 0.000, 'E-01-01');
 
 -- ============================================================
 -- STEP 6: CẬP NHẬT TỒN KHO SAU XUẤT (đã có ở STEP 2)
@@ -186,13 +226,20 @@ REPLACE INTO stock_transfer_items (transfer_item_id, transfer_id, product_id, sh
 (2, 1, 2, 20.000, 0.000);
 
 -- ============================================================
--- STEP 8: HOÀN HÀNG (Returns)
+-- STEP 8: HOÀN HÀNG (Returns) - WAREHOUSE 1
 -- Mã: RT-YYYY-NNNN (Return)
 -- ============================================================
 REPLACE INTO return_orders (return_id, return_code, order_id, outbound_id, customer_name, customer_phone, reason, status, warehouse_id, created_at) VALUES
 (1, 'RT-2026-0001', 1003, 2, 'Nguyễn Văn Hải', '0901234567', 'Chuột không hoạt động - lỗi pin sạc', 'RECEIVED', 1, '2026-06-13 11:00:00'),
 (2, 'RT-2026-0002', 1004, 3, 'Trần Văn Nam', '0912345678', 'Bàn phím thiếu 2 phím - giao thiếu hàng', 'INSPECTING', 1, '2026-06-13 13:30:00'),
 (3, 'RT-2026-0003', 1001, 1, 'Phạm Minh Hoàng', '0934567890', 'Áo thun nhận sai size - đặt M nhận L', 'PASS', 1, '2026-06-13 15:00:00');
+
+-- ============================================================
+-- STEP 8B: HOÀN HÀNG (Returns) - WAREHOUSE 2
+-- Để MANAGER thấy được nhiều kho
+-- ============================================================
+REPLACE INTO return_orders (return_id, return_code, order_id, outbound_id, customer_name, customer_phone, reason, status, warehouse_id, created_at) VALUES
+(4, 'RT-2026-0004', 1005, 4, 'Lê Thị Hương', '0945678901', 'Kem chống nắng không phù hợp da - dị ứng', 'RECEIVED', 2, '2026-06-14 11:00:00');
 
 REPLACE INTO return_items (return_item_id, return_id, product_id, quantity, return_reason) VALUES
 (1, 1, 4, 1.000, 'Chuột click trái không nhạy, pin sạc không tích điện - lỗi sản xuất'),
@@ -209,12 +256,19 @@ REPLACE INTO qc_records (qc_id, return_id, product_id, decision, qc_notes, qc_by
 (3, 3, 1, 'PASS', 'Áo không lỗi, chỉ sai size. Đổi size và restock.', 10, '2026-06-13 15:30:00');
 
 -- ============================================================
--- STEP 9: KIỂM KHO (Physical Inventory / Stock Take)
+-- STEP 9: KIỂM KHO (Physical Inventory / Stock Take) - WAREHOUSE 1
 -- Mã: PK-YYYYMMDD-NNN (Physical check)
 -- ============================================================
 REPLACE INTO physical_inventories (inventory_check_id, check_code, warehouse_id, created_by, status, note, created_at) VALUES
 (1, 'PK-20260613-001', 1, 10, 'IN_PROGRESS', 'Kiểm kho định kỳ tháng 06/2026 - Khu A', '2026-06-13 10:00:00'),
 (2, 'PK-20260612-001', 1, 10, 'APPROVED', 'Kiểm kho định kỳ tháng 06/2026 - Khu B (hoàn thành)', '2026-06-12 09:00:00');
+
+-- ============================================================
+-- STEP 9B: KIỂM KHO (Physical Inventory / Stock Take) - WAREHOUSE 2
+-- Để MANAGER thấy được nhiều kho
+-- ============================================================
+REPLACE INTO physical_inventories (inventory_check_id, check_code, warehouse_id, created_by, status, note, created_at) VALUES
+(3, 'PK-20260614-001', 2, 144, 'IN_PROGRESS', 'Kiểm kho định kỳ tháng 06/2026 - Kho HCM', '2026-06-14 10:00:00');
 
 REPLACE INTO physical_inventory_details (check_detail_id, inventory_check_id, product_id, system_qty, actual_qty, delta_qty, counted_by, counted_at) VALUES
 -- Khu A (đang kiểm)

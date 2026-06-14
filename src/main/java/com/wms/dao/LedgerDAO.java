@@ -32,7 +32,9 @@ public class LedgerDAO {
         public String type; // "Phiếu Nhập Kho" | "Phiếu Xuất Kho" | "Phiếu Kiểm Kê" | "Phiếu Chuyển Kho" | "Phiếu Hoàn Hàng"
         public String date;
         public String warehouse;
+        public int warehouseId;
         public String createdBy;
+        public int createdById;
         public int items;
         public String status;
         public String statusColor;
@@ -67,7 +69,7 @@ public class LedgerDAO {
         // 1. Fetch Inbound Orders
         String sqlInbound = 
             "SELECT io.inbound_id, io.inbound_code, io.supplier, io.status, io.note, io.created_at, " +
-            "w.warehouse_name, u.full_name AS creator_name " +
+            "w.warehouse_id, w.warehouse_name, u.full_name AS creator_name " +
             "FROM inbound_orders io " +
             "LEFT JOIN warehouses w ON io.warehouse_id = w.warehouse_id " +
             "LEFT JOIN users u ON io.received_by = u.user_id " +
@@ -83,6 +85,7 @@ public class LedgerDAO {
                 Timestamp ca = rs.getTimestamp("created_at");
                 d.date = (ca != null) ? ca.toLocalDateTime().format(DATE_FORMATTER) : "";
                 d.warehouse = rs.getString("warehouse_name");
+                d.warehouseId = rs.getInt("warehouse_id");
                 
                 String creator = rs.getString("creator_name");
                 d.createdBy = (creator != null) ? creator : "Hệ thống";
@@ -100,12 +103,11 @@ public class LedgerDAO {
         // 2. Fetch Outbound Orders
         String sqlOutbound = 
             "SELECT oo.outbound_id, oo.outbound_code, oo.status, oo.note, oo.created_at, " +
-            "w.warehouse_name, u.full_name AS creator_name, c.channel_name " +
+            "w.warehouse_id, w.warehouse_name, u.full_name AS creator_name, o.channel " +
             "FROM outbound_orders oo " +
             "LEFT JOIN warehouses w ON oo.warehouse_id = w.warehouse_id " +
             "LEFT JOIN users u ON oo.picked_by = u.user_id " +
             "LEFT JOIN orders o ON oo.order_id = o.order_id " +
-            "LEFT JOIN channels c ON o.channel_id = c.channel_id " +
             "ORDER BY oo.created_at DESC LIMIT 100";
         try (Connection conn = DBConnection.getConnection();
              PreparedStatement ps = conn.prepareStatement(sqlOutbound);
@@ -121,11 +123,12 @@ public class LedgerDAO {
                 Timestamp ca = rs.getTimestamp("created_at");
                 d.date = (ca != null) ? ca.toLocalDateTime().format(DATE_FORMATTER) : "";
                 d.warehouse = rs.getString("warehouse_name");
+                d.warehouseId = rs.getInt("warehouse_id");
                 
                 String creator = rs.getString("creator_name");
                 d.createdBy = (creator != null) ? creator : "Hệ thống";
                 d.remarks = rs.getString("note");
-                d.customer = rs.getString("channel_name");
+                d.customer = rs.getString("channel");
                 if (d.customer == null) d.customer = "Khách mua lẻ";
 
                 String dbStatus = rs.getString("status");
@@ -152,7 +155,7 @@ public class LedgerDAO {
         // 3. Fetch Stock Transfers
         String sqlTransfers = 
             "SELECT st.transfer_id, st.transfer_code, st.status, st.note, st.created_at, " +
-            "w1.warehouse_name AS from_wh, w2.warehouse_name AS to_wh, u.full_name AS creator_name " +
+            "st.from_warehouse_id, w1.warehouse_name AS from_wh, w2.warehouse_name AS to_wh, u.full_name AS creator_name " +
             "FROM stock_transfers st " +
             "LEFT JOIN warehouses w1 ON st.from_warehouse_id = w1.warehouse_id " +
             "LEFT JOIN warehouses w2 ON st.to_warehouse_id = w2.warehouse_id " +
@@ -169,6 +172,7 @@ public class LedgerDAO {
                 Timestamp ca = rs.getTimestamp("created_at");
                 d.date = (ca != null) ? ca.toLocalDateTime().format(DATE_FORMATTER) : "";
                 d.warehouse = rs.getString("from_wh") + " → " + rs.getString("to_wh");
+                d.warehouseId = rs.getInt("from_warehouse_id");
                 
                 String creator = rs.getString("creator_name");
                 d.createdBy = (creator != null) ? creator : "Hệ thống";
@@ -185,7 +189,7 @@ public class LedgerDAO {
         // 4. Fetch Physical Inventories
         String sqlPhysical = 
             "SELECT pi.inventory_check_id, pi.check_code, pi.status, pi.note, pi.created_at, " +
-            "w.warehouse_name, u.full_name AS creator_name " +
+            "w.warehouse_id, w.warehouse_name, u.full_name AS creator_name " +
             "FROM physical_inventories pi " +
             "LEFT JOIN warehouses w ON pi.warehouse_id = w.warehouse_id " +
             "LEFT JOIN users u ON pi.created_by = u.user_id " +
@@ -201,6 +205,7 @@ public class LedgerDAO {
                 Timestamp ca = rs.getTimestamp("created_at");
                 d.date = (ca != null) ? ca.toLocalDateTime().format(DATE_FORMATTER) : "";
                 d.warehouse = rs.getString("warehouse_name");
+                d.warehouseId = rs.getInt("warehouse_id");
                 
                 String creator = rs.getString("creator_name");
                 d.createdBy = (creator != null) ? creator : "Hệ thống";
@@ -217,7 +222,7 @@ public class LedgerDAO {
         // 5. Fetch RMA / Return Orders
         String sqlReturns = 
             "SELECT ro.return_id, ro.customer_name, ro.reason, ro.status, ro.created_at, " +
-            "w.warehouse_name " +
+            "w.warehouse_id, w.warehouse_name " +
             "FROM return_orders ro " +
             "LEFT JOIN warehouses w ON ro.warehouse_id = w.warehouse_id " +
             "ORDER BY ro.created_at DESC LIMIT 100";
@@ -232,6 +237,7 @@ public class LedgerDAO {
                 Timestamp ca = rs.getTimestamp("created_at");
                 d.date = (ca != null) ? ca.toLocalDateTime().format(DATE_FORMATTER) : "";
                 d.warehouse = rs.getString("warehouse_name");
+                d.warehouseId = rs.getInt("warehouse_id");
                 d.createdBy = "Nhân viên tiếp nhận";
                 
                 d.status = mapReturnStatus(rs.getString("status"));

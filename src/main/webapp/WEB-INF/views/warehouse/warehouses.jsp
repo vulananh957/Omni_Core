@@ -111,7 +111,6 @@
     .search-input {
         width: 100%;
         padding: 9px 12px 9px 36px;
-        background: #white;
         background: #fff;
         border: 1px solid var(--border);
         font-size: 13px;

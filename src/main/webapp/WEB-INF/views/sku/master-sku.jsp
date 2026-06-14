@@ -5,6 +5,10 @@
 <%@ page import="java.util.List" %>
 <%@ page import="com.fasterxml.jackson.databind.ObjectMapper" %>
 <%
+    response.setHeader("Cache-Control", "no-cache, no-store, must-revalidate");
+    response.setHeader("Pragma", "no-cache");
+    response.setDateHeader("Expires", 0);
+
     List<Product> products = (List<Product>) request.getAttribute("products");
     if (products == null) products = java.util.Collections.emptyList();
 
@@ -13,6 +17,11 @@
     request.setAttribute("productsJson", productsJson);
 %>
 <style>
+    @keyframes spin {
+        from { transform: rotate(0deg); }
+        to   { transform: rotate(360deg); }
+    }
+
     /* ─── Tabs Styling ─── */
     .tabs-wrap {
         display: flex;
@@ -59,6 +68,181 @@
         background: rgba(16, 55, 92, 0.10);
         color: var(--navy);
     }
+
+    /* ─── Create SKU Modal ─── */
+    .btn-add-sku {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        padding: 9px 18px;
+        background: var(--orange);
+        border: none;
+        border-radius: var(--radius-btn);
+        color: #fff;
+        font-size: 13px;
+        font-weight: 600;
+        cursor: pointer;
+        transition: background 0.15s, transform 0.1s;
+    }
+    .btn-add-sku:hover { background: #ea580c; transform: translateY(-1px); }
+    .btn-add-sku:active { transform: translateY(0); }
+    .btn-add-sku svg { width: 15px; height: 15px; }
+
+    .modal-hdr {
+        padding: 20px 24px 16px;
+        border-bottom: 1px solid var(--border);
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        gap: 16px;
+    }
+    .modal-title {
+        margin: 0;
+        font-size: 17px;
+        font-weight: 700;
+        color: var(--navy);
+        line-height: 1.3;
+    }
+    .modal-subtitle {
+        margin: 4px 0 0;
+        font-size: 12px;
+        color: rgba(16, 55, 92, 0.50);
+        line-height: 1.4;
+    }
+    .modal-close {
+        background: none;
+        border: none;
+        font-size: 22px;
+        color: rgba(16, 55, 92, 0.35);
+        cursor: pointer;
+        padding: 0;
+        line-height: 1;
+        transition: color 0.15s;
+        flex-shrink: 0;
+    }
+    .modal-close:hover { color: var(--navy); }
+    .modal-body {
+        padding: 20px 24px;
+        display: flex;
+        flex-direction: column;
+        gap: 16px;
+    }
+    .form-group { display: flex; flex-direction: column; gap: 6px; }
+    .form-label {
+        font-size: 12px;
+        font-weight: 600;
+        color: var(--navy);
+        letter-spacing: 0.01em;
+    }
+    .form-input {
+        padding: 9px 12px;
+        border: 1px solid var(--border);
+        border-radius: calc(var(--radius-btn) - 2px);
+        font-size: 13px;
+        color: var(--navy);
+        outline: none;
+        background: #fff;
+        transition: border-color 0.15s, box-shadow 0.15s;
+    }
+    .form-input:focus {
+        border-color: rgba(16, 55, 92, 0.35);
+        box-shadow: 0 0 0 3px rgba(16, 55, 92, 0.08);
+    }
+    .form-input::placeholder { color: rgba(16, 55, 92, 0.28); }
+    .form-grid {
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
+        gap: 12px;
+    }
+    .modal-note {
+        background: rgba(235, 131, 23, 0.08);
+        border: 1px solid rgba(235, 131, 23, 0.25);
+        border-radius: calc(var(--radius-btn) - 2px);
+        padding: 12px 16px;
+        font-size: 12px;
+        color: rgba(16, 55, 92, 0.70);
+        line-height: 1.5;
+    }
+    .modal-ftr {
+        padding: 16px 24px;
+        border-top: 1px solid var(--border);
+        background: var(--alice);
+        display: flex;
+        justify-content: flex-end;
+        gap: 12px;
+        border-radius: 0 0 var(--radius-card) var(--radius-card);
+    }
+    .category-tree-picker-box {
+        background: #fff;
+        border: 1px solid var(--border);
+        border-radius: 6px;
+        padding: 12px 16px;
+        min-height: 160px;
+        max-height: 260px;
+        overflow-y: auto;
+    }
+    .tree-children-container {
+        padding-left: 20px;
+        margin-top: 0;
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+        position: relative;
+    }
+    .tree-node-wrapper { position: relative; }
+    .tree-children-container > .tree-node-wrapper::before {
+        content: '';
+        position: absolute;
+        top: 15px;
+        left: -10px;
+        width: 14px;
+        height: 1px;
+        border-top: 1px dashed rgba(16, 55, 92, 0.18);
+        z-index: 1;
+    }
+    .tree-children-container > .tree-node-wrapper::after {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: -10px;
+        width: 1px;
+        height: 100%;
+        border-left: 1px dashed rgba(16, 55, 92, 0.18);
+    }
+    .tree-children-container > .tree-node-wrapper:last-child::after { height: 15px; }
+    .tree-node {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        padding: 7px 10px;
+        border-radius: 6px;
+        cursor: pointer;
+        font-size: 13px;
+        color: rgba(16, 55, 92, 0.70);
+        transition: background 0.12s, color 0.12s;
+        user-select: none;
+    }
+    .tree-node:hover { background: rgba(16, 55, 92, 0.05); color: var(--navy); }
+    .tree-node.selected {
+        background: rgba(235, 131, 23, 0.10);
+        color: var(--orange);
+        font-weight: 600;
+    }
+    .tree-node.selected .tree-node-label { color: var(--orange); }
+    .tree-node-label { flex: 1; }
+    .tree-expand-btn {
+        width: 20px;
+        height: 20px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 4px;
+        transition: transform 0.15s;
+        flex-shrink: 0;
+    }
+    .tree-expand-btn svg { width: 12px; height: 12px; }
+    .tree-children { display: flex; flex-direction: column; gap: 4px; }
+    .tree-leaf-spacer { width: 20px; flex-shrink: 0; }
 
     /* ─── Toolbar & Filters ─── */
     .toolbar-wrap {
@@ -312,33 +496,7 @@
         color: rgba(16, 55, 92, 0.60);
     }
 
-    /* Status Pills */
-    .pill-badge {
-        display: inline-flex;
-        align-items: center;
-        padding: 4px 10px;
-        font-size: 11px;
-        font-weight: 600;
-        border-radius: 4px;
-        white-space: nowrap;
-    }
-    .pill-badge.approved {
-        background: #ECFDF5;
-        color: #047857;
-        border: 1px solid rgba(16, 185, 129, 0.20);
-    }
-    .pill-badge.pending {
-        background: #fffbeb;
-        color: #b45309;
-        border: 1px solid rgba(245, 158, 11, 0.30);
-    }
-    .pill-badge.rejected {
-        background: #fef2f2;
-        color: #b91c1c;
-        border: 1px solid rgba(239, 68, 68, 0.20);
-    }
-
-    /* Action buttons (Approve / Reject) */
+    /* Action buttons (Edit / Delete) */
     .btn-action {
         width: 32px;
         height: 32px;
@@ -349,20 +507,6 @@
         border-radius: 6px;
         cursor: pointer;
         transition: background 0.15s;
-    }
-    .btn-action.approve {
-        color: #059669;
-        background: none;
-    }
-    .btn-action.approve:hover {
-        background: #ECFDF5;
-    }
-    .btn-action.reject {
-        color: #ef4444;
-        background: none;
-    }
-    .btn-action.reject:hover {
-        background: #FEF2F2;
     }
     .btn-action svg {
         width: 16px;
@@ -383,23 +527,18 @@
 
     /* ─── Modals ─── */
     .modal-overlay {
+        display: none;
         position: fixed;
         inset: 0;
         background: rgba(16, 55, 92, 0.50);
         backdrop-filter: blur(4px);
-        display: flex;
         align-items: start;
         justify-content: center;
         z-index: 1000;
-        opacity: 0;
-        pointer-events: none;
-        transition: opacity 0.2s ease;
-        overflow-y: auto;
         padding: 32px 16px;
     }
     .modal-overlay.active {
-        opacity: 1;
-        pointer-events: auto;
+        display: flex !important;
     }
     .modal-box {
         background: #fff;
@@ -407,13 +546,13 @@
         max-width: 680px;
         border-radius: var(--radius-card);
         box-shadow: 0 20px 25px -5px rgba(16, 55, 92, 0.15), 0 10px 10px -5px rgba(16, 55, 92, 0.1);
-        transform: translateY(24px);
-        transition: transform 0.2s ease;
         display: flex;
         flex-direction: column;
+        animation: modalBoxSlideIn 0.2s ease;
     }
-    .modal-overlay.active .modal-box {
-        transform: translateY(0);
+    @keyframes modalBoxSlideIn {
+        from { opacity: 0; transform: translateY(-16px); }
+        to   { opacity: 1; transform: translateY(0); }
     }
 
     .modal-hdr {
@@ -789,6 +928,37 @@
         from { transform: translateY(-20px); opacity: 0; }
         to { transform: translateY(0); opacity: 1; }
     }
+    .btn-act-circle {
+        width: 26px;
+        height: 26px;
+        border-radius: 6px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        border: none;
+        cursor: pointer;
+        transition: background 0.15s, color 0.15s;
+    }
+    .btn-act-circle.edit {
+        background: rgba(16, 55, 92, 0.05);
+        color: rgba(16, 55, 92, 0.7);
+    }
+    .btn-act-circle.edit:hover {
+        background: rgba(16, 55, 92, 0.1);
+        color: var(--navy);
+    }
+    .btn-act-circle.del {
+        background: rgba(239, 68, 68, 0.05);
+        color: #ef4444;
+    }
+    .btn-act-circle.del:hover {
+        background: rgba(239, 68, 68, 0.1);
+        color: #dc2626;
+    }
+    .btn-act-circle svg {
+        width: 12px;
+        height: 12px;
+    }
 </style>
 
 <!-- Toast Notification Element -->
@@ -801,15 +971,6 @@
 <div class="tabs-wrap">
     <button class="tab-btn active" id="tab-all" onclick="window.setSKUTab('all')">
         Tất cả <span class="tab-badge" id="badge-all">0</span>
-    </button>
-    <button class="tab-btn" id="tab-pending" onclick="window.setSKUTab('pending')">
-        Chờ duyệt <span class="tab-badge" id="badge-pending">0</span>
-    </button>
-    <button class="tab-btn" id="tab-approved" onclick="window.setSKUTab('approved')">
-        Đã duyệt <span class="tab-badge" id="badge-approved">0</span>
-    </button>
-    <button class="tab-btn" id="tab-rejected" onclick="window.setSKUTab('rejected')">
-        Từ chối <span class="tab-badge" id="badge-rejected">0</span>
     </button>
 </div>
 
@@ -826,10 +987,9 @@
         <div class="select-wrap">
             <select id="skuCategorySelect">
                 <option>Tất cả</option>
-                <option>Vở & Sổ chép</option>
-                <option>Phụ kiện cá nhân</option>
-                <option>Dụng cụ viết & Vẽ</option>
-                <option>Thiết bị văn phòng tiện ích</option>
+                <c:forEach var="c" items="${categories}">
+                    <option><c:out value="${c.categoryName}"/></option>
+                </c:forEach>
             </select>
             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></svg>
         </div>
@@ -839,6 +999,14 @@
         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
         Xuất CSV
     </button>
+
+    <!-- Create SKU — only for MANAGER -->
+    <c:if test="${loggedInUser.role == 'MANAGER'}">
+    <button class="btn-add-sku" id="btnCreateSKUTrigger">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+        Thêm SKU mới
+    </button>
+    </c:if>
 </div>
 
 <!-- ══ TABLE SECTION ═════════════════════════════════════════ -->
@@ -852,9 +1020,9 @@
                     <th style="width: 90px;">Danh mục</th>
                     <th style="width: 140px; text-align: center;">KL / Kích thước</th>
                     <th style="width: 90px; text-align: right;">Tồn kho</th>
-                    <th style="width: 200px;">Vị trí lưu trữ</th>
+                    <th style="width: 180px;">Vị trí lưu trữ</th>
                     <th style="width: 185px;">Thông tin</th>
-                    <th style="width: 110px; text-align: center;">Phê duyệt</th>
+                    <th style="width: 120px; text-align: center;">Thao tác</th>
                 </tr>
             </thead>
             <tbody id="skuTableBody"></tbody>
@@ -866,85 +1034,121 @@
     </div>
 </div>
 
-<!-- ══ APPROVE MODAL (MULTI-LOCATION MATRIX) ════════════════ -->
-<div class="modal-overlay" id="approveModalOverlay">
-    <div class="modal-box">
+<!-- ══ CREATE MODAL ══════════════════════════════════════════ -->
+<div id="createModalOverlay" style="display:none; position:fixed; inset:0; background:rgba(16,55,92,0.55); backdrop-filter:blur(4px); z-index:9999; align-items:flex-start; justify-content:center; padding:32px 16px;">
+    <div class="modal-box" style="background:#fff; width:100%; max-width:680px; border-radius:8px; box-shadow:0 20px 25px -5px rgba(16,55,92,0.15), 0 10px 10px -5px rgba(16,55,92,0.1); display:flex; flex-direction:column; animation:modalBoxSlideIn 0.2s ease;">
         <div class="modal-hdr">
-            <div class="modal-hdr-top">
                 <div>
-                    <h2 class="modal-title">Phê duyệt và Gán vị trí Master SKU</h2>
-                    <p class="modal-subtitle">Cấu hình vị trí lưu trữ mặc định cho từng chi nhánh kho</p>
+                <h2 class="modal-title">Tạo Master SKU</h2>
+                <p class="modal-subtitle">Khai báo thông tin gốc sản phẩm</p>
                 </div>
-                <button class="modal-close" id="approveModalClose">&times;</button>
+            <button class="modal-close" id="createModalClose">&times;</button>
             </div>
-            
-            <div class="sku-preview-card" id="approve-sku-preview">
-                <!-- Populated dynamically -->
+        <div class="modal-body">
+            <div class="form-group">
+                <label class="form-label" for="create-sku">Mã SKU *</label>
+                <div style="display: flex; gap: 8px; align-items: stretch;">
+                    <input class="form-input" type="text" id="create-sku" readonly placeholder="Bấm nút Auto để sinh mã..." style="flex:1; background:rgba(16,55,92,0.03); cursor:not-allowed; font-weight:bold; color:var(--navy);"/>
+                    <button type="button" class="btn-export" id="btnAutoGenSku" title="Tự động tạo SKU" style="white-space:nowrap; padding:0 14px; height:38px;">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 3 21 3 21 8"/><line x1="4" y1="20" x2="21" y2="3"/><polyline points="21 16 21 21 16 21"/><line x1="15" y1="15" x2="21" y2="21"/><line x1="4" y1="4" x2="9" y2="9"/></svg>
+                        Auto
+                    </button>
+            </div>
+                <input type="hidden" id="create-category-id" value=""/>
+        </div>
+            <div class="form-group">
+                <label class="form-label" for="create-name">Tên sản phẩm *</label>
+                <input class="form-input" type="text" id="create-name" placeholder="Ví dụ: Lược chải tóc gỡ rối - Màu hồng"/>
+            </div>
+            <div class="form-group">
+                <label class="form-label" style="margin-bottom: 2px;">Danh mục hàng hóa * <span style="font-weight:400; color:rgba(16,55,92,0.40);">(chọn từ cây danh mục bên dưới)</span></label>
+                <input type="text" class="form-input" id="selectedCategoryDisplay" readonly placeholder="Nhấp chọn danh mục..." style="cursor:default; font-weight:600; background:#fff;"/>
+                <input type="hidden" id="create-category" value=""/>
+                <div class="category-tree-picker-box" id="categoryTreePicker"></div>
+                </div>
+            <div class="form-grid" style="grid-template-columns: 1.8fr 1fr; gap: 12px;">
+                <div class="form-group">
+                    <label class="form-label">Kích thước (D×R×C) cm</label>
+                    <div style="display:flex; gap:6px; align-items:center;">
+                        <input class="form-input" type="number" id="create-dim-length" min="0" step="any" placeholder="Dài" style="flex:1; min-width:0; width:0; text-align:center; padding:10px 4px;"/>
+                        <span style="color:rgba(16,55,92,0.35); font-size:13px;">×</span>
+                        <input class="form-input" type="number" id="create-dim-width"  min="0" step="any" placeholder="Rộng" style="flex:1; min-width:0; width:0; text-align:center; padding:10px 4px;"/>
+                        <span style="color:rgba(16,55,92,0.35); font-size:13px;">×</span>
+                        <input class="form-input" type="number" id="create-dim-height" min="0" step="any" placeholder="Cao" style="flex:1; min-width:0; width:0; text-align:center; padding:10px 4px;"/>
+                </div>
+            </div>
+                <div class="form-group">
+                    <label class="form-label" for="create-weight">Khối lượng (kg)</label>
+                    <input class="form-input" type="number" id="create-weight" min="0" step="any" placeholder="VD: 0.28" style="padding:10px 6px; min-width:0; width:100%;"/>
             </div>
         </div>
-        
-        <div class="modal-body" style="padding-top: 12px;">
-            <div>
-                <h3 class="matrix-title">Cấu hình vị trí lưu trữ mặc định</h3>
-                <p class="matrix-desc">Hệ thống sẽ dùng cấu hình này để hướng dẫn nhân viên khi có lô hàng mới nhập về từng chi nhánh.</p>
-            </div>
-            
-            <div class="matrix-headers">
-                <div class="matrix-headers-col">
-                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><line x1="9" y1="3" x2="9" y2="21"/><line x1="15" y1="3" x2="15" y2="21"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="3" y1="15" x2="21" y2="15"/></svg>
-                    Chi nhánh Kho (Location)
-                </div>
-                <div class="matrix-headers-col">
-                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/><path d="M19 12a7 7 0 1 1-14 0 7 7 0 0 1 14 0Z"/></svg>
-                    Khu vực trong kho (Zone)
-                </div>
-                <div style="width: 32px;"></div>
-            </div>
-            
-            <div class="matrix-rows-container" id="matrixRowsContainer">
-                <!-- Dynamically populated -->
-            </div>
-            
-            <button class="btn-add-row" id="btnAddMatrixRow">
-                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
-                Thêm cấu hình kho khác
-            </button>
         </div>
-        
         <div class="modal-ftr">
-            <button class="btn-cancel" id="approveModalCancel">Hủy</button>
-            <button class="btn-submit" id="btnApproveSubmit">Phê duyệt</button>
+            <button class="modal-close btn-export" id="createModalCancel" style="padding:9px 16px;">Hủy</button>
+            <button class="btn-add-sku" id="btnCreateSKUSubmit">Tạo SKU</button>
         </div>
     </div>
 </div>
 
-<!-- ══ REJECT MODAL ═════════════════════════════════════════ -->
-<div class="modal-overlay" id="rejectModalOverlay">
-    <div class="modal-box" style="max-width: 480px;">
+<!-- ══ EDIT MODAL ══════════════════════════════════════════ -->
+<div id="editModalOverlay" style="display:none; position:fixed; inset:0; background:rgba(16,55,92,0.55); backdrop-filter:blur(4px); z-index:9999; align-items:flex-start; justify-content:center; padding:32px 16px;">
+    <div class="modal-box" style="background:#fff; width:100%; max-width:680px; border-radius:8px; box-shadow:0 20px 25px -5px rgba(16,55,92,0.15), 0 10px 10px -5px rgba(16,55,92,0.1); display:flex; flex-direction:column; animation:modalBoxSlideIn 0.2s ease;">
         <div class="modal-hdr">
-            <div class="modal-hdr-top">
                 <div>
-                    <h2 class="modal-title">Từ chối Master SKU</h2>
-                    <p class="modal-subtitle" id="reject-sku-code-label">SKU-XXXX</p>
+                <h2 class="modal-title">Chỉnh sửa SKU</h2>
+                <p class="modal-subtitle" id="edit-sku-code-label">SKU-XXXX</p>
                 </div>
-                <button class="modal-close" id="rejectModalClose">&times;</button>
+            <button class="modal-close" id="editModalClose">&times;</button>
             </div>
-        </div>
-        
         <div class="modal-body">
-            <input type="hidden" id="reject-item-id"/>
+            <input type="hidden" id="edit-id"/>
             <div class="form-group">
-                <label class="form-label" for="reject-reason">Lý do từ chối *</label>
-                <textarea class="form-textarea" id="reject-reason" placeholder="Nhập lý do từ chối sản phẩm này..."></textarea>
+                <label class="form-label" for="edit-name">Tên sản phẩm *</label>
+                <input class="form-input" type="text" id="edit-name" placeholder="Tên sản phẩm..."/>
+            </div>
+            <div class="form-group">
+                <label class="form-label" style="margin-bottom: 2px;">Danh mục hàng hóa * <span style="font-weight:400; color:rgba(16,55,92,0.40);">(chọn từ cây danh mục bên dưới)</span></label>
+                <input type="text" class="form-input" id="selectedEditCategoryDisplay" readonly placeholder="Nhấp chọn danh mục..." style="cursor:default; font-weight:600; background:#fff;"/>
+                <input type="hidden" id="edit-category" value=""/>
+                <div class="category-tree-picker-box" id="editCategoryTreePicker"></div>
+        </div>
+            <div class="form-grid" style="grid-template-columns: 1.8fr 1fr; gap: 12px;">
+                <div class="form-group">
+                    <label class="form-label">Kích thước (D×R×C) cm</label>
+                    <div style="display:flex; gap:6px; align-items:center;">
+                        <input class="form-input" type="number" id="edit-dim-length" min="0" step="any" placeholder="Dài" style="flex:1; min-width:0; width:0; text-align:center; padding:10px 4px;"/>
+                        <span style="color:rgba(16,55,92,0.35); font-size:13px;">×</span>
+                        <input class="form-input" type="number" id="edit-dim-width"  min="0" step="any" placeholder="Rộng" style="flex:1; min-width:0; width:0; text-align:center; padding:10px 4px;"/>
+                        <span style="color:rgba(16,55,92,0.35); font-size:13px;">×</span>
+                        <input class="form-input" type="number" id="edit-dim-height" min="0" step="any" placeholder="Cao" style="flex:1; min-width:0; width:0; text-align:center; padding:10px 4px;"/>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label class="form-label" for="edit-weight">Khối lượng (kg)</label>
+                    <input class="form-input" type="number" id="edit-weight" min="0" step="any" placeholder="VD: 0.28" style="padding:10px 6px; min-width:0; width:100%;"/>
+                </div>
+            </div>
+            <div class="form-grid">
+                <div class="form-group">
+                    <label class="form-label" for="edit-barcode">Mã vạch (Barcode)</label>
+                    <input class="form-input" type="text" id="edit-barcode" placeholder="Barcode..."/>
+                </div>
+                <div class="form-group">
+                    <label class="form-label" for="edit-unit">Đơn vị tính</label>
+                    <input class="form-input" type="text" id="edit-unit" placeholder="VD: Cái, Hộp..."/>
+                </div>
             </div>
         </div>
-        
         <div class="modal-ftr">
-            <button class="btn-cancel" id="rejectModalCancel">Hủy</button>
-            <button class="btn-submit" id="btnRejectSubmit" style="background-color: #ef4444;">Từ chối</button>
+            <button class="btn-cancel" id="editModalCancel">Hủy</button>
+            <button class="btn-submit" id="btnEditSKUSubmit">Lưu thay đổi</button>
         </div>
     </div>
 </div>
+
+<div id="productsJsonData" style="display:none;"><c:out value="${productsJson}"/></div>
+<div id="warehousesJsonData" style="display:none;"><c:out value="${warehousesJson}"/></div>
+<div id="categoriesJsonData" style="display:none;"><c:out value="${categoriesJson}"/></div>
 
 <!-- ══ SCRIPT LOGIC ══════════════════════════════════════════ -->
 <script>
@@ -1011,66 +1215,46 @@ function submitPostAction(action, params) {
 (function () {
 'use strict';
 
-// Bind server-side product data if available from servlet
-var SERVER_PRODUCTS = [];
+var skus = [];
 try {
-    var rawJson = '<c:out value="${productsJson}" escapeXml="false"/>';
-    if (rawJson && rawJson.trim() && rawJson.indexOf('productsJson') === -1) {
-        SERVER_PRODUCTS = JSON.parse(rawJson);
-    }
-} catch (e) {
-    console.warn('master-sku: No server product data, using localStorage fallback');
-}
-
-// Shared localStorage database
-var savedSKUs = localStorage.getItem('wms_skus');
-var localSKUs = savedSKUs ? JSON.parse(savedSKUs) : [];
-
-function hasVisibleMojibake(text) {
-    if (!text) return false;
-    return /Ã.|Æ.|áº|á»|Ä‘|á¸/i.test(String(text));
-}
-
-function shouldUseLocalFallback(serverProducts, localProducts) {
-    if (serverProducts.length > 0) {
-        return false;
-    }
-    return localProducts.length > 0;
-}
-
-/* ─── State ──────────────────────────────────────────────── */
-var skus = shouldUseLocalFallback(SERVER_PRODUCTS, localSKUs) ? localSKUs : SERVER_PRODUCTS.map(function(p) {
+    var rawJsonEl = document.getElementById('productsJsonData');
+    var rawJson = rawJsonEl ? rawJsonEl.textContent : '';
+    if (rawJson && rawJson.trim()) {
+        var SERVER_PRODUCTS = JSON.parse(rawJson);
+        skus = SERVER_PRODUCTS.map(function(p) {
     return {
-        id: p.id || ('p-' + p.productId),
+                id: 'p-' + (p.productId || 0),
+                productId: p.productId || 0,
         sku: p.sku || p.skuCode || '',
         name: p.name || p.productName || '',
+                categoryId: p.categoryId,
+                barcode: p.barcode || '',
+                unit: p.unit || '',
         category: p.category || p.categoryName || '',
         dimensions: p.dimensions || p.attributesText || 'N/A',
         weight: p.weight || (p.weightKg ? p.weightKg + ' kg' : 'N/A'),
         qtyOnHand: typeof p.qtyOnHand !== 'undefined' ? p.qtyOnHand : 0,
         minStock: p.minStock || 0,
         maxStock: p.maxStock || 0,
-        status: p.status || 'pending',
-        approvalStatus: p.approvalStatus || (p.status === 'APPROVED' ? 'approved' : p.status === 'REJECTED' ? 'rejected' : 'pending'),
         locationConfigs: p.locationConfigs || [],
         createdBy: p.creatorName || p.createdBy || '',
         createdAt: p.createdAt || '',
-        updatedBy: p.approverName || p.updatedBy || '',
-        lastUpdated: p.lastUpdated || p.updatedAt || '',
-        reviewNote: p.reviewNote || ''
+        updatedBy: p.creatorName || p.createdBy || '',
+                lastUpdated: p.lastUpdated || p.updatedAt || ''
     };
 });
-
-if (SERVER_PRODUCTS.length > 0 && skus.some(function (item) { return hasVisibleMojibake(item.name); })) {
-    console.warn('master-sku: Server product data still contains mojibake product names');
+    }
+} catch (e) {
+    console.warn('master-sku: No server product data');
 }
 
 
 // Bind dynamic warehouses and zones from servlet
 var DB_WAREHOUSES = [];
 try {
-    var rawWhJson = '<c:out value="${warehousesJson}" escapeXml="false"/>';
-    if (rawWhJson && rawWhJson.trim() && rawWhJson.indexOf('warehousesJson') === -1) {
+    var rawWhJsonEl = document.getElementById('warehousesJsonData');
+    var rawWhJson = rawWhJsonEl ? rawWhJsonEl.textContent : '';
+    if (rawWhJson && rawWhJson.trim()) {
         DB_WAREHOUSES = JSON.parse(rawWhJson);
     }
 } catch (e) {
@@ -1094,43 +1278,71 @@ if (DB_WAREHOUSES.length > 0) {
                     locationId: wh.warehouseId.toString(),
                     code: z.zoneCode,
                     name: z.zoneName,
-                    allowForNew: z.zoneType === 'NORMAL' || z.zoneType === 'RETURN'
+                    allowForNew: z.zoneType === 'NORMAL' || z.zoneType === 'RETURN' || z.zoneType === 'DAMAGED'
                 });
             });
         }
     });
-} else {
-    // Fallback to static
-    LOCATIONS = [
-        { id: "loc-hn",  name: "Kho Hà Nội",      code: "HN",  city: "Hà Nội" },
-        { id: "loc-dn",  name: "Kho Đà Nẵng",     code: "DN",  city: "Đà Nẵng" },
-        { id: "loc-hcm", name: "Kho TP. Hồ Chí Minh", code: "HCM", city: "TP.HCM" }
-    ];
-    ZONES = [
-        { id: "z-hn-regular",   locationId: "loc-hn",  code: "HN-A1", name: "Khu Hàng Thường",          allowForNew: true  },
-        { id: "z-hn-cold",      locationId: "loc-hn",  code: "HN-B1", name: "Khu Hàng Lạnh / Giá trị cao", allowForNew: true  },
-        { id: "z-hn-promo",     locationId: "loc-hn",  code: "HN-C1", name: "Khu Hàng Khuyến Mãi",      allowForNew: true  },
-        { id: "z-hn-damaged",   locationId: "loc-hn",  code: "HN-D1", name: "Khu Hàng Hỏng",            allowForNew: false },
-        { id: "z-hn-complaint", locationId: "loc-hn",  code: "HN-D2", name: "Khu Hàng Khiếu Nại",       allowForNew: false },
-        { id: "z-dn-regular",   locationId: "loc-dn",  code: "DN-A1", name: "Khu Hàng Thường",          allowForNew: true  },
-        { id: "z-dn-cold",      locationId: "loc-dn",  code: "DN-B1", name: "Khu Hàng Lạnh / Giá trị cao", allowForNew: true  },
-        { id: "z-dn-damaged",   locationId: "loc-dn",  code: "DN-D1", name: "Khu Hàng Hỏng",            allowForNew: false },
-        { id: "z-dn-complaint", locationId: "loc-dn",  code: "DN-D2", name: "Khu Hàng Khiếu Nại",       allowForNew: false },
-        { id: "z-hcm-regular",  locationId: "loc-hcm", code: "HCM-A1", name: "Khu Hàng Thường",         allowForNew: true  },
-        { id: "z-hcm-cold",     locationId: "loc-hcm", code: "HCM-B1", name: "Khu Hàng Lạnh / Giá trị cao", allowForNew: true },
-        { id: "z-hcm-promo",    locationId: "loc-hcm", code: "HCM-C1", name: "Khu Hàng Khuyến Mãi",     allowForNew: true  },
-        { id: "z-hcm-damaged",  locationId: "loc-hcm", code: "HCM-D1", name: "Khu Hàng Hỏng",           allowForNew: false },
-        { id: "z-hcm-complaint",locationId: "loc-hcm", code: "HCM-D2", name: "Khu Hàng Khiếu Nại",      allowForNew: false }
-    ];
+
+}
+
+var DB_CATEGORIES = [];
+try {
+    var rawCategoriesJsonEl = document.getElementById('categoriesJsonData');
+    var rawCategoriesJson = rawCategoriesJsonEl ? rawCategoriesJsonEl.textContent : '';
+    if (rawCategoriesJson && rawCategoriesJson.trim()) {
+        var parsed = JSON.parse(rawCategoriesJson);
+        DB_CATEGORIES = parsed.map(function(c) {
+            return {
+                categoryId: c.id,
+                categoryName: c.name,
+                categoryCode: c.code,
+                parentId: c.parentId,
+                description: c.description,
+                immutable: c.immutable,
+                active: c.active
+            };
+        });
+    }
+} catch (e) {
+    console.warn('master-sku: Failed to parse categoriesJson', e);
+}
+
+function buildCategoryTreeOptions(categories, isFilter) {
+    var html = isFilter ? '<option value="Tất cả">Tất cả</option>' : '';
+    
+    function recurse(parentId, prefix) {
+        var levelNodes = categories.filter(function(c) {
+            var nodeParentId = c.parentId;
+            if (parentId === null) {
+                return nodeParentId === null || nodeParentId === 0 || nodeParentId === 'null';
+            }
+            return nodeParentId == parentId;
+        });
+        
+        levelNodes.forEach(function(node) {
+            html += '<option value="' + escapeHtml(node.categoryName) + '">' + prefix + escapeHtml(node.categoryName) + '</option>';
+            recurse(node.categoryId, prefix + '    ');
+        });
+    }
+    
+    recurse(null, '');
+    return html;
+}
+
+function escapeHtml(str) {
+    if (!str) return '';
+    return str
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#039;");
 }
 
 var search = '';
 var selectedCategory = 'Tất cả';
-var activeTab = 'all'; // 'all', 'pending', 'approved', 'rejected'
-
-// Active modals states
-var currentApprovingItem = null;
-var matrixRows = []; // Array of { id, locationId, zoneId }
+var activeTab = 'all'; // 'all' (no more pending/approved/rejected tabs)
 
 /* ─── DOM Elements ───────────────────────────────────────── */
 var tableBody   = document.getElementById('skuTableBody');
@@ -1138,22 +1350,469 @@ var tableInfo   = document.getElementById('skuTableInfo');
 var searchInput = document.getElementById('skuSearchInput');
 var catSelect   = document.getElementById('skuCategorySelect');
 
-/* Modals */
-var approveOverlay = document.getElementById('approveModalOverlay');
-var btnApproveClose   = document.getElementById('approveModalClose');
-var btnApproveCancel  = document.getElementById('approveModalCancel');
-var btnApproveSubmit  = document.getElementById('btnApproveSubmit');
-var addMatrixRowBtn   = document.getElementById('btnAddMatrixRow');
-var matrixContainer   = document.getElementById('matrixRowsContainer');
-var skuPreviewCard    = document.getElementById('approve-sku-preview');
+if (catSelect && DB_CATEGORIES.length > 0) {
+    catSelect.innerHTML = buildCategoryTreeOptions(DB_CATEGORIES, true);
+}
 
-var rejectOverlay = document.getElementById('rejectModalOverlay');
-var btnRejectClose   = document.getElementById('rejectModalClose');
-var btnRejectCancel  = document.getElementById('rejectModalCancel');
-var btnRejectSubmit  = document.getElementById('btnRejectSubmit');
-var rejectIdInput    = document.getElementById('reject-item-id');
-var rejectReasonInput = document.getElementById('reject-reason');
-var rejectCodeLabel  = document.getElementById('reject-sku-code-label');
+/* ─── Create Modal — Category Tree Picker ──────────────────── */
+var selectedPickerCategory = '';
+var expandedPickerNodes = {};
+
+function renderPickerTree() {
+    var pickerContainer = document.getElementById('categoryTreePicker');
+    if (!pickerContainer) return;
+
+    var roots = DB_CATEGORIES.filter(function (c) {
+        return c.parentId === null || c.parentId === 0 || c.parentId === 'null';
+    });
+
+    if (roots.length === 0) {
+        pickerContainer.innerHTML = '<div style="color:rgba(16,55,92,0.4);text-align:center;padding:24px;">Chưa có danh mục nào.</div>';
+        return;
+    }
+
+    function buildPickerNodeHtml(node, level) {
+        var children = DB_CATEGORIES.filter(function (c) { return c.parentId === node.categoryId; });
+        var hasChildren = children.length > 0;
+
+        if (expandedPickerNodes[node.categoryId] === undefined) {
+            expandedPickerNodes[node.categoryId] = true;
+        }
+        var isExpanded = expandedPickerNodes[node.categoryId];
+        var isSelected = selectedPickerCategory === node.categoryName;
+        var indent = level * 16;
+
+        var html = '<div class="tree-node-wrapper">';
+        html += '<div class="tree-node' + (isSelected ? ' selected' : '') + '"'
+            + ' onclick="window.selectPickerCategory(decodeURIComponent(\'' + encodeURIComponent(node.categoryName) + '\'))"'
+            + ' style="padding-left:' + indent + 'px">';
+
+        if (hasChildren) {
+            html += '<span class="tree-expand-btn"'
+                + ' onclick="event.stopPropagation();window.togglePickerNode(' + node.categoryId + ')">'
+                + '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"'
+                + ' style="transform:rotate(' + (isExpanded ? '90deg' : '0deg') + ');transition:transform 0.15s">'
+                + '<polyline points="9 18 15 12 9 6"/></svg></span>';
+            } else {
+            html += '<span class="tree-leaf-spacer"></span>';
+        }
+
+        html += '<span class="tree-node-label">' + escapeHtml(node.categoryName) + '</span>';
+        html += '</div>';
+
+        if (hasChildren && isExpanded) {
+            html += '<div class="tree-children">';
+            children.forEach(function (child) {
+                html += buildPickerNodeHtml(child, level + 1);
+            });
+            html += '</div>';
+        }
+
+        html += '</div>';
+        return html;
+    }
+
+    var html = '<div style="display:flex;flex-direction:column;gap:4px;">';
+    roots.forEach(function (root) {
+        html += buildPickerNodeHtml(root, 0);
+    });
+    html += '</div>';
+    pickerContainer.innerHTML = html;
+}
+
+window.togglePickerNode = function (nodeId) {
+    expandedPickerNodes[nodeId] = !expandedPickerNodes[nodeId];
+    renderPickerTree();
+};
+
+window.selectPickerCategory = function (categoryName) {
+    selectedPickerCategory = categoryName;
+    var catIdInput = document.getElementById('create-category-id');
+    var catDisplay = document.getElementById('selectedCategoryDisplay');
+    var catHidden = document.getElementById('create-category');
+    var found = DB_CATEGORIES.find(function (c) { return c.categoryName === categoryName; });
+
+    if (catDisplay) catDisplay.value = categoryName;
+    if (catHidden) catHidden.value = categoryName;
+    if (catIdInput && found) catIdInput.value = found.categoryId || '';
+
+    renderPickerTree();
+};
+
+if (DB_CATEGORIES.length > 0) {
+    renderPickerTree();
+}
+
+/* ─── Edit Modal — Category Tree Picker ──────────────────── */
+var selectedEditPickerCategory = '';
+var expandedEditPickerNodes = {};
+
+function renderEditPickerTree() {
+    var pickerContainer = document.getElementById('editCategoryTreePicker');
+    if (!pickerContainer) return;
+
+    var roots = DB_CATEGORIES.filter(function (c) {
+        return c.parentId === null || c.parentId === 0 || c.parentId === 'null';
+    });
+
+    if (roots.length === 0) {
+        pickerContainer.innerHTML = '<div style="color:rgba(16,55,92,0.4);text-align:center;padding:24px;">Chưa có danh mục nào.</div>';
+        return;
+    }
+
+    function buildPickerNodeHtml(node, level) {
+        var children = DB_CATEGORIES.filter(function (c) { return c.parentId === node.categoryId; });
+        var hasChildren = children.length > 0;
+
+        if (expandedEditPickerNodes[node.categoryId] === undefined) {
+            expandedEditPickerNodes[node.categoryId] = true;
+        }
+        var isExpanded = expandedEditPickerNodes[node.categoryId];
+        var isSelected = selectedEditPickerCategory === node.categoryName;
+        var indent = level * 16;
+
+        var html = '<div class="tree-node-wrapper">';
+        html += '<div class="tree-node' + (isSelected ? ' selected' : '') + '"'
+            + ' onclick="window.selectEditPickerCategory(decodeURIComponent(\'' + encodeURIComponent(node.categoryName) + '\'))"'
+            + ' style="padding-left:' + indent + 'px">';
+
+        if (hasChildren) {
+            html += '<span class="tree-expand-btn"'
+                + ' onclick="event.stopPropagation();window.toggleEditPickerNode(' + node.categoryId + ')">'
+                + '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"'
+                + ' style="transform:rotate(' + (isExpanded ? '90deg' : '0deg') + ');transition:transform 0.15s">'
+                + '<polyline points="9 18 15 12 9 6"/></svg></span>';
+        } else {
+            html += '<span class="tree-leaf-spacer"></span>';
+        }
+
+        html += '<span class="tree-node-label">' + escapeHtml(node.categoryName) + '</span>';
+        html += '</div>';
+
+        if (hasChildren && isExpanded) {
+            html += '<div class="tree-children">';
+            children.forEach(function (child) {
+                html += buildPickerNodeHtml(child, level + 1);
+            });
+            html += '</div>';
+        }
+
+        html += '</div>';
+        return html;
+    }
+
+    var html = '<div style="display:flex;flex-direction:column;gap:4px;">';
+    roots.forEach(function (root) {
+        html += buildPickerNodeHtml(root, 0);
+    });
+    html += '</div>';
+    pickerContainer.innerHTML = html;
+}
+
+window.toggleEditPickerNode = function (nodeId) {
+    expandedEditPickerNodes[nodeId] = !expandedEditPickerNodes[nodeId];
+    renderEditPickerTree();
+};
+
+window.selectEditPickerCategory = function (categoryName) {
+    selectedEditPickerCategory = categoryName;
+    var catDisplay = document.getElementById('selectedEditCategoryDisplay');
+    var catHidden = document.getElementById('edit-category');
+    if (catDisplay) catDisplay.value = categoryName;
+    if (catHidden) catHidden.value = categoryName;
+
+    renderEditPickerTree();
+};
+
+/* Edit Modal DOM Elements & Handlers */
+var editOverlay   = document.getElementById('editModalOverlay');
+var btnEditClose  = document.getElementById('editModalClose');
+var btnEditCancel = document.getElementById('editModalCancel');
+var btnEditSubmit = document.getElementById('btnEditSKUSubmit');
+
+var editIdInput     = document.getElementById('edit-id');
+var editNameInput   = document.getElementById('edit-name');
+var editDimLengthInput = document.getElementById('edit-dim-length');
+var editDimWidthInput  = document.getElementById('edit-dim-width');
+var editDimHeightInput = document.getElementById('edit-dim-height');
+var editWgtInput    = document.getElementById('edit-weight');
+var editCodeLabel   = document.getElementById('edit-sku-code-label');
+var editBarcodeInput = document.getElementById('edit-barcode');
+var editUnitInput   = document.getElementById('edit-unit');
+var editCategoryInput = document.getElementById('edit-category');
+
+[btnEditClose, btnEditCancel].forEach(function (btn) {
+    if (btn) {
+        btn.addEventListener('click', function () {
+            editOverlay.style.display = 'none';
+        });
+    }
+});
+
+editOverlay.addEventListener('click', function (e) {
+    if (e.target === editOverlay) {
+        editOverlay.style.display = 'none';
+    }
+});
+
+window.triggerEditSKU = function (id) {
+    console.log('[master-sku] triggerEditSKU called for id:', id);
+    try {
+        var item = skus.find(function (s) { return s.id === id; });
+        console.log('[master-sku] item found:', item);
+        if (!item) { console.warn('[master-sku] no item for id', id); return; }
+
+        editIdInput.value = item.productId || item.id.substring(2);
+        editCodeLabel.textContent = item.sku;
+        editNameInput.value = item.name;
+
+        // Parse dimensions
+        var len = '', wid = '', hgt = '';
+        if (item.dimensions && item.dimensions !== 'N/A') {
+            var dimParts = item.dimensions.split(/[×x]/);
+            if (dimParts.length === 3) {
+                len = parseFloat(dimParts[0]) || '';
+                wid = parseFloat(dimParts[1]) || '';
+                hgt = parseFloat(dimParts[2]) || '';
+            }
+        }
+        editDimLengthInput.value = len;
+        editDimWidthInput.value = wid;
+        editDimHeightInput.value = hgt;
+
+        var wVal = '';
+        if (item.weight && item.weight !== 'N/A') {
+            wVal = parseFloat(item.weight.replace(' kg', '')) || '';
+        }
+        editWgtInput.value = wVal;
+        editBarcodeInput.value = item.barcode || '';
+        editUnitInput.value = item.unit || '';
+
+        window.selectEditPickerCategory(item.category || '');
+
+        console.log('[master-sku] opening edit overlay');
+        editOverlay.style.display = 'flex';
+        console.log('[master-sku] edit overlay display:', editOverlay.style.display);
+    } catch (err) {
+        console.error('[master-sku] triggerEditSKU FAILED:', err);
+    }
+};
+
+window.triggerDeleteSKU = function (id) {
+    var item = skus.find(function (s) { return s.id === id; });
+    if (!item) return;
+
+    if (confirm('Bạn có chắc chắn muốn xóa SKU "' + item.sku + '"?')) {
+        if (id.indexOf('p-') === 0) {
+            var productId = id.substring(2);
+            submitPostAction('delete', { productId: productId });
+        }
+    }
+};
+
+if (btnEditSubmit) {
+    btnEditSubmit.addEventListener('click', function () {
+        var productId = editIdInput.value;
+        var nameVal = editNameInput.value.trim();
+        
+        if (!nameVal) {
+            alert('Tên sản phẩm không được bỏ trống!');
+            return;
+        }
+
+        var lVal = editDimLengthInput.value.trim();
+        var wVal = editDimWidthInput.value.trim();
+        var hVal = editDimHeightInput.value.trim();
+        
+        var dimensionsVal = 'N/A';
+        if (lVal || wVal || hVal) {
+            var l = parseFloat(lVal) || 0;
+            var w = parseFloat(wVal) || 0;
+            var h = parseFloat(hVal) || 0;
+            if (l <= 0 || w <= 0 || h <= 0) {
+                alert('Kích thước Dài, Rộng, Cao phải là số thực dương!');
+                return;
+            }
+            dimensionsVal = l + '×' + w + '×' + h;
+        }
+        
+        var wgtVal = editWgtInput.value.trim();
+        var weightVal = '0';
+        if (wgtVal) {
+            var wgt = parseFloat(wgtVal) || 0;
+            if (wgt <= 0) {
+                alert('Khối lượng phải là số thực dương!');
+                return;
+            }
+            weightVal = wgt.toString();
+        }
+
+        var catName = editCategoryInput.value ? editCategoryInput.value.trim() : '';
+        var catId = '';
+        if (catName) {
+            var found = DB_CATEGORIES.find(function (c) { return c.categoryName === catName; });
+            if (found) catId = found.categoryId;
+        }
+
+        submitPostAction('update', {
+            productId: productId,
+            productName: nameVal,
+            categoryId: catId,
+            dimensions: dimensionsVal,
+            weight: weightVal,
+            barcode: editBarcodeInput.value.trim(),
+            unit: editUnitInput.value.trim()
+        });
+    });
+}
+
+/* ─── Create Modal DOM Elements & Handlers ─────────────────── */
+var createOverlay = document.getElementById('createModalOverlay');
+var btnCreateTrigger = document.getElementById('btnCreateSKUTrigger');
+var btnCreateClose   = document.getElementById('createModalClose');
+var btnCreateCancel  = document.getElementById('createModalCancel');
+var btnCreateSubmit  = document.getElementById('btnCreateSKUSubmit');
+
+var createSkuInput  = document.getElementById('create-sku');
+var createNameInput = document.getElementById('create-name');
+var createCatInput  = document.getElementById('create-category');
+var createDimLengthInput = document.getElementById('create-dim-length');
+var createDimWidthInput  = document.getElementById('create-dim-width');
+var createDimHeightInput = document.getElementById('create-dim-height');
+var createWgtInput  = document.getElementById('create-weight');
+
+if (btnCreateTrigger) {
+    btnCreateTrigger.addEventListener('click', function () {
+        if (DB_CATEGORIES.length > 0 && !selectedPickerCategory) {
+            window.selectPickerCategory(DB_CATEGORIES[0].categoryName);
+        }
+        createOverlay.style.display = 'flex';
+    });
+}
+
+[btnCreateClose, btnCreateCancel].forEach(function (btn) {
+    if (btn) {
+        btn.addEventListener('click', function () {
+            createOverlay.style.display = 'none';
+            clearCreateForm();
+        });
+    }
+});
+
+createOverlay.addEventListener('click', function (e) {
+    if (e.target === createOverlay) {
+        createOverlay.style.display = 'none';
+        clearCreateForm();
+    }
+});
+
+/* Auto Generate SKU */
+var btnAutoGen = document.getElementById('btnAutoGenSku');
+if (btnAutoGen) {
+    btnAutoGen.addEventListener('click', function () {
+        var catIdInput = document.getElementById('create-category-id');
+        var catId = catIdInput ? catIdInput.value : '';
+        if (!catId) {
+            alert('Vui lòng chọn danh mục trước!');
+            return;
+        }
+        btnAutoGen.disabled = true;
+        btnAutoGen.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="animation:spin 0.8s linear infinite"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg> Đang tạo...';
+        fetch('${pageContext.request.contextPath}/business/sku/generate?categoryId=' + catId)
+            .then(function(resp) { return resp.json(); })
+            .then(function(data) {
+                if (data.sku) {
+                    createSkuInput.value = data.sku;
+                    createSkuInput.removeAttribute('readonly');
+                    createSkuInput.style.background = '#fff';
+                    createSkuInput.style.cursor = 'text';
+                    createSkuInput.style.color = '#059669';
+                    createSkuInput.style.fontWeight = '700';
+                    setTimeout(function() {
+                        createSkuInput.style.color = '';
+                        createSkuInput.style.fontWeight = '';
+                    }, 2000);
+                } else {
+                    alert('Lỗi: ' + (data.error || 'Không thể tạo SKU tự động.'));
+                }
+            })
+            .catch(function() {
+                alert('Lỗi mạng khi tạo SKU tự động.');
+            })
+            .finally(function() {
+                btnAutoGen.disabled = false;
+                btnAutoGen.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 3 21 3 21 8"/><line x1="4" y1="20" x2="21" y2="3"/><polyline points="21 16 21 21 16 21"/><line x1="15" y1="15" x2="21" y2="21"/><line x1="4" y1="4" x2="9" y2="9"/></svg> Auto';
+            });
+    });
+}
+
+/* Create Submit */
+if (btnCreateSubmit) {
+    btnCreateSubmit.addEventListener('click', function () {
+        var skuVal  = createSkuInput.value.trim();
+        var nameVal = createNameInput.value.trim();
+
+        if (!skuVal || !nameVal) {
+            alert('Vui lòng nhập đầy đủ Mã SKU và Tên sản phẩm!');
+            return;
+        }
+
+        var lVal = createDimLengthInput.value.trim();
+        var wVal = createDimWidthInput.value.trim();
+        var hVal = createDimHeightInput.value.trim();
+
+        var dimensionsVal = 'N/A';
+        if (lVal || wVal || hVal) {
+            var l = parseFloat(lVal) || 0;
+            var w = parseFloat(wVal) || 0;
+            var h = parseFloat(hVal) || 0;
+            if (l <= 0 || w <= 0 || h <= 0) {
+                alert('Kích thước Dài, Rộng, Cao phải là số thực dương!');
+            return;
+            }
+            dimensionsVal = l + '×' + w + '×' + h;
+        }
+
+        var wgtVal = createWgtInput.value.trim();
+        var weightVal = '0';
+        if (wgtVal) {
+            var wgt = parseFloat(wgtVal) || 0;
+            if (wgt <= 0) {
+                alert('Khối lượng phải là số thực dương!');
+                return;
+            }
+            weightVal = wgt.toString();
+        }
+
+        submitPostAction('create', {
+            skuCode: skuVal,
+            productName: nameVal,
+            categoryName: createCatInput.value ? createCatInput.value.trim() : '',
+            dimensions: dimensionsVal,
+            weight: weightVal
+        });
+    });
+}
+
+function clearCreateForm() {
+    if (!createSkuInput) return;
+    createSkuInput.value = '';
+    createSkuInput.setAttribute('readonly', 'true');
+    createSkuInput.style.background = 'rgba(16, 55, 92, 0.03)';
+    createSkuInput.style.cursor = 'not-allowed';
+    createNameInput.value = '';
+    if (DB_CATEGORIES.length > 0) {
+        window.selectPickerCategory(DB_CATEGORIES[0].categoryName);
+    } else {
+        window.selectPickerCategory('');
+    }
+    createDimLengthInput.value = '';
+    createDimWidthInput.value  = '';
+    createDimHeightInput.value = '';
+    createWgtInput.value  = '';
+}
+
+function padZero(n) { return n < 10 ? '0' + n : n; }
 
 /* ─── Handlers ───────────────────────────────────────────── */
 if (searchInput) {
@@ -1171,266 +1830,11 @@ if (catSelect) {
 
 window.setSKUTab = function (tabId) {
     activeTab = tabId;
-    // Highlight button
-    ['all', 'pending', 'approved', 'rejected'].forEach(function (t) {
-        var btn = document.getElementById('tab-' + t);
-        if (btn) {
-            if (t === tabId) {
-                btn.classList.add('active');
-            } else {
-                btn.classList.remove('active');
-            }
-        }
-    });
+    var btn = document.getElementById('tab-all');
+    if (btn) {
+        btn.classList.toggle('active', tabId === 'all');
+    }
     renderAll();
-};
-
-/* ─── Approve Matrix Logic ──────────────────────────────── */
-function openApproveModal(item) {
-    currentApprovingItem = item;
-    matrixRows = [{ id: 'row-' + Date.now(), locationId: '', zoneId: '' }];
-    
-    // Fill preview card
-    skuPreviewCard.innerHTML = 
-        '<div class="sku-preview-icon">' +
-            '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path></svg>' +
-        '</div>' +
-        '<div>' +
-            '<div class="sku-preview-meta">' +
-                '<span>' + item.sku + '</span>' +
-                '<span class="sku-preview-tag">' + item.category + '</span>' +
-            '</div>' +
-            '<div class="sku-preview-name">' + item.name + '</div>' +
-            '<div class="sku-preview-specs">' +
-                '<span><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3v18M12 3L7 8m5-5 5 5"/></svg> ' + item.weight + '</span>' +
-                '<span><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><line x1="9" y1="3" x2="9" y2="21"/></svg> ' + item.dimensions + '</span>' +
-            '</div>' +
-        '</div>';
-
-    renderMatrixRows();
-    approveOverlay.classList.add('active');
-}
-
-function closeApproveModal() {
-    approveOverlay.classList.remove('active');
-    currentApprovingItem = null;
-    matrixRows = [];
-}
-
-[btnApproveClose, btnApproveCancel].forEach(function (btn) {
-    if (btn) btn.addEventListener('click', closeApproveModal);
-});
-
-if (addMatrixRowBtn) {
-    addMatrixRowBtn.addEventListener('click', function () {
-        if (matrixRows.length < LOCATIONS.length) {
-            matrixRows.push({ id: 'row-' + Date.now(), locationId: '', zoneId: '' });
-            renderMatrixRows();
-        }
-    });
-}
-
-function deleteMatrixRow(rowId) {
-    if (matrixRows.length > 1) {
-        matrixRows = matrixRows.filter(function (r) { return r.id !== rowId; });
-        renderMatrixRows();
-    }
-}
-
-function updateMatrixRowLocation(rowId, locationId) {
-    matrixRows = matrixRows.map(function (row) {
-        if (row.id === rowId) {
-            return { id: row.id, locationId: locationId, zoneId: '' }; // reset zone on location change
-        }
-        return row;
-    });
-    renderMatrixRows();
-}
-
-function updateMatrixRowZone(rowId, zoneId) {
-    matrixRows = matrixRows.map(function (row) {
-        if (row.id === rowId) {
-            return { id: row.id, locationId: row.locationId, zoneId: zoneId };
-        }
-        return row;
-    });
-    renderMatrixRows();
-}
-
-function checkDuplicateLocations() {
-    var locs = matrixRows.map(function (r) { return r.locationId; }).filter(function (id) { return !!id; });
-    var duplicates = locs.filter(function (id, idx) { return locs.indexOf(id) !== idx; });
-    return duplicates;
-}
-
-function renderMatrixRows() {
-    var duplicates = checkDuplicateLocations();
-    var isAllSelected = matrixRows.length > 0 && matrixRows.every(function (r) { return r.locationId && r.zoneId; });
-    var hasDuplicates = duplicates.length > 0;
-    
-    // Toggle approve submit state
-    btnApproveSubmit.disabled = !isAllSelected || hasDuplicates;
-
-    // Show/hide add row button if max limit reached
-    if (matrixRows.length >= LOCATIONS.length) {
-        addMatrixRowBtn.style.display = 'none';
-    } else {
-        addMatrixRowBtn.style.display = 'flex';
-    }
-
-    matrixContainer.innerHTML = matrixRows.map(function (row, index) {
-        var availableZones = row.locationId 
-            ? ZONES.filter(function (z) { return z.locationId === row.locationId && z.allowForNew; })
-            : [];
-            
-        var isDup = duplicates.indexOf(row.locationId) > -1 && !!row.locationId;
-        var usedLocations = matrixRows.filter(function (r) { return r.id !== row.id && r.locationId; }).map(function (r) { return r.locationId; });
-
-        var locOptions = LOCATIONS.map(function (loc) {
-            var disabled = usedLocations.indexOf(loc.id) > -1 ? 'disabled' : '';
-            var selected = row.locationId === loc.id ? 'selected' : '';
-            var suffix = usedLocations.indexOf(loc.id) > -1 ? ' (đã chọn)' : '';
-            return '<option value="' + loc.id + '" ' + selected + ' ' + disabled + '>' + loc.name + suffix + '</option>';
-        }).join('');
-
-        var zoneOptions = availableZones.map(function (zone) {
-            var selected = row.zoneId === zone.id ? 'selected' : '';
-            return '<option value="' + zone.id + '" ' + selected + '>' + zone.name + '</option>';
-        }).join('');
-
-        var zoneDisabled = !row.locationId ? 'disabled' : '';
-        var deleteDisabled = matrixRows.length === 1 ? 'disabled' : '';
-        
-        var duplicateErr = isDup ? '<p class="matrix-row-err">⚠ Chi nhánh đã được cấu hình ở hàng khác</p>' : '';
-        var rowClass = isDup ? 'matrix-row duplicate' : 'matrix-row';
-
-        return '<div class="' + rowClass + '">' +
-            '<div>' +
-                '<div class="matrix-row-select-wrap">' +
-                    '<svg class="prefix-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg>' +
-                    '<select onchange="window.handleMatrixLocChange(\'' + row.id + '\', this.value)">' +
-                        '<option value="">-- Chọn kho --</option>' +
-                        locOptions +
-                    '</select>' +
-                    '<svg class="suffix-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>' +
-                '</div>' +
-                duplicateErr +
-            '</div>' +
-            
-            '<div>' +
-                '<div class="matrix-row-select-wrap">' +
-                    '<svg class="prefix-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/><path d="M19 12a7 7 0 1 1-14 0 7 7 0 0 1 14 0Z"/></svg>' +
-                    '<select ' + zoneDisabled + ' onchange="window.handleMatrixZoneChange(\'' + row.id + '\', this.value)">' +
-                        '<option value="">' + (row.locationId ? '-- Chọn khu vực --' : '← Chọn kho trước') + '</option>' +
-                        zoneOptions +
-                    '</select>' +
-                    '<svg class="suffix-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>' +
-                '</div>' +
-            '</div>' +
-            
-            '<button class="btn-row-delete" ' + deleteDisabled + ' onclick="window.handleMatrixRowDelete(\'' + row.id + '\')" title="Xóa dòng này">' +
-                '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>' +
-            '</button>' +
-        '</div>';
-    }).join('');
-}
-
-window.handleMatrixLocChange = function (rowId, locationId) {
-    updateMatrixRowLocation(rowId, locationId);
-};
-window.handleMatrixZoneChange = function (rowId, zoneId) {
-    updateMatrixRowZone(rowId, zoneId);
-};
-window.handleMatrixRowDelete = function (rowId) {
-    deleteMatrixRow(rowId);
-};
-
-/* Approve Submit */
-if (btnApproveSubmit) {
-    btnApproveSubmit.addEventListener('click', function () {
-        if (!currentApprovingItem) return;
-        
-        var id = currentApprovingItem.id;
-        var productId = id;
-        if (id.indexOf('p-') === 0) {
-            productId = id.substring(2);
-        }
-        
-        var formattedConfigs = matrixRows.map(function (row) {
-            return {
-                locationId: row.locationId,
-                zoneId: row.zoneId
-            };
-        });
-
-        closeApproveModal();
-        submitPostAction('approve', {
-            productId: productId,
-            locationConfigsJson: JSON.stringify(formattedConfigs)
-        });
-    });
-}
-
-/* ─── Reject Modal Logic ───────────────────────────────── */
-function openRejectModal(item) {
-    rejectIdInput.value = item.id;
-    rejectCodeLabel.textContent = item.sku;
-    rejectReasonInput.value = '';
-    rejectOverlay.classList.add('active');
-}
-
-function closeRejectModal() {
-    rejectOverlay.classList.remove('active');
-}
-
-[btnRejectClose, btnRejectCancel].forEach(function (btn) {
-    if (btn) btn.addEventListener('click', closeRejectModal);
-});
-
-if (btnRejectSubmit) {
-    btnRejectSubmit.addEventListener('click', function () {
-        var reason = rejectReasonInput.value.trim();
-        if (!reason) {
-            alert('Vui lòng nhập lý do từ chối!');
-            return;
-        }
-
-        var id = rejectIdInput.value;
-        var productId = id;
-        if (id.indexOf('p-') === 0) {
-            productId = id.substring(2);
-        }
-
-        closeRejectModal();
-        submitPostAction('reject', {
-            productId: productId,
-            rejectReason: reason
-        });
-    });
-}
-
-/* Click backdrop overlay to close modals */
-[approveOverlay, rejectOverlay].forEach(function (overlay) {
-    if (overlay) {
-        overlay.addEventListener('click', function (e) {
-            if (e.target === overlay) {
-                overlay.classList.remove('active');
-                if (overlay === approveOverlay) closeApproveModal();
-                if (overlay === rejectOverlay) closeRejectModal();
-            }
-        });
-    }
-});
-
-/* Trigger global approvals */
-window.triggerApproveSKU = function (id) {
-    var item = skus.find(function (s) { return s.id === id; });
-    if (item) openApproveModal(item);
-};
-
-window.triggerRejectSKU = function (id) {
-    var item = skus.find(function (s) { return s.id === id; });
-    if (item) openRejectModal(item);
 };
 
 /* CSV Export */
@@ -1438,7 +1842,7 @@ var btnExportCSV = document.getElementById('btnExportCSV');
 if (btnExportCSV) {
     btnExportCSV.addEventListener('click', function () {
         var filteredList = getFilteredList();
-        var headers = ["Mã SKU", "Tên sản phẩm", "Danh mục", "Khối lượng", "Kích thước", "Tồn kho", "Cấu hình kho", "Trạng thái", "Tạo bởi", "Cập nhật"];
+        var headers = ["Mã SKU", "Tên sản phẩm", "Danh mục", "Khối lượng", "Kích thước", "Tồn kho", "Cấu hình kho", "Tạo bởi", "Cập nhật"];
         var csvContent = "\uFEFF" + headers.join(",") + "\n";
         
         filteredList.forEach(function (item) {
@@ -1450,8 +1854,6 @@ if (btnExportCSV) {
                   }).join(" | ")
                 : "Chưa gán vị trí";
             
-            var statusStr = item.approvalStatus === 'approved' ? 'Đã duyệt' : item.approvalStatus === 'pending' ? 'Chờ duyệt' : 'Từ chối';
-            
             var row = [
                 '"' + item.sku.replace(/"/g, '""') + '"',
                 '"' + item.name.replace(/"/g, '""') + '"',
@@ -1460,7 +1862,6 @@ if (btnExportCSV) {
                 '"' + item.dimensions.replace(/"/g, '""') + '"',
                 item.qtyOnHand,
                 '"' + locs.replace(/"/g, '""') + '"',
-                '"' + statusStr.replace(/"/g, '""') + '"',
                 '"' + (item.createdBy || '').replace(/"/g, '""') + '"',
                 '"' + (item.lastUpdated || '').replace(/"/g, '""') + '"'
             ];
@@ -1470,7 +1871,7 @@ if (btnExportCSV) {
         var blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
         var link = document.createElement("a");
         link.href = URL.createObjectURL(blob);
-        link.setAttribute("download", "master_sku_approval_" + activeTab + "_" + new Date().toISOString().slice(0, 10) + ".csv");
+        link.setAttribute("download", "master_sku_" + new Date().toISOString().slice(0, 10) + ".csv");
         document.body.appendChild(link);
         link.click();
         document.body.removeChild(link);
@@ -1478,35 +1879,23 @@ if (btnExportCSV) {
 }
 
 /* ─── Helpers ─── */
-function padZero(n) { return n < 10 ? '0' + n : n; }
 
 function getFilteredList() {
     return skus.filter(function (s) {
         var matchSearch = s.sku.toLowerCase().indexOf(search.toLowerCase()) > -1 || 
                           s.name.toLowerCase().indexOf(search.toLowerCase()) > -1;
         var matchCat    = selectedCategory === 'Tất cả' || s.category === selectedCategory;
-        var matchTab    = activeTab === 'all' || s.approvalStatus === activeTab;
-        return matchSearch && matchCat && matchTab;
+        return matchSearch && matchCat;
     });
 }
 
 function updateTabBadges() {
-    var counts = {
-        all: skus.length,
-        pending: skus.filter(function (s) { return s.approvalStatus === 'pending'; }).length,
-        approved: skus.filter(function (s) { return s.approvalStatus === 'approved'; }).length,
-        rejected: skus.filter(function (s) { return s.approvalStatus === 'rejected'; }).length
-    };
-    
-    ['all', 'pending', 'approved', 'rejected'].forEach(function (tab) {
-        var b = document.getElementById('badge-' + tab);
-        if (b) b.textContent = counts[tab];
-    });
+    var b = document.getElementById('badge-all');
+    if (b) b.textContent = skus.length;
 }
 
 /* ══ RENDER TABLE ══════════════════════════════════════════ */
 function renderAll() {
-    localStorage.setItem('wms_skus', JSON.stringify(skus));
     updateTabBadges();
     
     var filtered = getFilteredList();
@@ -1519,9 +1908,6 @@ function renderAll() {
     }
 
     var html = filtered.map(function (item, idx) {
-        var acLabel = item.approvalStatus === 'approved' ? 'Đã duyệt' : item.approvalStatus === 'pending' ? 'Chờ duyệt' : 'Từ chối';
-        var acClass = item.approvalStatus;
-
         var isLowStock = item.qtyOnHand < item.minStock;
         var qtyTextClass = isLowStock ? 'stock-qty low-stock' : 'stock-qty normal-stock';
 
@@ -1561,27 +1947,15 @@ function renderAll() {
 
         var infoHtml = '<div class="info-lbl"><span class="info-lbl-inner">Tạo:</span> ' + item.createdBy + '</div>' +
                        '<div class="info-time">' + item.createdAt + '</div>';
-        if (item.updatedBy) {
-            infoHtml += '<div class="info-lbl" style="margin-top:4px"><span class="info-lbl-inner">Cập nhật:</span> ' + item.updatedBy + '</div>' +
-                        '<div class="info-time">' + item.lastUpdated + '</div>';
-        }
 
-        var approvalHtml = '';
-        if (item.approvalStatus === 'pending') {
-            approvalHtml = '<div style="display:flex;align-items:center;justify-content:center;gap:4px">' +
-                '<button class="btn-action approve" onclick="window.triggerApproveSKU(\'' + item.id + '\')" title="Phê duyệt">' +
-                    '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M20 6 9 17l-5-5"/></svg>' +
-                '</button>' +
-                '<button class="btn-action reject" onclick="window.triggerRejectSKU(\'' + item.id + '\')" title="Từ chối">' +
-                    '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>' +
-                '</button>' +
-            '</div>';
-        } else {
-            approvalHtml = '<span class="pill-badge ' + acClass + '">' + acLabel + '</span>';
-            if (item.approvalStatus === 'rejected' && item.reviewNote) {
-                approvalHtml += '<div class="review-note" title="' + item.reviewNote + '" style="font-size: 11px; color: #dc2626; margin-top: 4px; max-width: 120px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-align: center;">Lý do: ' + item.reviewNote + '</div>';
-            }
-        }
+        var isManagerUser = (window.WMS_USER && window.WMS_USER.role === 'MANAGER');
+
+        var editBtnHtml = '<button type="button" class="btn-act-circle edit" onclick="window.triggerEditSKU(\'' + item.id + '\')" title="Sửa" style="' + (isManagerUser ? '' : 'display:none;') + '">' +
+            '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 1 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>' +
+            '</button>';
+        var deleteBtnHtml = '<button type="button" class="btn-act-circle del" onclick="window.triggerDeleteSKU(\'' + item.id + '\')" title="Xóa" style="' + (isManagerUser ? '' : 'display:none;') + '">' +
+            '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>' +
+            '</button>';
 
         var rowClass = idx % 2 === 0 ? '' : 'style="background:rgba(240, 244, 250, 0.25)"';
 
@@ -1593,7 +1967,12 @@ function renderAll() {
             '<td>' + stockHtml + '</td>' +
             '<td>' + locHtml + '</td>' +
             '<td>' + infoHtml + '</td>' +
-            '<td>' + approvalHtml + '</td>' +
+            '<td>' +
+                '<div style="display:flex;align-items:center;justify-content:center;gap:8px">' +
+                    editBtnHtml +
+                    deleteBtnHtml +
+                '</div>' +
+            '</td>' +
         '</tr>';
     }).join('');
 

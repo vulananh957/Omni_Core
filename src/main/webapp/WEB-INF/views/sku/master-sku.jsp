@@ -1082,6 +1082,7 @@
                     <input class="form-input" type="number" id="create-weight" min="0" step="any" placeholder="VD: 0.28" style="padding:10px 6px; min-width:0; width:100%;"/>
             </div>
         </div>
+        </div>
         <div class="modal-ftr">
             <button class="modal-close btn-export" id="createModalCancel" style="padding:9px 16px;">Hủy</button>
             <button class="btn-add-sku" id="btnCreateSKUSubmit">Tạo SKU</button>
@@ -1949,10 +1950,10 @@ function renderAll() {
 
         var isManagerUser = (window.WMS_USER && window.WMS_USER.role === 'MANAGER');
 
-        var editBtnHtml = '<button type="button" class="btn-act-circle edit" data-action="edit" data-id="' + item.id + '" title="Sửa" style="' + (isManagerUser ? '' : 'display:none;') + '">' +
+        var editBtnHtml = '<button type="button" class="btn-act-circle edit" onclick="window.triggerEditSKU(\'' + item.id + '\')" title="Sửa" style="' + (isManagerUser ? '' : 'display:none;') + '">' +
             '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 1 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>' +
             '</button>';
-        var deleteBtnHtml = '<button type="button" class="btn-act-circle del" data-action="delete" data-id="' + item.id + '" title="Xóa" style="' + (isManagerUser ? '' : 'display:none;') + '">' +
+        var deleteBtnHtml = '<button type="button" class="btn-act-circle del" onclick="window.triggerDeleteSKU(\'' + item.id + '\')" title="Xóa" style="' + (isManagerUser ? '' : 'display:none;') + '">' +
             '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>' +
             '</button>';
 
@@ -1976,28 +1977,6 @@ function renderAll() {
     }).join('');
 
     tableBody.innerHTML = html;
-}
-
-/* Event delegation for Edit / Delete buttons — robust against inline-onclick issues */
-if (tableBody) {
-    console.log('[master-sku] event delegation attached to tableBody');
-    tableBody.addEventListener('click', function (ev) {
-        var btn = ev.target.closest('button[data-action]');
-        if (!btn) return;
-        var action = btn.getAttribute('data-action');
-        var id = btn.getAttribute('data-id');
-        console.log('[master-sku] click detected:', action, id);
-        if (!action || !id) return;
-        if (action === 'edit' && typeof window.triggerEditSKU === 'function') {
-            console.log('[master-sku] calling triggerEditSKU');
-            window.triggerEditSKU(id);
-        } else if (action === 'delete' && typeof window.triggerDeleteSKU === 'function') {
-            console.log('[master-sku] calling triggerDeleteSKU');
-            window.triggerDeleteSKU(id);
-        } else {
-            console.warn('[master-sku] action not handled:', action);
-        }
-    });
 }
 
 /* ─── Bootstrap ─── */

@@ -244,18 +244,20 @@ REPLACE INTO return_orders (return_id, return_code, order_id, outbound_id, custo
 (4, 'RT-2026-0004', 1005, 4, 'Lê Thị Hương', '0945678901', 'Kem chống nắng không phù hợp da - dị ứng', 'RECEIVED', 2, '2026-06-14 11:00:00');
 
 REPLACE INTO return_items (return_item_id, return_id, product_id, quantity, return_reason) VALUES
-(1, 1, 4, 1.000, 'Chuột click trái không nhạy, pin sạc không tích điện - lỗi sản xuất'),
-(2, 2, 5, 1.000, 'Bàn phím gõ phím số 7 và 8 không có phản hồi - lỗi mạch'),
-(3, 3, 1, 2.000, 'Khách đặt áo size M nhưng hệ thống giao size L - lỗi đóng gói');
+(1, 1, 4, 1.000, 'Chuot click trai khong nhay, pin sac khong tich dien - loi san xuat'),
+(2, 2, 5, 1.000, 'Ban phim go phim so 7 va 8 khong co phan hoi - loi mach'),
+(3, 3, 1, 2.000, 'Khach dat ao size M nhung he thong giao size L - loi dong goi'),
+(4, 4, 7, 1.000, 'Kem chong nang gay di ung da mat - khong phu hop');
 
--- QC Records (Kiểm tra chất lượng hàng trả)
--- RT-001: Chuột → FAIL → SCRAPPED (vứt)
--- RT-002: Bàn phím → PASS → RESTOCKED (nhập lại kho)
--- RT-003: Áo thun → PASS → RESTOCKED (đổi size)
+-- QC Records (Kiem tra chat luong hang tra)
+-- RT-001: Chuot → FAIL → SCRAPPED (vut)
+-- RT-002: Ban phim → PASS → RESTOCKED (nhap lai kho)
+-- RT-003: Ao thun → PASS → RESTOCKED (doi size)
+-- RT-004: Kem chong nang → PENDING (chua kiem QC)
 REPLACE INTO qc_records (qc_id, return_id, product_id, decision, qc_notes, qc_by, qc_at) VALUES
-(1, 1, 4, 'FAIL', 'Lỗi mạch chuột - không sửa được. Quyết định bỏ.', 10, '2026-06-13 11:30:00'),
-(2, 2, 5, 'PASS', 'Bàn phím chạy tốt sau khi vệ sinh. Khôi phục stock.', 10, '2026-06-13 14:00:00'),
-(3, 3, 1, 'PASS', 'Áo không lỗi, chỉ sai size. Đổi size và restock.', 10, '2026-06-13 15:30:00');
+(1, 1, 4, 'FAIL', 'Loi mach chuot - khong sua duoc. Quyet dinh bo.', 10, '2026-06-13 11:30:00'),
+(2, 2, 5, 'PASS', 'Ban phim chay tot sau khi ve sinh. Khoi phuc stock.', 10, '2026-06-13 14:00:00'),
+(3, 3, 1, 'PASS', 'Ao khong loi, chi sai size. Doi size va restock.', 10, '2026-06-13 15:30:00');
 
 -- ============================================================
 -- STEP 9: KIỂM KHO (Physical Inventory / Stock Take) - WAREHOUSE 1

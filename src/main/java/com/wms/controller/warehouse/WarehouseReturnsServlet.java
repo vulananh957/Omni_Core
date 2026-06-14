@@ -34,10 +34,16 @@ public class WarehouseReturnsServlet extends BaseController {
         consumeFlash(req);
 
         try {
-            req.setAttribute("products", returnService.findApprovedProducts());
-            req.setAttribute("returns", returnService.findAll());
-            req.setAttribute("channels", channelService.findAll());
+            List<?> products = returnService.findApprovedProducts();
+            List<?> returns = returnService.findAll();
+            List<?> channels = channelService.findAll();
+            System.out.println("[WarehouseReturns] DEBUG: products=" + products.size() + ", returns=" + returns.size() + ", channels=" + channels.size());
+            req.setAttribute("products", products);
+            req.setAttribute("returns", returns);
+            req.setAttribute("channels", channels);
         } catch (Exception e) {
+            System.out.println("[WarehouseReturns] ERROR: " + e.getClass().getName() + " - " + e.getMessage());
+            e.printStackTrace();
             req.setAttribute("products", List.of());
             req.setAttribute("returns", List.of());
             req.setAttribute("channels", List.<Channel>of());

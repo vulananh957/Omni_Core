@@ -29,7 +29,7 @@ public class ReturnDAO {
      */
     public List<ReturnOrder> findAll() {
         List<ReturnOrder> list = new ArrayList<>();
-        String sqlOrders = "SELECT ro.return_id, ro.order_id, o.order_code, ro.outbound_id, ro.customer_name, ro.customer_phone, "
+        String sqlOrders = "SELECT ro.return_id, ro.return_code, ro.order_id, o.order_code, ro.outbound_id, ro.customer_name, ro.customer_phone, "
                 + "ro.reason, ro.status, ro.warehouse_id, ro.created_at, ro.updated_at, o.channel "
                 + "FROM return_orders ro "
                 + "LEFT JOIN orders o ON ro.order_id = o.order_id "
@@ -42,15 +42,19 @@ public class ReturnDAO {
                 + "LEFT JOIN qc_records qr ON (ri.return_id = qr.return_id AND ri.product_id = qr.product_id) "
                 + "WHERE ri.return_id = ?";
 
+        System.out.println("[ReturnDAO] DEBUG: Executing findAll()...");
         try (Connection conn = DBConnection.getConnection();
                 PreparedStatement psOrders = conn.prepareStatement(sqlOrders);
                 ResultSet rsOrders = psOrders.executeQuery()) {
 
+            int orderCount = 0;
             try (PreparedStatement psItems = conn.prepareStatement(sqlItems)) {
                 while (rsOrders.next()) {
+                    orderCount++;
                     ReturnOrder ro = new ReturnOrder();
                     int returnId = rsOrders.getInt("return_id");
                     ro.setReturnId(returnId);
+                    ro.setReturnCode(rsOrders.getString("return_code"));
 
                     int orderId = rsOrders.getInt("order_id");
                     ro.setOrderId(rsOrders.wasNull() ? null : orderId);
@@ -106,7 +110,10 @@ public class ReturnDAO {
 
         } catch (SQLException e) {
             LOGGER.log(Level.WARNING, "ReturnDAO: Failed to retrieve return orders", e);
+            System.out.println("[ReturnDAO] SQL ERROR: " + e.getMessage());
+            e.printStackTrace();
         }
+        System.out.println("[ReturnDAO] DEBUG: Returning " + list.size() + " return orders");
         return list;
     }
 
@@ -146,20 +153,29 @@ public class ReturnDAO {
                 return false;
             }
 
-            String sqlInsertOrder = "INSERT INTO return_orders (order_id, outbound_id, customer_name, customer_phone, reason, status, warehouse_id, created_at, updated_at) "
-                    + "VALUES (?, ?, ?, ?, ?, 'RECEIVED', ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)";
+            String returnCode = order.getReturnCode();
+            if (returnCode == null || returnCode.trim().isEmpty()) {
+                String today = java.time.LocalDate.now().format(java.time.format.DateTimeFormatter.ofPattern("yyyyMMdd"));
+                int seq = (int)(Math.random() * 999);
+                returnCode = "RT-" + today + "-" + String.format("%03d", seq);
+                order.setReturnCode(returnCode);
+            }
+
+            String sqlInsertOrder = "INSERT INTO return_orders (return_code, order_id, outbound_id, customer_name, customer_phone, reason, status, warehouse_id, created_at, updated_at) "
+                    + "VALUES (?, ?, ?, ?, ?, ?, 'RECEIVED', ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)";
 
             psOrder = conn.prepareStatement(sqlInsertOrder, Statement.RETURN_GENERATED_KEYS);
-            psOrder.setInt(1, orderId);
+            psOrder.setString(1, returnCode);
+            psOrder.setInt(2, orderId);
             if (outboundId != null) {
-                psOrder.setInt(2, outboundId);
+                psOrder.setInt(3, outboundId);
             } else {
-                psOrder.setNull(2, java.sql.Types.INTEGER);
+                psOrder.setNull(3, java.sql.Types.INTEGER);
             }
-            psOrder.setString(3, order.getCustomerName());
-            psOrder.setString(4, order.getCustomerPhone());
-            psOrder.setString(5, order.getReason());
-            psOrder.setInt(6, order.getWarehouseId() > 0 ? order.getWarehouseId() : 1);
+            psOrder.setString(4, order.getCustomerName());
+            psOrder.setString(5, order.getCustomerPhone());
+            psOrder.setString(6, order.getReason());
+            psOrder.setInt(7, order.getWarehouseId() > 0 ? order.getWarehouseId() : 1);
 
             int rows = psOrder.executeUpdate();
             int returnId = -1;

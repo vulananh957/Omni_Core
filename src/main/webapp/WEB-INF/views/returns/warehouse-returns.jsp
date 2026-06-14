@@ -621,6 +621,7 @@
 [
     <c:forEach items="${returns}" var="r" varStatus="status">
         {
+            "dbId": ${r.returnId},
             "id": "${r.returnCode}",
             "soRef": "${r.orderCode}",
             "channel": "${r.channel}",
@@ -680,7 +681,15 @@
     var PRODUCTS = JSON.parse(document.getElementById('products-data').textContent || '[]');
 
     // ─── Returns Data (Empty initial list, populated from servlet if available) ───
-    var returns = JSON.parse(document.getElementById('returns-data').textContent || '[]');
+    var returnsDataEl = document.getElementById('returns-data');
+    var returns = [];
+    try {
+        returns = JSON.parse(returnsDataEl.textContent || '[]');
+        console.log('[DEBUG] returns loaded:', returns.length, returns);
+    } catch (e) {
+        console.error('[DEBUG] JSON parse error:', e);
+        console.log('[DEBUG] raw data:', returnsDataEl.textContent);
+    }
 
     var activeTab = 'all';
     var searchText = '';
@@ -857,7 +866,7 @@
 
         // Persist QC results to backend
         submitPostAction('qc', {
-            returnId: selectedQCId,
+            returnId: rma.dbId,
             itemsJson: JSON.stringify(rma.items)
         });
 
@@ -937,7 +946,7 @@
 
         // Persist apply to backend — backend will validate QC completeness
         submitPostAction('apply', {
-            returnId: id
+            returnId: rma.dbId
         });
 
         render();
@@ -1231,8 +1240,12 @@
             scrapped:   returns.filter(function (r) { return r.status === 'scrapped'; }).length
         };
 
-        var totalResalableItems = returns.flatMap(function (r) { return r.items; }).filter(function (i) { return i.qcDecision === 'resalable'; }).length;
-        var totalDefectiveItems = returns.flatMap(function (r) { return r.items; }).filter(function (i) { return i.qcDecision === 'defective'; }).length;
+        var totalResalableItems = returns.filter(function (r) { return r.status === 'restocked'; })
+                                         .flatMap(function (r) { return r.items; })
+                                         .filter(function (i) { return i.qcDecision === 'resalable'; }).length;
+        var totalDefectiveItems = returns.filter(function (r) { return r.status === 'restocked' || r.status === 'scrapped'; })
+                                         .flatMap(function (r) { return r.items; })
+                                         .filter(function (i) { return i.qcDecision === 'defective'; }).length;
 
         // Apply count cards
         statPendingQC.textContent = counts.pending_qc;

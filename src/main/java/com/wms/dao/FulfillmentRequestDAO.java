@@ -47,6 +47,31 @@ public class FulfillmentRequestDAO {
     }
 
     /**
+     * Retrieves PENDING fulfillment requests for one warehouse only.
+     */
+    public List<FulfillmentRequest> findPendingByWarehouse(int warehouseId) {
+        List<FulfillmentRequest> list = new ArrayList<>();
+        String sql = "SELECT request_id, order_id, warehouse_id, status, auto_created, created_at, updated_at "
+                   + "FROM fulfillment_requests WHERE status = 'PENDING' AND warehouse_id = ? ORDER BY created_at DESC";
+
+        try (Connection conn = DBConnection.getConnection();
+             PreparedStatement ps = conn.prepareStatement(sql)) {
+
+            ps.setInt(1, warehouseId);
+            try (ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) {
+                    FulfillmentRequest fr = mapRow(rs);
+                    fr.setItems(findItemsByRequestId(conn, fr.getRequestId()));
+                    list.add(fr);
+                }
+            }
+        } catch (SQLException e) {
+            LOGGER.log(Level.SEVERE, "findPendingByWarehouse failed for warehouse=" + warehouseId, e);
+        }
+        return list;
+    }
+
+    /**
      * Retrieves all fulfillment requests regardless of status.
      */
     public List<FulfillmentRequest> findAll() {

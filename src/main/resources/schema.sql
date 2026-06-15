@@ -152,6 +152,27 @@ CREATE TABLE IF NOT EXISTS channels (
     updated_at     DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
+-- Shipping carriers (dynamic, used by Sales filters and order processing)
+CREATE TABLE IF NOT EXISTS shipping_carriers (
+    carrier_id    INT AUTO_INCREMENT PRIMARY KEY,
+    carrier_code  VARCHAR(50) NOT NULL UNIQUE,
+    carrier_name  VARCHAR(100) NOT NULL,
+    platform      VARCHAR(50) DEFAULT NULL,
+    priority      INT NOT NULL DEFAULT 0,
+    is_active     TINYINT(1) NOT NULL DEFAULT 1,
+    created_at    DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at    DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    INDEX idx_carriers_active_priority (is_active, priority),
+    INDEX idx_carriers_platform (platform)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- Seed default carriers (idempotent)
+INSERT IGNORE INTO shipping_carriers (carrier_code, carrier_name, platform, priority) VALUES
+    ('SPX',  'SPX Express',    'Shopee', 10),
+    ('LZE',  'Lazada Express', 'Lazada', 20),
+    ('TKT',  'TikTok Express', 'TikTok', 30),
+    ('VTP',  'Viettel Post',   NULL,     40);
+
 -- Channel-specific products (ERD: channel_products)
 CREATE TABLE IF NOT EXISTS channel_products (
     id               INT AUTO_INCREMENT PRIMARY KEY,
@@ -180,7 +201,7 @@ CREATE TABLE IF NOT EXISTS sku_mappings (
     last_sync_at  DATETIME,
     created_at    DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at    DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-    FOREIGN KEY (sku_id)    REFERENCES skus(sku_id),
+    FOREIGN KEY (sku_id)    REFERENCES products(product_id),
     FOREIGN KEY (channel_id) REFERENCES channels(channel_id),
     UNIQUE KEY uq_sku_channel (sku_id, channel_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
@@ -198,6 +219,22 @@ CREATE TABLE IF NOT EXISTS webhook_logs (
     INDEX idx_wl_event (event_type),
     INDEX idx_wl_status (status),
     INDEX idx_wl_channel (channel_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- Stores marketplace orders that could not be matched to an internal SKU.
+-- Sales staff review this table to create mappings for unknown SKUs.
+CREATE TABLE IF NOT EXISTS mapping_exceptions (
+    exception_id  INT AUTO_INCREMENT PRIMARY KEY,
+    channel_id    INT NOT NULL,
+    external_sku  VARCHAR(100) NOT NULL,
+    order_code    VARCHAR(100),
+    reason        VARCHAR(255),
+    resolved      TINYINT(1) NOT NULL DEFAULT 0,
+    created_at    DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    resolved_at   DATETIME,
+    FOREIGN KEY (channel_id) REFERENCES channels(channel_id) ON DELETE CASCADE,
+    INDEX idx_me_channel (channel_id),
+    INDEX idx_me_resolved (resolved)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 -- Lazada sync log
@@ -436,6 +473,7 @@ CREATE TABLE IF NOT EXISTS outbound_orders (
     picked_by     INT,
     shipped_at    DATETIME,
     note          TEXT,
+    version       INT NOT NULL DEFAULT 0,
     created_at    DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at    DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     FOREIGN KEY (order_id)    REFERENCES orders(order_id) ON DELETE CASCADE,

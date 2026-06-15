@@ -3,6 +3,9 @@ package com.wms.service.warehouse;
 import com.wms.dao.InventoryDAO;
 import com.wms.dao.OutboundDAO;
 import com.wms.dao.OrderDAO;
+import com.wms.dao.ProductDAO;
+import com.wms.dao.WarehouseIssueDAO;
+import com.wms.model.Product;
 import com.wms.model.Order;
 import com.wms.model.OutboundOrder;
 import com.wms.model.OutboundItem;
@@ -28,6 +31,8 @@ public class OutboundService {
     private final OutboundDAO outboundDAO = new OutboundDAO();
     private final OrderDAO orderDAO = new OrderDAO();
     private final InventoryDAO inventoryDAO = new InventoryDAO();
+    private final ProductDAO productDAO = new ProductDAO();
+    private final WarehouseIssueDAO warehouseIssueDAO = new WarehouseIssueDAO();
 
     public List<OutboundOrder> findAll() {
         return outboundDAO.findAll();
@@ -35,6 +40,16 @@ public class OutboundService {
 
     public List<OutboundOrder> findByStatus(String status) {
         return outboundDAO.findByStatus(status.trim().toUpperCase());
+    }
+
+    /** Outbound orders for one warehouse (warehouse-scoped list). */
+    public List<OutboundOrder> findByWarehouse(int warehouseId) {
+        return outboundDAO.findByWarehouse(warehouseId);
+    }
+
+    /** Outbound orders for one warehouse filtered by status. */
+    public List<OutboundOrder> findByWarehouseAndStatus(int warehouseId, String status) {
+        return outboundDAO.findByWarehouseAndStatus(warehouseId, status.trim().toUpperCase());
     }
 
     public OutboundOrder findById(int outboundId) {
@@ -69,12 +84,45 @@ public class OutboundService {
         return outboundDAO.insert(order);
     }
 
+    /**
+     * Creates a disposal (SCRAP) issue note. Saves the note only — no stock deduction
+     * (deduction is deferred to BM approval).
+     */
+    public StatusUpdateResult createDisposal(String sku, java.math.BigDecimal qty, String reason,
+                                             int warehouseId, Integer userId) {
+        if (sku == null || sku.trim().isEmpty()) {
+            return StatusUpdateResult.failure("Vui lòng chọn SKU cần xuất huỷ.");
+        }
+        if (qty == null || qty.compareTo(java.math.BigDecimal.ZERO) <= 0) {
+            return StatusUpdateResult.failure("Số lượng tiêu huỷ phải lớn hơn 0.");
+        }
+        Product p = productDAO.findBySkuCode(sku.trim());
+        if (p == null) {
+            return StatusUpdateResult.failure("Không tìm thấy sản phẩm với SKU: " + sku);
+        }
+        int creator = (userId != null) ? userId : 1;
+        String code = warehouseIssueDAO.createScrapIssue(warehouseId, creator, p.getProductId(), qty, reason);
+        if (code == null) {
+            return StatusUpdateResult.failure("Không thể lưu phiếu xuất huỷ. Vui lòng thử lại.");
+        }
+        return StatusUpdateResult.success("Đã lưu phiếu xuất huỷ " + code + " (chờ duyệt, chưa trừ tồn).");
+    }
+
     public StatusUpdateResult updateStatus(int outboundId, String newStatus) {
+        return updateStatus(outboundId, newStatus, null);
+    }
+
+    /** Persists a single line item's picked state. */
+    public boolean updateItemPicked(int outboundId, int productId, boolean picked) {
+        return outboundDAO.updateItemPicked(outboundId, productId, picked);
+    }
+
+    public StatusUpdateResult updateStatus(int outboundId, String newStatus, Integer userId) {
         if (!isValidStatus(newStatus)) {
             log.warn("Outbound status update rejected: invalid status outboundId={} status={}", outboundId, newStatus);
             return StatusUpdateResult.failure("Trạng thái '" + newStatus + "' không hợp lệ hoặc không thể chuyển đổi.");
         }
-        
+
         if ("SHIPPED".equalsIgnoreCase(newStatus)) {
             if (isOmnichannelOutbound(outboundId)) {
                 OutboundOrder order = outboundDAO.findById(outboundId);
@@ -85,6 +133,7 @@ public class OutboundService {
                     }
                     boolean ok = new LedgerDAO().approveDocument(outboundCode, "Phiếu Xuất Kho", 1);
                     if (ok) {
+                        outboundDAO.createDeliveryNote(outboundId, userId);
                         log.info("Omnichannel outbound auto-approved and processed: outboundId={} code={}", outboundId, outboundCode);
                         return StatusUpdateResult.success("Cập nhật trạng thái phiếu xuất thành '" + newStatus + "' thành công!");
                     } else {
@@ -95,17 +144,47 @@ public class OutboundService {
             }
         }
 
-        boolean updated = outboundDAO.updateStatus(outboundId, newStatus.trim().toUpperCase());
+        String normalized = newStatus.trim().toUpperCase();
+        boolean updated = outboundDAO.updateStatus(outboundId, normalized);
         if (!updated) {
             log.error("Outbound status update failed: DAO returned false outboundId={} status={}", outboundId, newStatus);
             return StatusUpdateResult.failure("Không thể cập nhật trạng thái. Phiếu xuất có thể không tồn tại.");
         }
+
+        // Picking-sheet lifecycle: start sheet + assign picker on PICKING; complete on PACKED.
+        if (OutboundOrder.STATUS_PICKING.equals(normalized)) {
+            if (userId != null) outboundDAO.assignPicker(outboundId, userId);
+            outboundDAO.createPickingSheet(outboundId, userId);
+        } else if (OutboundOrder.STATUS_PACKED.equals(normalized)) {
+            outboundDAO.markAllPicked(outboundId);
+            outboundDAO.completePickingSheet(outboundId);
+            outboundDAO.createShippingLabel(outboundId);
+        } else if (OutboundOrder.STATUS_SHIPPED.equals(normalized)) {
+            // On SHIPPED, deduct actual on-hand stock.
+            // Previously only the status was updated, so on_hand stayed inflated.
+            OutboundOrder order = outboundDAO.findById(outboundId);
+            if (order != null && order.getItems() != null) {
+                for (OutboundItem item : order.getItems()) {
+                    java.math.BigDecimal qty = item.getQty();
+                    if (qty != null && qty.compareTo(java.math.BigDecimal.ZERO) > 0) {
+                        boolean ok = inventoryDAO.deductShippedInventory(
+                            item.getProductId(), order.getWarehouseId(), qty);
+                        if (!ok) {
+                            log.warn("SHIPPED: deduct thất bại cho productId={} qty={} (tồn không đủ)",
+                                item.getProductId(), qty);
+                        }
+                    }
+                }
+            }
+            outboundDAO.createDeliveryNote(outboundId, userId);
+        }
+
         log.info("Outbound status updated: outboundId={} status={}", outboundId, newStatus);
         return StatusUpdateResult.success("Cập nhật trạng thái phiếu xuất thành '" + newStatus + "' thành công!");
     }
 
     public boolean isOmnichannelOutbound(int outboundId) {
-        String sql = 
+        String sql =
             "SELECT c.channel_name, o.channel, o.note, o.tracking_no " +
             "FROM outbound_orders oo " +
             "LEFT JOIN orders o ON oo.order_id = o.order_id " +
@@ -120,28 +199,28 @@ public class OutboundService {
                     String rawChannel = rs.getString("channel");
                     String note = rs.getString("note");
                     String trackingNo = rs.getString("tracking_no");
-                    
+
                     if (channelName == null) {
                         channelName = "Khách mua lẻ";
                     }
                     String lowerName = channelName.toLowerCase();
-                    if (lowerName.contains("shopee") || lowerName.contains("tiktok") || 
-                        lowerName.contains("lazada") || lowerName.contains("website") || 
-                        lowerName.contains("online") || lowerName.contains("khách mua lẻ") || 
+                    if (lowerName.contains("shopee") || lowerName.contains("tiktok") ||
+                        lowerName.contains("lazada") || lowerName.contains("website") ||
+                        lowerName.contains("online") || lowerName.contains("khách mua lẻ") ||
                         lowerName.contains("retail")) {
                         return true;
                     }
                     if (rawChannel != null) {
                         String lowerRaw = rawChannel.toLowerCase();
-                        if (lowerRaw.contains("shopee") || lowerRaw.contains("tiktok") || 
-                            lowerRaw.contains("lazada") || lowerRaw.contains("website") || 
+                        if (lowerRaw.contains("shopee") || lowerRaw.contains("tiktok") ||
+                            lowerRaw.contains("lazada") || lowerRaw.contains("website") ||
                             lowerRaw.contains("online") || lowerRaw.contains("retail")) {
                             return true;
                         }
                     }
                     if (note != null) {
                         String lowerNote = note.toLowerCase();
-                        if (lowerNote.contains("shopee") || lowerNote.contains("tiktok") || 
+                        if (lowerNote.contains("shopee") || lowerNote.contains("tiktok") ||
                             lowerNote.contains("lazada") || lowerNote.contains("website")) {
                             return true;
                         }
@@ -165,6 +244,24 @@ public class OutboundService {
             log.warn("Outbound cancel rejected: bad status outboundId={} currentStatus={}", outboundId, existing.getStatus());
             return CancelResult.failure("Không thể hủy phiếu ở trạng thái '" + existing.getStatus() + "'.");
         }
+
+        // Release soft-allocate for each item before cancelling.
+        // Without this, qty_available stays decremented and stock appears "stuck".
+        if (existing.getItems() != null) {
+            for (OutboundItem item : existing.getItems()) {
+                java.math.BigDecimal qty = item.getQty();
+                if (qty != null && qty.compareTo(java.math.BigDecimal.ZERO) > 0) {
+                    boolean released = inventoryDAO.releaseSoftAllocateInventory(
+                        item.getProductId(), existing.getWarehouseId(), qty);
+                    if (!released) {
+                        log.warn("cancel: releaseSoftAllocate thất bại cho productId={} qty={}",
+                            item.getProductId(), qty);
+                        // Không fail cả cancel, chỉ log để staff kiểm tra tay
+                    }
+                }
+            }
+        }
+
         boolean cancelled = outboundDAO.updateStatus(outboundId, OutboundOrder.STATUS_CANCELLED);
         if (!cancelled) {
             log.error("Outbound cancel failed: DAO returned false outboundId={}", outboundId);

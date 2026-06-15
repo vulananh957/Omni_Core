@@ -1,9 +1,9 @@
 package com.wms.controller.warehouse;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.wms.controller.BaseController;
 import com.wms.dao.FulfillmentRequestDAO;
 import com.wms.model.FulfillmentRequest;
+import com.wms.util.JsonUtil;
 
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -25,7 +25,6 @@ public class FulfillmentRequestServlet extends BaseController {
 
     private static final String CONTEXT_PATH = "/warehouse/fulfillment";
     private final FulfillmentRequestDAO dao = new FulfillmentRequestDAO();
-    private final ObjectMapper objectMapper = new ObjectMapper();
 
     @Override
     protected void doGet(HttpServletRequest req, HttpServletResponse resp)
@@ -37,7 +36,7 @@ public class FulfillmentRequestServlet extends BaseController {
         response.put("data", list);
         response.put("count", list.size());
 
-        writeJson(resp, objectMapper.writeValueAsString(response));
+        writeJson(resp, JsonUtil.toJson(response));
     }
 
     @Override
@@ -56,7 +55,7 @@ public class FulfillmentRequestServlet extends BaseController {
             response.put("message", "Đã seed 2 yêu cầu xuất hàng test vào database.");
             response.put("data", list);
             response.put("count", list.size());
-            writeJson(resp, objectMapper.writeValueAsString(response));
+            writeJson(resp, JsonUtil.toJson(response));
             return;
         }
 
@@ -65,7 +64,7 @@ public class FulfillmentRequestServlet extends BaseController {
             if (requestId == null || requestId.trim().isEmpty()) {
                 response.put("success", false);
                 response.put("message", "Thiếu requestId.");
-                writeJson(resp, objectMapper.writeValueAsString(response));
+                writeJson(resp, JsonUtil.toJson(response));
                 return;
             }
             requestId = requestId.trim();
@@ -73,7 +72,7 @@ public class FulfillmentRequestServlet extends BaseController {
             if (fr == null) {
                 response.put("success", false);
                 response.put("message", "Không tìm thấy yêu cầu xuất hàng: " + requestId);
-                writeJson(resp, objectMapper.writeValueAsString(response));
+                writeJson(resp, JsonUtil.toJson(response));
                 return;
             }
             boolean updated = dao.updateStatus(requestId, FulfillmentRequest.STATUS_CONVERTED);
@@ -85,7 +84,7 @@ public class FulfillmentRequestServlet extends BaseController {
                 response.put("success", false);
                 response.put("message", "Không thể cập nhật trạng thái yêu cầu.");
             }
-            writeJson(resp, objectMapper.writeValueAsString(response));
+            writeJson(resp, JsonUtil.toJson(response));
             return;
         }
 
@@ -93,12 +92,12 @@ public class FulfillmentRequestServlet extends BaseController {
             dao.deleteTestData();
             response.put("success", true);
             response.put("message", "Đã xóa dữ liệu test.");
-            writeJson(resp, objectMapper.writeValueAsString(response));
+            writeJson(resp, JsonUtil.toJson(response));
             return;
         }
 
         response.put("success", false);
         response.put("message", "Hành động không hợp lệ: " + action);
-        writeJson(resp, objectMapper.writeValueAsString(response));
+        writeJson(resp, JsonUtil.toJson(response));
     }
 }

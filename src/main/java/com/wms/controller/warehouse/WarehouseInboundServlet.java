@@ -1,7 +1,5 @@
 package com.wms.controller.warehouse;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.wms.controller.BaseController;
 import com.wms.model.InboundOrder;
 import com.wms.model.Product;
@@ -30,7 +28,6 @@ public class WarehouseInboundServlet extends BaseController {
     private final InboundService inboundService = new InboundService();
     private final ProductService productService = new ProductService();
     private final WarehouseService warehouseService = new WarehouseService();
-    private final ObjectMapper objectMapper = new ObjectMapper();
 
     @Override
     protected void doGet(HttpServletRequest req, HttpServletResponse resp)
@@ -42,7 +39,7 @@ public class WarehouseInboundServlet extends BaseController {
             List<Warehouse> warehouses = warehouseService.findAllActive();
             req.setAttribute("inboundList", inboundList);
             req.setAttribute("products", products);
-            req.setAttribute("productsJson", toProductsJson(products));
+            setJsonAttr(req, "productsJson", products);
             req.setAttribute("warehouses", warehouses);
         } catch (Exception e) {
             req.setAttribute("inboundList", List.of());
@@ -60,14 +57,6 @@ public class WarehouseInboundServlet extends BaseController {
 
         req.getRequestDispatcher("/WEB-INF/views/layout/warehouse-layout.jsp")
                 .forward(req, resp);
-    }
-
-    private String toProductsJson(List<Product> products) {
-        try {
-            return objectMapper.writeValueAsString(products);
-        } catch (JsonProcessingException e) {
-            return "[]";
-        }
     }
 
     @Override

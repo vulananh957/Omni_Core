@@ -1,4 +1,5 @@
 <%@ page contentType="text/html; charset=UTF-8" pageEncoding="UTF-8" isErrorPage="true" %>
+<%@ taglib prefix="c" uri="jakarta.tags.core" %>
 <!DOCTYPE html>
 <html lang="vi">
 <head>
@@ -20,7 +21,7 @@
         <h1>400</h1>
         <h2>Yêu cầu không hợp lệ</h2>
         <p>Dữ liệu bạn gửi lên không đúng định dạng hoặc thiếu thông tin cần thiết.</p>
-        <a href="<%= request.getContextPath() %>/login">Quay lại trang chính</a>
+        <a href="${pageContext.request.contextPath}/login">Quay lại trang chính</a>
     </div>
 </body>
 </html>

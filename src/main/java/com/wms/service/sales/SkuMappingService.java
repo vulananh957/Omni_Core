@@ -4,6 +4,7 @@ import com.wms.dao.ChannelDAO;
 import com.wms.dao.ChannelProductDAO;
 import com.wms.dao.SkuMappingDAO;
 import com.wms.model.Channel;
+import com.wms.model.Product;
 import com.wms.model.SkuMapping;
 
 import java.math.BigDecimal;
@@ -22,6 +23,10 @@ public class SkuMappingService {
 
     public List<Channel> findAllChannels() {
         return channelDAO.findAll();
+    }
+
+    public List<Product> findAllSkus() {
+        return skuMappingDAO.findAllSkus();
     }
 
     public boolean createMapping(int skuId, int channelId, String externalSku,

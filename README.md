@@ -1,93 +1,107 @@
-# omnicore
+# OmniCore — Warehouse Management System
 
+> A graduation-project WMS (Warehouse Management System) built on Jakarta EE.
+> JSP views, Servlet controllers, Service layer, DAO layer, MySQL backend.
 
-
-## Getting started
-
-To make it easy for you to get started with GitLab, here's a list of recommended next steps.
-
-Already a pro? Just edit this README.md and make it your own. Want to make it easy? [Use the template at the bottom](#editing-this-readme)!
-
-## Add your files
-
-* [Create](https://docs.gitlab.com/user/project/repository/web_editor/#create-a-file) or [upload](https://docs.gitlab.com/user/project/repository/web_editor/#upload-a-file) files
-* [Add files using the command line](https://docs.gitlab.com/topics/git/add_files/#add-files-to-a-git-repository) or push an existing Git repository with the following command:
+## Architecture
 
 ```
-cd existing_repo
-git remote add origin https://gitlab.com/summer20241/26summer/is2003-eis/g01/omnicore.git
-git branch -M main
-git push -uf origin main
+webapp/                       JSP views (no Java scriptlets, no inline DAO calls)
+└── WEB-INF/views/...
+    └── layout/               Shared header / sidebar / footer fragments
+
+controller/                   Servlets — HTTP in, JSP out
+├── BaseController.java       Common helpers (JSON, flash messages, params)
+├── auth/                     Login / logout / OTP / password reset
+├── category/                 Category CRUD
+├── sales/                    Sales orders, channel products
+├── warehouse/                Master SKU, inventory, inbound, outbound, ...
+└── ...
+
+service/                      Business logic — pure Java, no HTTP imports
+├── category/
+├── warehouse/
+├── ledger/
+└── ...
+
+dao/                          Data Access Objects
+├── BaseDAO.java              Shared JDBC helpers (queryOne, queryList, update)
+├── CategoryDAO.java
+├── WarehouseDAO.java
+└── ...
+
+model/                        Plain Java records / beans
+                              @JsonProperty annotations drive JSON shape
+
+util/
+├── AppConstants.java         Centralised string constants
+├── DBConnection.java         HikariCP-backed connection pool
+├── JsonUtil.java             Shared Jackson ObjectMapper (JavaTimeModule, UTF-8)
+└── DatabaseConfig.java       db.properties loader
 ```
 
-## Integrate with your tools
+### Layer rules
+- JSP views **never** call DAOs or contain `<% %>` scriptlets.
+- Servlets own request → response. They use `BaseController` helpers
+  (`forward`, `redirect`, `setJsonAttr`, `parseJson`, `setFlash*`).
+- Services own business rules. They take plain Java objects, return
+  plain Java objects, and never touch `HttpServletRequest`.
+- DAOs own SQL. `BaseDAO` provides `queryOne` / `queryList` / `update`
+  so concrete DAOs only have to write the SQL string and a row mapper.
 
-* [Set up project integrations](https://gitlab.com/summer20241/26summer/is2003-eis/g01/omnicore/-/settings/integrations)
+## Build & run
 
-## Collaborate with your team
+```bash
+mvn clean package          # produces target/omnicore.war
+cp target/omnicore.war $CATALINA_HOME/webapps/
+$CATALINA_HOME/bin/startup.sh
+```
 
-* [Invite team members and collaborators](https://docs.gitlab.com/user/project/members/)
-* [Create a new merge request](https://docs.gitlab.com/user/project/merge_requests/creating_merge_requests/)
-* [Automatically close issues from merge requests](https://docs.gitlab.com/user/project/issues/managing_issues/#closing-issues-automatically)
-* [Enable merge request approvals](https://docs.gitlab.com/user/project/merge_requests/approvals/)
-* [Set auto-merge](https://docs.gitlab.com/user/project/merge_requests/auto_merge/)
+Requires:
+* JDK 17+
+* Apache Tomcat 10.1 (Jakarta EE 10, Servlet 6.0)
+* MySQL 8.x
 
-## Test and Deploy
+### Database setup
+1. Create the database (see `src/main/resources/mock_data.sql`).
+2. Copy `src/main/resources/db.properties.example` to
+   `src/main/resources/db.properties` and fill in your credentials.
+3. On first deploy, `SchemaInitListener` creates the tables and seeds
+   mock data.
 
-Use the built-in continuous integration in GitLab.
+## Code conventions
 
-* [Get started with GitLab CI/CD](https://docs.gitlab.com/ci/quick_start/)
-* [Analyze your code for known vulnerabilities with Static Application Security Testing (SAST)](https://docs.gitlab.com/user/application_security/sast/)
-* [Deploy to Kubernetes, Amazon EC2, or Amazon ECS using Auto Deploy](https://docs.gitlab.com/topics/autodevops/requirements/)
-* [Use pull-based deployments for improved Kubernetes management](https://docs.gitlab.com/user/clusters/agent/)
-* [Set up protected environments](https://docs.gitlab.com/ci/environments/protected_environments/)
+* **No `new ObjectMapper()`** — use `JsonUtil.getMapper()` (or
+  `BaseController.parseJson` / `setJsonAttr` from servlets).
+* **No scriptlets in JSP** — use JSTL `${}` and `${fn:escapeXml(...)}`.
+* **No raw `try-with-resources` for SELECTs** in new DAO methods —
+  extend `BaseDAO` and use `queryList` / `queryOne`.
+* All flash messages go through `setFlash*` (session) + `consumeFlash`
+  (request) on `BaseController`.
+* Constants live in `AppConstants`; avoid magic strings in controllers.
 
-***
+## Recent refactor phases
 
-# Editing this README
+| Phase | Goal | Status |
+|-------|------|--------|
+| 0 | Branch setup, baseline build, backup tag | done |
+| 1 | Extract inline CSS from 16 large JSPs into separate files | done |
+| 2 | Remove `<% %>` scriptlets and direct DAO calls from JSPs | done |
+| 3 | Centralise JSON via `BaseController.setJsonAttr` / `parseJson` | done |
+| 4 | `BaseDAO` + `RowMapper`; simplify Category/Warehouse/Order DAO | done |
+| 5 | ~~Flyway migration~~ — skipped, keep `SchemaInitListener` | skipped |
+| 6 | Helper consolidation, dead-code cleanup, README | done |
 
-When you're ready to make this README your own, just edit this file and use the handy template below (or feel free to structure it however you want - this is just a starting point!). Thanks to [makeareadme.com](https://www.makeareadme.com/) for this template.
+The backup of every phase is pushed to
+<https://github.com/vulananh957/backup_omnicore> (branch
+`refactor/simplify-architecture`).
 
-## Suggestions for a good README
+## Roles
 
-Every project is different, so consider which of these sections apply to yours. The sections used in the template are suggestions for most open source projects. Also keep in mind that while a README can be too long and detailed, too long is better than too short. If you think your README is too long, consider utilizing another form of documentation rather than cutting out information.
-
-## Name
-Choose a self-explaining name for your project.
-
-## Description
-Let people know what your project can do specifically. Provide context and add a link to any reference visitors might be unfamiliar with. A list of Features or a Background subsection can also be added here. If there are alternatives to your project, this is a good place to list differentiating factors.
-
-## Badges
-On some READMEs, you may see small images that convey metadata, such as whether or not all the tests are passing for the project. You can use Shields to add some to your README. Many services also have instructions for adding a badge.
-
-## Visuals
-Depending on what you are making, it can be a good idea to include screenshots or even a video (you'll frequently see GIFs rather than actual videos). Tools like ttygif can help, but check out Asciinema for a more sophisticated method.
-
-## Installation
-Within a particular ecosystem, there may be a common way of installing things, such as using Yarn, NuGet, or Homebrew. However, consider the possibility that whoever is reading your README is a novice and would like more guidance. Listing specific steps helps remove ambiguity and gets people to using your project as quickly as possible. If it only runs in a specific context like a particular programming language version or operating system or has dependencies that have to be installed manually, also add a Requirements subsection.
-
-## Usage
-Use examples liberally, and show the expected output if you can. It's helpful to have inline the smallest example of usage that you can demonstrate, while providing links to more sophisticated examples if they are too long to reasonably include in the README.
-
-## Support
-Tell people where they can go to for help. It can be any combination of an issue tracker, a chat room, an email address, etc.
-
-## Roadmap
-If you have ideas for releases in the future, it is a good idea to list them in the README.
-
-## Contributing
-State if you are open to contributions and what your requirements are for accepting them.
-
-For people who want to make changes to your project, it's helpful to have some documentation on how to get started. Perhaps there is a script that they should run or some environment variables that they need to set. Make these steps explicit. These instructions could also be useful to your future self.
-
-You can also document commands to lint the code or run tests. These steps help to ensure high code quality and reduce the likelihood that the changes inadvertently break something. Having instructions for running tests is especially helpful if it requires external setup, such as starting a Selenium server for testing in a browser.
-
-## Authors and acknowledgment
-Show your appreciation to those who have contributed to the project.
-
-## License
-For open source projects, say how it is licensed.
-
-## Project status
-If you have run out of energy or time for your project, put a note at the top of the README saying that development has slowed down or stopped completely. Someone may choose to fork your project or volunteer to step in as a maintainer or owner, allowing your project to keep going. You can also make an explicit request for maintainers.
+| Role | Can do |
+|------|--------|
+| `ADMIN` | Everything |
+| `MANAGER` | Category, master SKU, approve orders, manage users |
+| `WAREHOUSE_STAFF` | Inbound, outbound, inventory checks, transfers |
+| `SALES_STAFF` | Create sales orders, channel SKU mapping |
+| `CUSTOMER` | View their own orders only |

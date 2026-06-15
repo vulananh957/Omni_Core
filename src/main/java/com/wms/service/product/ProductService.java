@@ -31,14 +31,6 @@ public class ProductService {
         }
     }
 
-    public List<Product> findPendingApproval() {
-        return productDAO.findPendingApproval();
-    }
-
-    public List<Product> findApproved() {
-        return productDAO.findApproved();
-    }
-
     public List<Category> findAllCategories() {
         return categoryDAO.findAll();
     }
@@ -48,14 +40,18 @@ public class ProductService {
     }
 
     public boolean createProduct(Product product, Integer createdByUserId) {
+        return createProductWithZones(product, createdByUserId, List.of());
+    }
+
+    public boolean createProductWithZones(Product product, Integer createdByUserId, List<Product.LocationConfig> zones) {
         if (product.getUnit() == null || product.getUnit().trim().isEmpty()) {
             product.setUnit("Cái");
         }
-        product.setStatus(Product.STATUS_PENDING);
         product.setCreatedBy(createdByUserId);
-        boolean success = productDAO.insert(product);
+        boolean success = productDAO.insertWithZones(product, createdByUserId, zones);
         if (success) {
-            log.info("Product created: name={} sku={} userId={}", product.getProductName(), product.getSkuCode(), createdByUserId);
+            log.info("Product created: name={} sku={} userId={} zones={}",
+                    product.getProductName(), product.getSkuCode(), createdByUserId, zones.size());
         } else {
             log.error("Product create failed: name={} sku={}", product.getProductName(), product.getSkuCode());
         }
@@ -63,14 +59,14 @@ public class ProductService {
     }
 
     public UpdateResult updateProduct(int productId, Product updates) {
+        return updateProduct(productId, updates, null);
+    }
+
+    public UpdateResult updateProduct(int productId, Product updates, List<Product.LocationConfig> zones) {
         Product existing = productDAO.findById(productId);
         if (existing == null) {
             log.warn("Update product failed: not found productId={}", productId);
             return UpdateResult.failure("Sản phẩm không tồn tại.");
-        }
-        if (!Product.STATUS_PENDING.equals(existing.getStatus())) {
-            log.warn("Update product rejected: wrong status productId={} status={}", productId, existing.getStatus());
-            return UpdateResult.failure("Chỉ sản phẩm ở trạng thái PENDING mới có thể chỉnh sửa.");
         }
 
         if (updates.getProductName() != null && !updates.getProductName().trim().isEmpty()) {
@@ -79,7 +75,7 @@ public class ProductService {
         if (updates.getCategoryId() != null) {
             existing.setCategoryId(updates.getCategoryId());
         }
-        if (updates.getAttributesText() != null && !updates.getAttributesText().trim().isEmpty()) {
+        if (updates.getAttributesText() != null) {
             existing.setAttributesText(updates.getAttributesText().trim());
         }
         if (updates.getWeightKg() != null) {
@@ -91,8 +87,21 @@ public class ProductService {
         if (updates.getMaxStock() != null) {
             existing.setMaxStock(updates.getMaxStock());
         }
+        if (updates.getBarcode() != null) {
+            existing.setBarcode(updates.getBarcode().trim());
+        }
+        if (updates.getUnit() != null) {
+            existing.setUnit(updates.getUnit().trim());
+        }
 
-        boolean success = productDAO.update(existing);
+        boolean success;
+        if (zones == null) {
+            // If zones list is null, retain the existing location configs
+            success = productDAO.update(existing);
+        } else {
+            success = productDAO.updateWithZones(existing, zones);
+        }
+
         if (!success) {
             log.error("Product update DAO failed: productId={}", productId);
             return UpdateResult.failure("Không thể cập nhật sản phẩm.");
@@ -101,15 +110,43 @@ public class ProductService {
         return UpdateResult.success();
     }
 
+    /**
+     * Warehouse Staff edit: updates ONLY the min/max stock and the default zone for ONE warehouse.
+     *
+     * Staff may change ONLY minStock and maxStock on the product master; the zone change is
+     * isolated to {@code warehouseId} via {@link ProductDAO#updateZoneForWarehouse}, so other
+     * warehouses' zone rows are never touched. Pass {@code zoneId = null} to clear this
+     * warehouse's zone. {@code minStock}/{@code maxStock} null = keep current value.
+     */
+    public UpdateResult updateProductForWarehouse(int productId, Double minStock, Double maxStock,
+                                                  int warehouseId, Integer zoneId) {
+        Product existing = productDAO.findById(productId);
+        if (existing == null) {
+            log.warn("Update product failed: not found productId={}", productId);
+            return UpdateResult.failure("Sản phẩm không tồn tại.");
+        }
+
+        if (minStock != null) existing.setMinStock(minStock);
+        if (maxStock != null) existing.setMaxStock(maxStock);
+
+        if (!productDAO.update(existing)) {
+            log.error("Product update DAO failed: productId={}", productId);
+            return UpdateResult.failure("Không thể cập nhật sản phẩm.");
+        }
+        if (!productDAO.updateZoneForWarehouse(productId, warehouseId, zoneId)) {
+            log.error("Product zone update failed: productId={} warehouseId={}", productId, warehouseId);
+            return UpdateResult.failure("Không thể cập nhật khu vực lưu trữ của kho.");
+        }
+        log.info("Product updated for warehouse: productId={} warehouseId={} zoneId={} min={} max={}",
+                productId, warehouseId, zoneId, minStock, maxStock);
+        return UpdateResult.success();
+    }
+
     public DeleteResult deleteProduct(int productId) {
         Product existing = productDAO.findById(productId);
         if (existing == null) {
             log.warn("Delete product failed: not found productId={}", productId);
             return DeleteResult.failure("Sản phẩm không tồn tại.");
-        }
-        if (!Product.STATUS_PENDING.equals(existing.getStatus())) {
-            log.warn("Delete product rejected: wrong status productId={} status={}", productId, existing.getStatus());
-            return DeleteResult.failure("Chỉ sản phẩm ở trạng thái PENDING mới có thể xóa.");
         }
         boolean success = productDAO.delete(productId);
         if (!success) {
@@ -131,26 +168,6 @@ public class ProductService {
             }
         }
         return null;
-    }
-
-    public boolean approveProductWithZones(int productId, int approvedBy, List<Product.LocationConfig> configs) {
-        boolean ok = productDAO.approveProductWithZones(productId, approvedBy, configs);
-        if (ok) {
-            log.info("Product approved with zones: productId={} approvedBy={}", productId, approvedBy);
-        } else {
-            log.error("Product approve with zones failed: productId={}", productId);
-        }
-        return ok;
-    }
-
-    public boolean rejectProduct(int productId, String reason) {
-        boolean ok = productDAO.reject(productId, reason);
-        if (ok) {
-            log.info("Product rejected: productId={} reason={}", productId, reason);
-        } else {
-            log.error("Product reject failed: productId={}", productId);
-        }
-        return ok;
     }
 
     public static class UpdateResult {

@@ -1,7 +1,5 @@
 package com.wms.controller.warehouse;
 
-import com.fasterxml.jackson.core.type.TypeReference;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.wms.controller.BaseController;
 import com.wms.model.Channel;
 import com.wms.model.ReturnItem;
@@ -25,7 +23,6 @@ public class WarehouseReturnsServlet extends BaseController {
     private static final String CONTEXT_PATH = "/warehouse/returns";
     private final ReturnService returnService = new ReturnService();
     private final ChannelService channelService = new ChannelService();
-    private final ObjectMapper objectMapper = new ObjectMapper();
 
     @Override
     protected void doGet(HttpServletRequest req, HttpServletResponse resp)
@@ -34,10 +31,16 @@ public class WarehouseReturnsServlet extends BaseController {
         consumeFlash(req);
 
         try {
-            req.setAttribute("products", returnService.findApprovedProducts());
-            req.setAttribute("returns", returnService.findAll());
-            req.setAttribute("channels", channelService.findAll());
+            List<?> products = returnService.findApprovedProducts();
+            List<?> returns = returnService.findAll();
+            List<?> channels = channelService.findAll();
+            System.out.println("[WarehouseReturns] DEBUG: products=" + products.size() + ", returns=" + returns.size() + ", channels=" + channels.size());
+            req.setAttribute("products", products);
+            req.setAttribute("returns", returns);
+            req.setAttribute("channels", channels);
         } catch (Exception e) {
+            System.out.println("[WarehouseReturns] ERROR: " + e.getClass().getName() + " - " + e.getMessage());
+            e.printStackTrace();
             req.setAttribute("products", List.of());
             req.setAttribute("returns", List.of());
             req.setAttribute("channels", List.<Channel>of());
@@ -80,7 +83,8 @@ public class WarehouseReturnsServlet extends BaseController {
 
                     List<ReturnItem> items = null;
                     if (itemsJson != null && !itemsJson.trim().isEmpty()) {
-                        items = objectMapper.readValue(itemsJson, new TypeReference<List<ReturnItem>>() {});
+                        items = parseJson(itemsJson,
+                            new com.fasterxml.jackson.core.type.TypeReference<List<ReturnItem>>() {});
                     }
 
                     ReturnService.ValidationResult validation =
@@ -109,7 +113,8 @@ public class WarehouseReturnsServlet extends BaseController {
                     }
 
                     int returnId = Integer.parseInt(returnIdStr.trim());
-                    List<ReturnItem> items = objectMapper.readValue(itemsJson, new TypeReference<List<ReturnItem>>() {});
+                    List<ReturnItem> items = parseJson(itemsJson,
+                        new com.fasterxml.jackson.core.type.TypeReference<List<ReturnItem>>() {});
                     boolean success = returnService.saveQC(returnId, items, userId);
                     if (success) {
                         setFlashSuccess(req, "Cập nhật kết quả QC cho phiếu #" + returnId + " thành công.");
@@ -127,6 +132,13 @@ public class WarehouseReturnsServlet extends BaseController {
                     }
 
                     int returnId = Integer.parseInt(returnIdStr.trim());
+
+                    // Validate: block apply if any items are still pending QC
+                    if (!returnService.isQCComplete(returnId)) {
+                        setFlashError(req, "Không thể áp dụng: vẫn còn sản phẩm chưa kiểm tra QC. Vui lòng hoàn tất kiểm tra trước.");
+                        break;
+                    }
+
                     boolean success = returnService.applyRestock(returnId, userId);
                     if (success) {
                         setFlashSuccess(req, "Áp dụng kết quả hàng hoàn, cập nhật tồn kho thành công!");

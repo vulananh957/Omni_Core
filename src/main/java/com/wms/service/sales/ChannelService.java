@@ -53,7 +53,7 @@ public class ChannelService {
 
     public String getNgrokPublicUrl() {
         try {
-            java.net.URL url = new java.net.URL("http://127.0.0.1:4040/api/tunnels/command_line");
+            java.net.URL url = new java.net.URL("http://127.0.0.1:4040/api/tunnels");
             java.net.HttpURLConnection conn = (java.net.HttpURLConnection) url.openConnection();
             conn.setConnectTimeout(2000);
             conn.setReadTimeout(2000);

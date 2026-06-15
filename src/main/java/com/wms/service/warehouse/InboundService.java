@@ -4,6 +4,8 @@ import com.wms.dao.InboundDAO;
 import com.wms.dao.InventoryDAO;
 import com.wms.model.InboundOrder;
 import com.wms.model.ReceiptNote;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -12,6 +14,8 @@ import java.util.ArrayList;
 import java.util.List;
 
 public class InboundService {
+
+    private static final Logger log = LoggerFactory.getLogger(InboundService.class);
 
     private final InboundDAO inboundDAO = new InboundDAO();
     private final InventoryDAO inventoryDAO = new InventoryDAO();
@@ -55,29 +59,36 @@ public class InboundService {
     public TransitionResult confirmInbound(int inboundId) {
         InboundOrder existing = inboundDAO.findById(inboundId);
         if (existing == null) {
+            log.warn("Confirm inbound failed: order not found id={}", inboundId);
             return TransitionResult.failure("Phiếu nhập không tồn tại.");
         }
         if (!InboundOrder.STATUS_PENDING.equals(existing.getStatus())) {
+            log.warn("Confirm inbound failed: wrong status id={} status={}", inboundId, existing.getStatus());
             return TransitionResult.failure("Phiếu nhập không ở trạng thái chờ xác nhận.");
         }
         boolean updated = inboundDAO.updateStatus(inboundId, InboundOrder.STATUS_IN_PROGRESS);
         if (!updated) {
+            log.error("Confirm inbound failed: DAO update returned false id={}", inboundId);
             return TransitionResult.failure("Không thể xác nhận phiếu nhập.");
         }
+        log.info("Inbound confirmed: id={} code={}", inboundId, existing.getInboundCode());
         return TransitionResult.success("Xác nhận phiếu " + existing.getInboundCode() + " thành công!");
     }
 
     public ReceiveResult receiveGoods(int inboundId, List<ReceiptItem> receiptItems, int userId) {
         InboundOrder existing = inboundDAO.findById(inboundId);
         if (existing == null) {
+            log.warn("Receive goods failed: order not found id={}", inboundId);
             return ReceiveResult.failure("Phiếu nhập không tồn tại.");
         }
         if (!InboundOrder.STATUS_IN_PROGRESS.equals(existing.getStatus())) {
+            log.warn("Receive goods failed: wrong status id={} status={}", inboundId, existing.getStatus());
             return ReceiveResult.failure("Chỉ phiếu đã xác nhận mới có thể nhập kho.");
         }
 
         LocalDateTime now = LocalDateTime.now();
-        boolean allOk = true;
+        int successCount = 0;
+        int failCount = 0;
 
         if (receiptItems != null) {
             for (ReceiptItem item : receiptItems) {
@@ -94,16 +105,21 @@ public class InboundService {
                     receipt.setReceivedAt(now);
 
                     inboundDAO.insertReceipt(receipt);
-                    inventoryDAO.addInventory(item.getProductId(), existing.getWarehouseId(), item.getReceivedQty());
+                    inventoryDAO.addInventory(item.getProductId(), existing.getWarehouseId(), item.getReceivedQty(), userId);
+                    successCount++;
                 } catch (Exception e) {
-                    allOk = false;
+                    failCount++;
+                    log.error("Receive goods item error: inboundId={} productId={} qty={} error={}",
+                            inboundId, item.getProductId(), item.getReceivedQty(), e.getMessage());
                 }
             }
         }
 
         inboundDAO.updateStatus(inboundId, InboundOrder.STATUS_RECEIVED);
+        log.info("Goods received: inboundId={} warehouseId={} userId={} success={} failed={}",
+                inboundId, existing.getWarehouseId(), userId, successCount, failCount);
 
-        String msg = allOk
+        String msg = (failCount == 0)
             ? "Nhập kho phiếu " + existing.getInboundCode() + " thành công! Tồn kho đã được cập nhật."
             : "Nhập kho phiếu " + existing.getInboundCode() + " hoàn tất (một số dòng có lỗi).";
         return ReceiveResult.success(msg);

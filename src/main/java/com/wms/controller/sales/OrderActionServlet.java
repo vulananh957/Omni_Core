@@ -1,7 +1,6 @@
 package com.wms.controller.sales;
 
 import com.wms.controller.BaseController;
-import com.wms.model.Order;
 import com.wms.service.sales.OrderService;
 
 import jakarta.servlet.ServletException;
@@ -9,9 +8,6 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
 import java.io.PrintWriter;
-import java.sql.SQLException;
-import java.util.List;
-import java.util.logging.Level;
 import java.util.logging.Logger;
 
 /**
@@ -38,22 +34,35 @@ public class OrderActionServlet extends BaseController {
         }
 
         OrderService.ActionResult result = orderService.handleAction(
-            action, orderCode,
-            req.getParameter("warehouseName"),
-            req.getParameter("note"),
-            req.getParameter("trackingNo"),
-            req.getParameter("video"),
-            req.getParameter("rmaReason"),
-            req.getParameter("rmaPhysicalStatus"),
-            req.getParameter("rmaPlatformStatus"),
-            req.getParameter("platformStatus"),
-            req.getParameter("disputeNote")
-        );
+                action, orderCode,
+                req.getParameter("warehouseName"),
+                req.getParameter("note"),
+                req.getParameter("trackingNo"),
+                req.getParameter("video"),
+                req.getParameter("rmaReason"),
+                req.getParameter("rmaPhysicalStatus"),
+                req.getParameter("rmaPlatformStatus"),
+                req.getParameter("platformStatus"),
+                req.getParameter("disputeNote"));
 
         if (result.isSuccess()) {
-            out.write("{\"success\":true}");
+            // ActionResult có thể mang theo data (vd: trackingNo sau khi server sinh)
+            java.util.Map<String, Object> data = result.getData();
+            if (data != null && data.containsKey("trackingNo")) {
+                Object tracking = data.get("trackingNo");
+                // JSON-safe escape: chỉ cho phép string, loại bỏ ký tự đặc biệt
+                String trackingEscaped = tracking == null ? ""
+                    : tracking.toString().replace("\\", "\\\\").replace("\"", "\\\"");
+                out.write("{\"success\":true,\"trackingNo\":\"" + trackingEscaped + "\"}");
+            } else {
+                out.write("{\"success\":true}");
+            }
         } else {
-            out.write("{\"success\":false,\"message\":\"" + result.getMessage() + "\"}");
+            // JSON-safe escape message
+            String message = result.getMessage() == null ? ""
+                : result.getMessage().replace("\\", "\\\\").replace("\"", "\\\"")
+                       .replace("\n", "\\n").replace("\r", "\\r");
+            out.write("{\"success\":false,\"message\":\"" + message + "\"}");
         }
     }
 }

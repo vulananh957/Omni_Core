@@ -1,0 +1,241 @@
+<mxfile host="app.diagrams.net" agent="Antigravity">
+  <diagram name="SD_ViewCategoriesList" id="sd-view-categories-list">
+    <mxGraphModel dx="1334" dy="739" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1800" pageHeight="1300" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <mxCell id="title" parent="1" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontSize=16;fontStyle=1;fontColor=#10375C;" value="Sequence Diagram: View Categories List&#xa;(Xem danh sách cây danh mục sản phẩm)" vertex="1">
+          <mxGeometry height="40" width="500" x="40" y="10" as="geometry" />
+        </mxCell>
+        <mxCell id="actor" parent="1" style="shape=umlActor;verticalLabelPosition=bottom;verticalAlign=top;html=1;outlineConnect=0;fillColor=#00CCFF;strokeColor=#006EAF;fontSize=12;fontStyle=1;" value="Business Manager" vertex="1">
+          <mxGeometry height="55" width="30" x="80" y="60" as="geometry" />
+        </mxCell>
+        <mxCell id="actor_ll" parent="1" style="html=1;points=[];perimeter=orthogonalPerimeter;dashed=1;dashPattern=8 4;strokeColor=#006EAF;" value="" vertex="1">
+          <mxGeometry height="970" width="1" x="94.5" y="130" as="geometry" />
+        </mxCell>
+        <mxCell id="frm" parent="1" style="shape=umlBoundary;whiteSpace=wrap;html=1;fillColor=#00CCFF;strokeColor=#006EAF;fontSize=11;fontStyle=1;" value="«boundary»&#xa;frm : categories.jsp" vertex="1">
+          <mxGeometry height="65" width="170" x="220" y="55" as="geometry" />
+        </mxCell>
+        <mxCell id="frm_ll" parent="1" style="html=1;points=[];perimeter=orthogonalPerimeter;dashed=1;dashPattern=8 4;strokeColor=#006EAF;" value="" vertex="1">
+          <mxGeometry height="970" width="1" x="304.5" y="130" as="geometry" />
+        </mxCell>
+        <mxCell id="ctrl" parent="1" style="shape=umlControl;whiteSpace=wrap;html=1;fillColor=#00CCFF;strokeColor=#006EAF;fontSize=11;fontStyle=1;" value="«control»&#xa;ctrl : CategoryServlet" vertex="1">
+          <mxGeometry height="65" width="170" x="480" y="55" as="geometry" />
+        </mxCell>
+        <mxCell id="ctrl_ll" parent="1" style="html=1;points=[];perimeter=orthogonalPerimeter;dashed=1;dashPattern=8 4;strokeColor=#006EAF;" value="" vertex="1">
+          <mxGeometry height="970" width="1" x="564.5" y="130" as="geometry" />
+        </mxCell>
+        <mxCell id="svc" parent="1" style="shape=umlControl;whiteSpace=wrap;html=1;fillColor=#00CCFF;strokeColor=#006EAF;fontSize=11;fontStyle=1;" value="«control»&#xa;svc : CategoryService" vertex="1">
+          <mxGeometry height="65" width="170" x="740" y="55" as="geometry" />
+        </mxCell>
+        <mxCell id="svc_ll" parent="1" style="html=1;points=[];perimeter=orthogonalPerimeter;dashed=1;dashPattern=8 4;strokeColor=#006EAF;" value="" vertex="1">
+          <mxGeometry height="970" width="1" x="824.5" y="130" as="geometry" />
+        </mxCell>
+        <mxCell id="dao" parent="1" style="shape=umlEntity;whiteSpace=wrap;html=1;fillColor=#00CCFF;strokeColor=#006EAF;fontSize=11;fontStyle=1;" value="«entity»&#xa;dao : CategoryDAO" vertex="1">
+          <mxGeometry height="65" width="160" x="990" y="55" as="geometry" />
+        </mxCell>
+        <mxCell id="dao_ll" parent="1" style="html=1;points=[];perimeter=orthogonalPerimeter;dashed=1;dashPattern=8 4;strokeColor=#006EAF;" value="" vertex="1">
+          <mxGeometry height="970" width="1" x="1069.5" y="130" as="geometry" />
+        </mxCell>
+        <mxCell id="db" parent="1" style="shape=umlEntity;whiteSpace=wrap;html=1;fillColor=#00CCFF;strokeColor=#006EAF;fontSize=11;fontStyle=1;" value="«entity»&#xa;DB : categories" vertex="1">
+          <mxGeometry height="65" width="160" x="1240" y="55" as="geometry" />
+        </mxCell>
+        <mxCell id="db_ll" parent="1" style="html=1;points=[];perimeter=orthogonalPerimeter;dashed=1;dashPattern=8 4;strokeColor=#006EAF;" value="" vertex="1">
+          <mxGeometry height="970" width="1" x="1319.5" y="130" as="geometry" />
+        </mxCell>
+        <mxCell id="frm_bar" parent="1" style="html=1;points=[];fillColor=#00CCFF;strokeColor=#006EAF;opacity=50;" value="" vertex="1">
+          <mxGeometry height="870" width="14" x="298" y="170" as="geometry" />
+        </mxCell>
+        <mxCell id="ctrl_bar" parent="1" style="html=1;points=[];fillColor=#00CCFF;strokeColor=#006EAF;opacity=50;" value="" vertex="1">
+          <mxGeometry height="440" width="14" x="558" y="220" as="geometry" />
+        </mxCell>
+        <mxCell id="svc_bar" parent="1" style="html=1;points=[];fillColor=#00CCFF;strokeColor=#006EAF;opacity=50;" value="" vertex="1">
+          <mxGeometry height="150" width="14" x="818" y="280" as="geometry" />
+        </mxCell>
+        <mxCell id="dao_bar1" parent="1" style="html=1;points=[];fillColor=#00CCFF;strokeColor=#006EAF;opacity=50;" value="" vertex="1">
+          <mxGeometry height="170" width="14" x="1063" y="320" as="geometry" />
+        </mxCell>
+        <mxCell id="db_bar1" parent="1" style="html=1;points=[];fillColor=#00CCFF;strokeColor=#006EAF;opacity=50;" value="" vertex="1">
+          <mxGeometry height="50" width="14" x="1313" y="370" as="geometry" />
+        </mxCell>
+        <mxCell id="dao_bar2" parent="1" style="html=1;points=[];fillColor=#00CCFF;strokeColor=#006EAF;opacity=50;" value="" vertex="1">
+          <mxGeometry height="120" width="14" x="1063" y="730" as="geometry" />
+        </mxCell>
+        <mxCell id="db_bar2" parent="1" style="html=1;points=[];fillColor=#00CCFF;strokeColor=#006EAF;opacity=50;" value="" vertex="1">
+          <mxGeometry height="50" width="14" x="1313" y="770" as="geometry" />
+        </mxCell>
+        <mxCell id="m1" edge="1" parent="1" style="html=1;verticalAlign=bottom;endArrow=block;endFill=1;curved=0;rounded=0;fontSize=11;strokeColor=#006EAF;fontColor=#10375C;" value="1. Truy cập trang Danh mục sản phẩm&#xa;     (GET /business/categories)">
+          <mxGeometry relative="1" x="-0.05" as="geometry">
+            <mxPoint as="offset" />
+            <mxPoint x="95" y="190" as="sourcePoint" />
+            <mxPoint x="298" y="190" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="m1_1" edge="1" parent="1" style="html=1;verticalAlign=bottom;endArrow=block;endFill=1;curved=0;rounded=0;fontSize=11;strokeColor=#006EAF;fontColor=#10375C;" value="1.1. doGet(request, response)">
+          <mxGeometry relative="1" x="-0.0012" as="geometry">
+            <mxPoint as="offset" />
+            <mxPoint x="312" y="240" as="sourcePoint" />
+            <mxPoint x="558" y="240" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="m1_1_1" edge="1" parent="1" style="html=1;verticalAlign=bottom;endArrow=block;endFill=1;curved=0;rounded=0;fontSize=11;strokeColor=#006EAF;fontColor=#10375C;" value="1.1.1. findAll()">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="572" y="300" as="sourcePoint" />
+            <mxPoint x="818" y="300" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="m1_1_1_1" edge="1" parent="1" style="html=1;verticalAlign=bottom;endArrow=block;endFill=1;curved=0;rounded=0;fontSize=11;strokeColor=#006EAF;fontColor=#10375C;" value="1.1.1.1. findAll()">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="832" y="340" as="sourcePoint" />
+            <mxPoint x="1063" y="340" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="m1_1_1_1_1" edge="1" parent="1" style="html=1;verticalAlign=bottom;endArrow=block;endFill=1;curved=0;rounded=0;fontSize=10;strokeColor=#006EAF;fontColor=#10375C;align=left;" value="1.1.1.1.1. DBConnection.getConnection()&#xa;  ps = conn.prepareStatement(sql)&#xa;  rs = ps.executeQuery()&#xa;  SQL: SELECT * FROM categories&#xa;         ORDER BY category_id ASC">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="1077" y="380" as="sourcePoint" />
+            <mxPoint x="1313" y="380" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="m1_1_1_1_2" edge="1" parent="1" style="html=1;verticalAlign=bottom;endArrow=open;endFill=0;dashed=1;curved=0;rounded=0;fontSize=11;strokeColor=#006EAF;fontColor=#10375C;" value="1.1.1.1.2. return ResultSet">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="1313" y="415" as="sourcePoint" />
+            <mxPoint x="1077" y="415" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="loop1" parent="1" style="shape=umlFrame;whiteSpace=wrap;html=1;width=50;height=18;fillColor=none;strokeColor=#006EAF;fontSize=10;fontStyle=1;align=left;verticalAlign=top;spacingLeft=5;dashed=0;" value="loop" vertex="1">
+          <mxGeometry height="55" width="110" x="1050" y="425" as="geometry" />
+        </mxCell>
+        <mxCell id="loop1_guard" parent="1" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontSize=10;fontStyle=2;fontColor=#006EAF;" value="[while rs.next()]" vertex="1">
+          <mxGeometry height="18" width="120" x="1100" y="425" as="geometry" />
+        </mxCell>
+        <mxCell id="m1_1_1_1_3" edge="1" parent="1" style="html=1;verticalAlign=bottom;endArrow=block;endFill=1;curved=0;rounded=0;fontSize=10;strokeColor=#006EAF;fontColor=#10375C;exitX=1;exitY=0;exitDx=0;exitDy=0;" value="1.1.1.1.3. «create» Category()&#xa;  mapResultSetToCategory(rs)&#xa;  list.add(category)">
+          <mxGeometry relative="1" x="-0.2003" y="88" as="geometry">
+            <mxPoint x="87" y="-78" as="offset" />
+            <Array as="points">
+              <mxPoint x="1143" y="445" />
+              <mxPoint x="1143" y="470" />
+              <mxPoint x="1077" y="470" />
+            </Array>
+            <mxPoint x="1077" y="445" as="sourcePoint" />
+            <mxPoint x="1143" y="445" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="m1_1_1_1_4" edge="1" parent="1" style="html=1;verticalAlign=bottom;endArrow=open;endFill=0;dashed=1;curved=0;rounded=0;fontSize=11;strokeColor=#006EAF;fontColor=#10375C;" value="1.1.1.1.4. return List&lt;Category&gt;">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="1063" y="485" as="sourcePoint" />
+            <mxPoint x="832" y="485" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="m1_1_1_2" edge="1" parent="1" style="html=1;verticalAlign=bottom;endArrow=open;endFill=0;dashed=1;curved=0;rounded=0;fontSize=11;strokeColor=#006EAF;fontColor=#10375C;" value="1.1.1.2. return List&lt;Category&gt;&#xa;  (categoryList)">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="818" y="420" as="sourcePoint" />
+            <mxPoint x="572" y="420" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="m1_1_2" edge="1" parent="1" style="html=1;verticalAlign=bottom;endArrow=block;endFill=1;curved=0;rounded=0;fontSize=10;strokeColor=#006EAF;fontColor=#10375C;" value="1.1.2. Build categoriesJson&#xa;  (StringBuilder → JSON string&#xa;   for each Category in list)">
+          <mxGeometry relative="1" x="-0.23" y="75" as="geometry">
+            <mxPoint as="offset" />
+            <Array as="points">
+              <mxPoint x="625" y="510" />
+              <mxPoint x="625" y="535" />
+              <mxPoint x="572" y="535" />
+            </Array>
+            <mxPoint x="572" y="510" as="sourcePoint" />
+            <mxPoint x="625" y="510" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="m1_1_3" edge="1" parent="1" style="html=1;verticalAlign=bottom;endArrow=block;endFill=1;curved=0;rounded=0;fontSize=10;strokeColor=#006EAF;fontColor=#10375C;align=left;" value="1.1.3. req.setAttribute(&#xa;  &quot;categories&quot;, categoryList&#xa;  &quot;categoriesJson&quot;, jsonStr&#xa;  &quot;pageTitle&quot;, &quot;Quản lý danh mục sản phẩm&quot;&#xa;  &quot;currentPage&quot;, &quot;categories&quot;&#xa;  &quot;contentPage&quot;, &quot;/WEB-INF/views/category/categories.jsp&quot;)">
+          <mxGeometry relative="1" x="-0.1243" y="-5" as="geometry">
+            <mxPoint x="5" y="5" as="offset" />
+            <Array as="points">
+              <mxPoint x="625" y="580" />
+              <mxPoint x="625" y="620" />
+              <mxPoint x="572" y="620" />
+            </Array>
+            <mxPoint x="572" y="580" as="sourcePoint" />
+            <mxPoint x="625" y="580" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="m1_1_4" edge="1" parent="1" style="html=1;verticalAlign=bottom;endArrow=open;endFill=0;dashed=1;curved=0;rounded=0;fontSize=10;strokeColor=#006EAF;fontColor=#10375C;align=left;" value="1.1.4. getRequestDispatcher(&#xa;  &quot;/WEB-INF/views/layout/dashboard-layout.jsp&quot;)&#xa;  .forward(req, resp)&#xa;  → jsp:include categories.jsp">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="558" y="680" as="sourcePoint" />
+            <mxPoint x="312" y="680" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="m1_2_note" parent="1" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontSize=9;fontStyle=2;fontColor=#006EAF;" value="(JSP scriptlet: categories.jsp dòng 7-8)" vertex="1">
+          <mxGeometry height="15" width="280" x="380" y="720" as="geometry" />
+        </mxCell>
+        <mxCell id="m1_2" edge="1" parent="1" style="html=1;verticalAlign=bottom;endArrow=block;endFill=1;curved=0;rounded=0;fontSize=11;strokeColor=#006EAF;fontColor=#10375C;" value="1.2. «create» CategoryDAO()&#xa;  dao.findAll()">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="312" y="740" as="sourcePoint" />
+            <mxPoint x="1063" y="740" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="m1_2_1" edge="1" parent="1" style="html=1;verticalAlign=bottom;endArrow=block;endFill=1;curved=0;rounded=0;fontSize=10;strokeColor=#006EAF;fontColor=#10375C;align=left;" value="1.2.1. executeQuery(&#xa;  &quot;SELECT * FROM categories&#xa;   ORDER BY category_id ASC&quot;)">
+          <mxGeometry relative="1" x="-0.1271" y="10" as="geometry">
+            <mxPoint as="offset" />
+            <mxPoint x="1077" y="780" as="sourcePoint" />
+            <mxPoint x="1313" y="780" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="m1_2_2" edge="1" parent="1" style="html=1;verticalAlign=bottom;endArrow=open;endFill=0;dashed=1;curved=0;rounded=0;fontSize=11;strokeColor=#006EAF;fontColor=#10375C;" value="1.2.2. return ResultSet">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="1313" y="812" as="sourcePoint" />
+            <mxPoint x="1077" y="812" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="m1_2_3" edge="1" parent="1" style="html=1;verticalAlign=bottom;endArrow=block;endFill=1;curved=0;rounded=0;fontSize=10;strokeColor=#006EAF;fontColor=#10375C;" value="1.2.3. «create» Category()&#xa;  mapResultSetToCategory(rs)&#xa;  list.add(category)">
+          <mxGeometry relative="1" x="-0.2216" y="52" as="geometry">
+            <mxPoint x="27" y="-7" as="offset" />
+            <Array as="points">
+              <mxPoint x="1143" y="825" />
+              <mxPoint x="1143" y="845" />
+              <mxPoint x="1077" y="845" />
+            </Array>
+            <mxPoint x="1077" y="825" as="sourcePoint" />
+            <mxPoint x="1143" y="825" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="m1_2_4" edge="1" parent="1" style="html=1;verticalAlign=bottom;endArrow=open;endFill=0;dashed=1;curved=0;rounded=0;fontSize=11;strokeColor=#006EAF;fontColor=#10375C;" value="1.2.4. return List&lt;Category&gt;">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="1063" y="845" as="sourcePoint" />
+            <mxPoint x="312" y="845" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="m1_3" edge="1" parent="1" style="html=1;verticalAlign=bottom;endArrow=block;endFill=1;curved=0;rounded=0;fontSize=10;strokeColor=#006EAF;fontColor=#10375C;align=left;" value="1.3. Đọc session flash messages&#xa;  (categoryMessage, categorySuccess)&#xa;  Render cây danh mục sản phẩm&#xa;  (tree-container, tree-node)">
+          <mxGeometry relative="1" x="-0.4068" y="15" as="geometry">
+            <mxPoint as="offset" />
+            <Array as="points">
+              <mxPoint x="365" y="910" />
+              <mxPoint x="365" y="950" />
+              <mxPoint x="312" y="950" />
+            </Array>
+            <mxPoint x="312" y="910" as="sourcePoint" />
+            <mxPoint x="365" y="910" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="m1_4" edge="1" parent="1" style="html=1;verticalAlign=bottom;endArrow=open;endFill=0;dashed=1;curved=0;rounded=0;fontSize=11;strokeColor=#006EAF;fontColor=#10375C;" value="1.4. Hiển thị trang cây danh mục sản phẩm&#xa;  (Category tree view + session toast)">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="298" y="990" as="sourcePoint" />
+            <mxPoint x="95" y="990" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="alt1_guard" parent="1" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontSize=10;fontStyle=2;fontColor=#CC3333;" value="[truy vấn thành công]" vertex="1">
+          <mxGeometry height="18" width="160" x="575" y="260" as="geometry" />
+        </mxCell>
+        <mxCell id="alt1_else" edge="1" parent="1" style="html=1;verticalAlign=top;endArrow=none;dashed=1;dashPattern=6 4;curved=0;rounded=0;strokeColor=#CC3333;" value="">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="530" y="498" as="sourcePoint" />
+            <mxPoint x="1360" y="498" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="alt1_else_guard" parent="1" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontSize=10;fontStyle=2;fontColor=#CC3333;" value="[SQLException]" vertex="1">
+          <mxGeometry height="18" width="120" x="540" y="472" as="geometry" />
+        </mxCell>
+        <mxCell id="kvBi-4dPPb28T8EezRTo-2" parent="1" style="shape=umlFrame;whiteSpace=wrap;html=1;width=40;height=18;fillColor=none;strokeColor=#CC3333;fontSize=10;fontStyle=1;align=left;verticalAlign=top;spacingLeft=5;dashed=1;dashPattern=4 4;movable=1;resizable=1;rotatable=1;deletable=1;editable=1;locked=0;connectable=1;" value="alt" vertex="1">
+          <mxGeometry height="260" width="830" x="530" y="246" as="geometry" />
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

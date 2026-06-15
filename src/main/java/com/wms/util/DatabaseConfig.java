@@ -4,15 +4,19 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.util.Properties;
 
+import org.flywaydb.core.Flyway;
+
 /**
  * Loads database configuration from a properties file.
  * Supports environment-variable overrides so secrets are never hardcoded in source.
  *
- * Priority: System env var &gt; db.properties file &gt; hardcoded defaults (dev only).
+ * Priority: System env var > db.properties file > hardcoded defaults (dev only).
  */
 public final class DatabaseConfig {
 
     private static final Properties PROP = new Properties();
+
+    private static volatile boolean flywayMigrated = false;
 
     static {
         load();
@@ -52,6 +56,28 @@ public final class DatabaseConfig {
         }
     }
 
+    /**
+     * Runs Flyway migrations if not already done.
+     * Safe to call multiple times — uses double-checked locking.
+     */
+    public static synchronized void migrateIfNeeded() {
+        if (flywayMigrated) return;
+        try {
+            String migrationPath = PROP.getProperty("db.migration.path", "/db/migration");
+            Flyway fw = Flyway.configure()
+                    .dataSource(getJdbcUrl(), getUsername(), getPassword())
+                    .locations("classpath:" + migrationPath)
+                    .baselineOnMigrate(true)
+                    .validateOnMigrate(false)
+                    .load();
+            fw.migrate();
+            flywayMigrated = true;
+        } catch (Exception e) {
+            System.err.println("Warning: Flyway migration failed: " + e.getMessage()
+                    + ". Application will continue — schema may already exist.");
+        }
+    }
+
     public static String getHost()     { return PROP.getProperty("db.host", "localhost"); }
     public static String getPort()     { return PROP.getProperty("db.port", "3306"); }
     public static String getDatabase() { return PROP.getProperty("db.name", "wms_hub"); }
@@ -59,8 +85,9 @@ public final class DatabaseConfig {
     public static String getPassword() { return PROP.getProperty("db.password", ""); }
     public static String getJdbcUrl() {
         return "jdbc:mysql://" + getHost() + ":" + getPort() + "/" + getDatabase()
-                + "?useSSL=false&serverTimezone=Asia/Ho_Chi_Minh&characterEncoding=UTF-8"
-                + "&allowPublicKeyRetrieval=true&connectionCollation=utf8mb4_unicode_ci";
+                + "?useSSL=false&serverTimezone=Asia/Ho_Chi_Minh"
+                + "&characterEncoding=UTF8&connectionCollation=utf8mb4_unicode_ci"
+                + "&allowPublicKeyRetrieval=true";
     }
 
     public static int getPoolMinIdle() {
@@ -84,7 +111,7 @@ public final class DatabaseConfig {
     }
 
     /**
-     * Returns a string property with fallback chain: env var &gt; property file &gt; default.
+     * Returns a string property with fallback chain: env var > property file > default.
      */
     public static String getProperty(String key, String envVar, String defaultVal) {
         String envVal = System.getenv(envVar);

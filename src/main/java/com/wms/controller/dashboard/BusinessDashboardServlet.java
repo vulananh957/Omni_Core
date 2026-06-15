@@ -1,6 +1,5 @@
 package com.wms.controller.dashboard;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.wms.controller.BaseController;
 import com.wms.model.Channel;
 import com.wms.service.sales.ChannelService;
@@ -15,7 +14,6 @@ public class BusinessDashboardServlet extends BaseController {
 
     private final ChannelService channelService = new ChannelService();
     private final OrderService orderService = new OrderService();
-    private final ObjectMapper objectMapper = new ObjectMapper();
 
     @Override
     protected void doGet(HttpServletRequest req, HttpServletResponse resp)
@@ -27,7 +25,7 @@ public class BusinessDashboardServlet extends BaseController {
         try {
             List<Channel> channels = channelService.findAll();
             req.setAttribute("channels", channels);
-            req.setAttribute("channelsJson", objectMapper.writeValueAsString(channels));
+            setJsonAttr(req, "channelsJson", channels);
         } catch (Exception e) {
             req.setAttribute("channels", List.<Channel>of());
             req.setAttribute("channelsJson", "[]");
@@ -49,10 +47,10 @@ public class BusinessDashboardServlet extends BaseController {
         }
 
         try {
-            req.setAttribute("dailyDataJson", objectMapper.writeValueAsString(orderService.getDailyRevenueData(period)));
-            req.setAttribute("channelDataJson", objectMapper.writeValueAsString(orderService.getChannelRevenueData(period)));
-            req.setAttribute("orderStatusJson", objectMapper.writeValueAsString(orderService.getOrderStatusCounts()));
-            req.setAttribute("topProductsJson", objectMapper.writeValueAsString(orderService.getTopProducts(5)));
+            setJsonAttr(req, "dailyDataJson", orderService.getDailyRevenueData(period));
+            setJsonAttr(req, "channelDataJson", orderService.getChannelRevenueData(period));
+            setJsonAttr(req, "orderStatusJson", orderService.getOrderStatusCounts());
+            setJsonAttr(req, "topProductsJson", orderService.getTopProducts(5));
         } catch (Exception e) {
             req.setAttribute("dailyDataJson", "null");
             req.setAttribute("channelDataJson", "null");

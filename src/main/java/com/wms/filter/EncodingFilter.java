@@ -30,9 +30,21 @@ public class EncodingFilter implements Filter {
             return;
         }
 
-        request.setCharacterEncoding("UTF-8");
-        response.setCharacterEncoding("UTF-8");
-        response.setContentType("text/html; charset=UTF-8");
+        // Skip setting content-type for ajax/JSON endpoints — servlet owns the
+        // response type. Forcing text/html here can cause Tomcat to start the
+        // chunked transfer and then the servlet swaps the content-type,
+        // resulting in a malformed chunked body on the client.
+        String accept = req.getHeader("Accept");
+        boolean isAjax = "XMLHttpRequest".equalsIgnoreCase(req.getHeader("X-Requested-With"))
+                || (accept != null && accept.contains("application/json"))
+                || "1".equals(req.getParameter("ajax"));
+        if (!isAjax) {
+            response.setCharacterEncoding("UTF-8");
+            response.setContentType("text/html; charset=UTF-8");
+        } else {
+            request.setCharacterEncoding("UTF-8");
+            response.setCharacterEncoding("UTF-8");
+        }
         chain.doFilter(request, response);
     }
 

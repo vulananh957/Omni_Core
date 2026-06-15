@@ -1,4 +1,5 @@
 <%@ page contentType="text/html; charset=UTF-8" pageEncoding="UTF-8" isErrorPage="true" %>
+<%@ taglib prefix="c" uri="jakarta.tags.core" %>
 <!DOCTYPE html>
 <html lang="vi">
 <head>
@@ -20,7 +21,7 @@
         <h1>403</h1>
         <h2>Từ chối truy cập</h2>
         <p>Bạn không có quyền truy cập trang này. Vui lòng đăng nhập với tài khoản phù hợp.</p>
-        <a href="<%= request.getContextPath() %>/login">Đăng nhập lại</a>
+        <a href="${pageContext.request.contextPath}/login">Đăng nhập lại</a>
     </div>
 </body>
 </html>

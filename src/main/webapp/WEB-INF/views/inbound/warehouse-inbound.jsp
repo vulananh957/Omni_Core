@@ -1,1013 +1,7 @@
 <%@ page language="java" contentType="text/html; charset=UTF-8" pageEncoding="UTF-8" %>
 <%@ taglib prefix="c" uri="jakarta.tags.core" %>
 
-<style>
-    /* ─── Inbound DB Section ─── */
-    .db-section-header {
-        display: flex; align-items: center; justify-content: space-between;
-        margin-bottom: 12px;
-    }
-    .db-section-title {
-        font-size: 15px; font-weight: 800; color: var(--navy); letter-spacing: -0.02em;
-    }
-    .db-badge {
-        display: inline-flex; align-items: center; gap: 4px;
-        padding: 3px 10px; border-radius: 20px;
-        font-size: 10px; font-weight: 700;
-        background: rgba(6, 182, 212, 0.1); color: #0891b2;
-        border: 1px solid rgba(6, 182, 212, 0.2);
-    }
-    .db-table-card {
-        background: #fff; border: 1px solid var(--border);
-        border-radius: var(--radius-card); overflow: hidden; margin-bottom: 20px;
-    }
-    .db-table { width: 100%; border-collapse: collapse; }
-    .db-table thead tr { background: var(--alice); border-bottom: 1px solid var(--border); }
-    .db-table thead th {
-        padding: 10px 16px;
-        font-size: 10px; font-weight: 700; text-transform: uppercase;
-        letter-spacing: .08em; color: rgba(16,55,92,0.40);
-    }
-    .db-table thead th:first-child { padding-left: 20px; }
-    .db-table thead th.text-right { text-align: right; }
-    .db-table tbody tr { border-bottom: 1px solid var(--border); transition: background .12s; }
-    .db-table tbody tr:last-child { border-bottom: none; }
-    .db-table tbody tr:hover { background: rgba(240,244,250,0.50); }
-    .db-table tbody td { padding: 12px 16px; font-size: 13px; color: var(--navy); }
-    .db-table tbody td:first-child { padding-left: 20px; }
-    .db-table tbody td.text-right { text-align: right; }
-    .db-inbound-code { font-family: monospace; font-weight: 700; color: var(--navy); font-size: 12px; }
-    .db-supplier { font-weight: 500; }
-    .db-warehouse { font-size: 12px; color: rgba(16,55,92,0.60); }
-    .db-empty-row td { text-align: center; padding: 32px !important; color: rgba(16,55,92,0.40); }
-
-    .status-pill {
-        display: inline-flex; align-items: center; gap: 4px;
-        padding: 3px 10px; border-radius: 20px; font-size: 10px; font-weight: 700;
-    }
-    .status-pill__dot { width: 5px; height: 5px; border-radius: 50%; }
-    .status-pill.pending   { background: #eff6ff; color: #1d4ed8; }
-    .status-pill.pending .status-pill__dot { background: #3b82f6; }
-    .status-pill.confirmed { background: rgba(245,200,66,0.15); color: #d97706; }
-    .status-pill.confirmed .status-pill__dot { background: #f5c842; }
-    .status-pill.received  { background: #ecfdf5; color: #047857; }
-    .status-pill.received .status-pill__dot { background: #10b981; }
-    .status-pill.cancelled { background: #fef2f2; color: #b91c1c; }
-    .status-pill.cancelled .status-pill__dot { background: #ef4444; }
-
-    .db-filter-tabs {
-        display: flex; flex-wrap: wrap; gap: 4px;
-        background: #fff; border: 1px solid var(--border);
-        border-radius: var(--radius-card); padding: 4px;
-        margin-bottom: 16px;
-    }
-    .db-filter-btn {
-        display: flex; align-items: center; gap: 6px;
-        padding: 6px 14px; font-size: 12px; font-weight: 600;
-        border: none; background: none; cursor: pointer;
-        color: rgba(16,55,92,0.50); border-radius: calc(var(--radius-btn) - 4px);
-        transition: all .15s;
-    }
-    .db-filter-btn.active { background: var(--navy); color: #fff; }
-    .db-filter-btn:not(.active):hover { color: var(--navy); }
-    .db-filter-count {
-        font-size: 9px; font-weight: 700; padding: 1px 5px;
-        border-radius: 9999px;
-    }
-    .db-filter-btn.active .db-filter-count { background: rgba(255,255,255,.20); color: #fff; }
-    .db-filter-btn:not(.active) .db-filter-count { background: rgba(16,55,92,.08); color: rgba(16,55,92,.50); }
-
-    .db-action-btn {
-        display: inline-flex; align-items: center; gap: 4px;
-        padding: 5px 12px; border: none; border-radius: calc(var(--radius-btn) - 4px);
-        font-size: 11px; font-weight: 700; cursor: pointer; white-space: nowrap;
-        transition: opacity .12s;
-    }
-    .db-action-btn:hover { opacity: .88; }
-    .db-action-btn--orange { background: var(--orange); color: #fff; }
-    .db-action-btn--navy  { background: var(--navy); color: #fff; }
-    .db-action-btn--emerald { background: #059669; color: #fff; }
-    .db-action-btn--white  { background: #fff; border: 1px solid var(--border); color: rgba(16,55,92,.7); }
-
-    /* Toast Notification */
-    .toast-container { position: fixed; top: 20px; right: 20px; z-index: 9999; display: flex; flex-direction: column; gap: 8px; }
-    .toast {
-        display: flex; align-items: center; gap: 10px;
-        padding: 12px 16px; background: #fff; border-radius: var(--radius-card);
-        box-shadow: 0 10px 25px rgba(16,55,92,.15);
-        font-size: 13px; font-weight: 500; color: var(--navy);
-        border-left: 4px solid var(--navy);
-        animation: slideInToast .2s ease;
-        max-width: 360px;
-    }
-    .toast.success { border-left-color: #10b981; }
-    .toast.error   { border-left-color: #ef4444; }
-    .toast__icon { width: 18px; height: 18px; flex-shrink: 0; }
-    @keyframes slideInToast { from { transform: translateX(100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
-    /* ─── Tabs & Layout ─── */
-    .tabs-wrap {
-        display: flex;
-        align-items: center;
-        gap: 8px;
-        margin-bottom: 20px;
-        border-bottom: 1px solid var(--border);
-    }
-    .tab-btn {
-        padding: 10px 16px;
-        font-size: 13px;
-        font-weight: 600;
-        background: none;
-        border: none;
-        color: rgba(16, 55, 92, 0.4);
-        cursor: pointer;
-        transition: color 0.15s, border-color 0.15s;
-        border-bottom: 2px solid transparent;
-        position: relative;
-        bottom: -1px;
-    }
-    .tab-btn:hover {
-        color: rgba(16, 55, 92, 0.7);
-    }
-    .tab-btn.active {
-        color: var(--navy);
-        border-bottom-color: var(--navy);
-    }
-
-    /* ─── Summary Grid ─── */
-    .inbound-stats-grid-4 {
-        display: grid;
-        grid-template-columns: repeat(4, 1fr);
-        gap: 16px;
-        margin-bottom: 24px;
-    }
-    @media (max-width: 1024px) {
-        .inbound-stats-grid-4 {
-            grid-template-columns: repeat(2, 1fr);
-        }
-    }
-    @media (max-width: 640px) {
-        .inbound-stats-grid-4 {
-            grid-template-columns: 1fr;
-        }
-    }
-
-    .inbound-kpi-card {
-        background: #fff;
-        border: 1px solid var(--border);
-        border-radius: var(--radius-card);
-        padding: 16px 20px;
-        display: flex !important;
-        flex-direction: row !important;
-        align-items: center !important;
-        gap: 16px !important;
-    }
-    .inbound-kpi-card__icon-box {
-        width: 40px;
-        height: 40px;
-        border-radius: var(--radius-btn);
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        flex-shrink: 0;
-    }
-    .inbound-kpi-card__icon-box svg {
-        width: 20px;
-        height: 20px;
-    }
-    .inbound-kpi-card__info {
-        flex: 1;
-        min-width: 0;
-        display: flex;
-        flex-direction: column;
-        align-items: flex-start;
-    }
-    .inbound-kpi-card__val {
-        font-size: 22px;
-        font-weight: 800;
-        color: var(--navy);
-        line-height: 1.1;
-        letter-spacing: -0.03em;
-        margin-bottom: 2px;
-    }
-    .inbound-kpi-card__lbl {
-        color: rgba(16, 55, 92, 0.50);
-        font-size: 11px;
-        font-weight: 500;
-    }
-
-    .tone-blue .inbound-kpi-card__icon-box { background: rgba(59, 130, 246, 0.1); }
-    .tone-blue .inbound-kpi-card__icon-box svg { color: #2563eb; }
-    
-    .tone-orange .inbound-kpi-card__icon-box { background: rgba(235, 131, 23, 0.1); }
-    .tone-orange .inbound-kpi-card__icon-box svg { color: var(--orange); }
-    .tone-orange .inbound-kpi-card__val { color: var(--orange); }
-
-    .tone-emerald .inbound-kpi-card__icon-box { background: rgba(16, 185, 129, 0.1); }
-    .tone-emerald .inbound-kpi-card__icon-box svg { color: #059669; }
-
-    .tone-navy .inbound-kpi-card__icon-box { background: rgba(16, 55, 92, 0.08); }
-    .tone-navy .inbound-kpi-card__icon-box svg { color: var(--navy); }
-
-    .tone-cyan .inbound-kpi-card__icon-box { background: rgba(6, 182, 212, 0.1); }
-    .tone-cyan .inbound-kpi-card__icon-box svg { color: #0891b2; }
-
-    .tone-slate .inbound-kpi-card__icon-box { background: rgba(100, 116, 139, 0.1); }
-    .tone-slate .inbound-kpi-card__icon-box svg { color: #475569; }
-
-    /* ─── Toolbar ─── */
-    .toolbar {
-        background: #fff;
-        border: 1px solid var(--border);
-        border-radius: var(--radius-card);
-        padding: 14px 16px;
-        margin-bottom: 16px;
-        display: flex;
-        align-items: center;
-        gap: 12px;
-    }
-    .search-wrap {
-        position: relative;
-        flex: 1;
-    }
-    .search-wrap svg {
-        position: absolute;
-        left: 12px;
-        top: 50%;
-        transform: translateY(-50%);
-        width: 14px;
-        height: 14px;
-        color: rgba(16, 55, 92, 0.3);
-    }
-    .search-wrap input {
-        width: 100%;
-        padding: 8px 16px 8px 36px;
-        background: var(--alice);
-        border: 1px solid var(--border);
-        border-radius: calc(var(--radius-btn) - 2px);
-        font-size: 13px;
-        outline: none;
-        color: var(--navy);
-        transition: border-color 0.15s;
-    }
-    .search-wrap input::placeholder {
-        color: rgba(16, 55, 92, 0.3);
-    }
-    .search-wrap input:focus {
-        border-color: rgba(16, 55, 92, 0.3);
-    }
-    .btn-create {
-        display: inline-flex;
-        align-items: center;
-        gap: 8px;
-        padding: 8px 16px;
-        background: var(--orange);
-        border: none;
-        border-radius: calc(var(--radius-btn) - 2px);
-        color: #fff;
-        font-size: 13px;
-        font-weight: 600;
-        cursor: pointer;
-        transition: background 0.15s;
-    }
-    .btn-create:hover {
-        background: #ea580c;
-    }
-    .btn-create svg {
-        width: 14px;
-        height: 14px;
-    }
-
-    /* ─── Status Filter Nav ─── */
-    .status-tabs {
-        display: flex;
-        flex-wrap: wrap;
-        gap: 4px;
-        background: #fff;
-        border: 1px solid var(--border);
-        border-radius: var(--radius-card);
-        padding: 4px;
-        margin-bottom: 16px;
-    }
-    .status-tab-btn {
-        display: flex;
-        align-items: center;
-        gap: 8px;
-        padding: 8px 16px;
-        font-size: 12px;
-        font-weight: 600;
-        border: none;
-        background: none;
-        cursor: pointer;
-        color: rgba(16, 55, 92, 0.5);
-        border-radius: calc(var(--radius-btn) - 4px);
-        transition: all 0.15s;
-    }
-    .status-tab-btn:hover {
-        color: var(--navy);
-    }
-    .status-tab-btn.active {
-        background: var(--navy);
-        color: #fff;
-    }
-    .status-tab-badge {
-        font-size: 10px;
-        font-weight: 700;
-        padding: 1px 6px;
-        border-radius: 9999px;
-        background: rgba(16, 55, 92, 0.08);
-        color: rgba(16, 55, 92, 0.6);
-        transition: background 0.15s, color 0.15s;
-    }
-    .status-tab-btn.active .status-tab-badge {
-        background: rgba(255, 255, 255, 0.20);
-        color: #fff;
-    }
-
-    /* ─── Collapsible GRN List ─── */
-    .grn-list {
-        display: flex;
-        flex-direction: column;
-        gap: 12px;
-    }
-    .grn-item {
-        background: #fff;
-        border: 1px solid var(--border);
-        border-radius: var(--radius-card);
-        overflow: hidden;
-        transition: all 0.15s;
-    }
-    .grn-hdr {
-        display: flex;
-        align-items: center;
-        gap: 16px;
-        padding: 16px 20px;
-        cursor: pointer;
-        transition: background 0.12s;
-    }
-    .grn-hdr:hover {
-        background: rgba(240, 244, 250, 0.40);
-    }
-    .grn-hdr__icon {
-        width: 40px;
-        height: 40px;
-        border-radius: var(--radius-btn);
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        flex-shrink: 0;
-    }
-    .grn-hdr__icon svg {
-        width: 18px;
-        height: 18px;
-    }
-    .grn-hdr__info {
-        flex: 1;
-        min-width: 0;
-    }
-    .grn-meta-row {
-        display: flex;
-        align-items: center;
-        gap: 12px;
-        flex-wrap: wrap;
-    }
-    .grn-id {
-        font-size: 14px;
-        font-weight: 800;
-        color: var(--navy);
-    }
-    
-    /* Badges */
-    .pill-badge {
-        display: inline-flex;
-        align-items: center;
-        gap: 4px;
-        padding: 2px 10px;
-        font-size: 10px;
-        font-weight: 700;
-        border-radius: 20px;
-        text-transform: capitalize;
-        white-space: nowrap;
-    }
-    .pill-badge__dot {
-        width: 6px;
-        height: 6px;
-        border-radius: 50%;
-    }
-    
-    .pill-badge.draft { background: rgba(16, 55, 92, 0.08); color: rgba(16, 55, 92, 0.6); }
-    .pill-badge.draft .pill-badge__dot { background: rgba(16, 55, 92, 0.3); }
-
-    .pill-badge.pending_bm { background: #FEF3C7; color: #b45309; }
-    .pill-badge.pending_bm .pill-badge__dot { background: #f59e0b; }
-
-    .pill-badge.pending { background: #eff6ff; color: #1d4ed8; }
-    .pill-badge.pending .pill-badge__dot { background: #3b82f6; }
-
-    .pill-badge.in_progress { background: rgba(245, 200, 66, 0.15); color: #d97706; }
-    .pill-badge.in_progress .pill-badge__dot { background: #f5c842; }
-
-    .pill-badge.completed { background: #ECFDF5; color: #047857; }
-    .pill-badge.completed .pill-badge__dot { background: #10b981; }
-
-    .pill-badge.cancelled { background: #FEF2F2; color: #b91c1c; }
-    .pill-badge.cancelled .pill-badge__dot { background: #ef4444; }
-
-    .grn-supplier-row {
-        display: flex;
-        align-items: center;
-        gap: 16px;
-        margin-top: 4px;
-        color: rgba(16, 55, 92, 0.50);
-        font-size: 12px;
-    }
-    .grn-supplier-cell {
-        display: flex;
-        align-items: center;
-        gap: 4px;
-        font-weight: 500;
-    }
-    .grn-supplier-cell svg {
-        width: 12px;
-        height: 12px;
-    }
-    
-    .grn-stats-row {
-        display: flex;
-        align-items: center;
-        gap: 24px;
-        flex-shrink: 0;
-    }
-    .grn-stat {
-        text-align: right;
-    }
-    .grn-stat__lbl {
-        color: rgba(16, 55, 92, 0.40);
-        font-size: 9px;
-        font-weight: 700;
-        text-transform: uppercase;
-        letter-spacing: 0.05em;
-        margin-bottom: 2px;
-    }
-    .grn-stat__val {
-        font-size: 14px;
-        font-weight: 800;
-        color: var(--navy);
-    }
-    
-    .btn-action-icon {
-        width: 32px;
-        height: 32px;
-        border-radius: var(--radius-btn);
-        background: var(--alice);
-        border: none;
-        cursor: pointer;
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-        color: rgba(16, 55, 92, 0.5);
-        transition: background 0.15s, color 0.15s;
-    }
-    .btn-action-icon:hover {
-        background: rgba(16, 55, 92, 0.08);
-        color: var(--navy);
-    }
-    .btn-action-icon svg {
-        width: 16px;
-        height: 16px;
-    }
-
-    .btn-action-grn {
-        padding: 8px 16px;
-        background: var(--orange);
-        color: #fff;
-        font-size: 12px;
-        font-weight: 700;
-        border: none;
-        border-radius: calc(var(--radius-btn) - 2px);
-        cursor: pointer;
-        transition: background 0.12s;
-    }
-    .btn-action-grn:hover {
-        background: #ea580c;
-    }
-    
-    .grn-chevron {
-        width: 16px;
-        height: 16px;
-        color: rgba(16, 55, 92, 0.3);
-        transition: transform 0.2s ease;
-    }
-    .grn-item.expanded .grn-chevron {
-        transform: rotate(180deg);
-    }
-
-    /* Action Dropdown Menu */
-    .dropdown-wrap {
-        position: relative;
-        display: inline-block;
-    }
-    .dropdown-menu {
-        position: absolute;
-        right: 0;
-        top: 100%;
-        margin-top: 8px;
-        width: 180px;
-        background: #fff;
-        border: 1px solid var(--border);
-        border-radius: var(--radius-btn);
-        box-shadow: 0 10px 15px -3px rgba(16, 55, 92, 0.1);
-        z-index: 50;
-        display: none;
-        overflow: hidden;
-    }
-    .dropdown-menu.active {
-        display: block;
-    }
-    .dropdown-btn {
-        width: 100%;
-        padding: 8px 12px;
-        font-size: 12px;
-        font-weight: 600;
-        text-align: left;
-        background: none;
-        border: none;
-        cursor: pointer;
-        display: flex;
-        align-items: center;
-        gap: 8px;
-        color: rgba(16, 55, 92, 0.7);
-        transition: background 0.12s, color 0.12s;
-    }
-    .dropdown-btn:hover {
-        background: var(--alice);
-        color: var(--navy);
-    }
-    .dropdown-btn svg {
-        width: 14px;
-        height: 14px;
-    }
-
-    /* Expanded Content */
-    .grn-body {
-        border-top: 1px solid var(--border);
-        display: none;
-    }
-    .grn-item.expanded .grn-body {
-        display: block;
-    }
-    .grn-body-table {
-        width: 100%;
-        border-collapse: collapse;
-    }
-    .grn-body-table th {
-        background: var(--alice);
-        padding: 10px 16px;
-        font-size: 10px;
-        font-weight: 700;
-        color: rgba(16, 55, 92, 0.40);
-        text-transform: uppercase;
-        letter-spacing: 0.05em;
-        border-bottom: 1px solid var(--border);
-    }
-    .grn-body-table th:first-child { padding-left: 20px; }
-    .grn-body-table th:last-child { padding-right: 20px; }
-    
-    .grn-body-table td {
-        padding: 12px 16px;
-        border-bottom: 1px solid var(--border);
-        font-size: 12px;
-    }
-    .grn-body-table td:first-child { padding-left: 20px; }
-    .grn-body-table td:last-child { padding-right: 20px; }
-    .grn-body-table tr:last-child td {
-        border-bottom: none;
-    }
-    
-    .progress-bar-wrap {
-        width: 80px;
-        height: 6px;
-        background: var(--border);
-        border-radius: 9999px;
-        overflow: hidden;
-    }
-    .progress-bar-fill {
-        height: 100%;
-        border-radius: 9999px;
-    }
-    
-    .grn-notes-bar {
-        background: rgba(245, 200, 66, 0.08);
-        border-top: 1px solid var(--border);
-        padding: 10px 20px;
-        font-size: 12px;
-        color: rgba(16, 55, 92, 0.7);
-        display: flex;
-        align-items: center;
-        gap: 8px;
-    }
-    .grn-notes-bar svg {
-        width: 14px;
-        height: 14px;
-        color: var(--orange);
-    }
-
-    .grn-user-bar {
-        border-top: 1px solid var(--border);
-        padding: 10px 20px;
-        font-size: 11px;
-        color: rgba(16, 55, 92, 0.4);
-        display: flex;
-        align-items: center;
-        gap: 6px;
-    }
-    .grn-user-bar svg {
-        width: 13px;
-        height: 13px;
-    }
-
-    /* ─── Modals ─── */
-    .modal-overlay {
-        position: fixed;
-        inset: 0;
-        background: rgba(16, 55, 92, 0.40);
-        backdrop-filter: blur(4px);
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        z-index: 1000;
-        opacity: 0;
-        pointer-events: none;
-        transition: opacity 0.2s ease;
-    }
-    .modal-overlay.active {
-        opacity: 1;
-        pointer-events: auto;
-    }
-    .modal-box {
-        background: #fff;
-        width: 100%;
-        max-width: 560px;
-        border-radius: var(--radius-card);
-        box-shadow: 0 20px 25px -5px rgba(16, 55, 92, 0.15);
-        transform: translateY(24px);
-        transition: transform 0.2s ease;
-        max-height: 90vh;
-        display: flex;
-        flex-direction: column;
-        overflow: hidden;
-    }
-    .modal-overlay.active .modal-box {
-        transform: translateY(0);
-    }
-    .modal-hdr {
-        padding: 16px 24px;
-        border-bottom: 1px solid var(--border);
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-    }
-    .modal-title {
-        color: var(--navy);
-        font-size: 16px;
-        font-weight: 800;
-    }
-    .modal-subtitle {
-        color: rgba(16, 55, 92, 0.40);
-        font-size: 12px;
-        margin-top: 2px;
-    }
-    .modal-close {
-        background: none;
-        border: none;
-        cursor: pointer;
-        font-size: 24px;
-        line-height: 1;
-        color: rgba(16, 55, 92, 0.40);
-        transition: color 0.15s;
-    }
-    .modal-close:hover {
-        color: var(--navy);
-    }
-    
-    .modal-body {
-        padding: 24px;
-        overflow-y: auto;
-        flex: 1;
-        display: flex;
-        flex-direction: column;
-        gap: 16px;
-    }
-    
-    .form-group {
-        display: flex;
-        flex-direction: column;
-        gap: 6px;
-    }
-    .form-label {
-        color: rgba(16, 55, 92, 0.60);
-        font-size: 11px;
-        font-weight: 700;
-        text-transform: uppercase;
-        letter-spacing: 0.05em;
-    }
-    .form-input {
-        width: 100%;
-        padding: 10px 14px;
-        border: 1px solid var(--border);
-        background: var(--alice);
-        border-radius: calc(var(--radius-btn) - 2px);
-        font-size: 13px;
-        font-family: inherit;
-        color: var(--navy);
-        outline: none;
-        transition: border-color 0.15s;
-    }
-    .form-input:focus {
-        border-color: rgba(16, 55, 92, 0.40);
-    }
-    .form-textarea {
-        width: 100%;
-        padding: 10px 14px;
-        border: 1px solid var(--border);
-        background: var(--alice);
-        border-radius: calc(var(--radius-btn) - 2px);
-        font-size: 13px;
-        font-family: inherit;
-        color: var(--navy);
-        outline: none;
-        resize: none;
-        transition: border-color 0.15s;
-    }
-    .form-textarea:focus {
-        border-color: rgba(16, 55, 92, 0.40);
-    }
-    
-    .modal-ftr {
-        padding: 16px 24px;
-        border-top: 1px solid var(--border);
-        background: var(--alice);
-        display: flex;
-        justify-content: flex-end;
-        gap: 12px;
-    }
-
-    .modal-btn-cancel {
-        padding: 10px 18px;
-        border: 1px solid var(--border);
-        background: var(--alice);
-        color: rgba(16, 55, 92, 0.7);
-        font-size: 13px;
-        font-weight: 500;
-        border-radius: calc(var(--radius-btn) - 2px);
-        cursor: pointer;
-        transition: all 0.15s;
-    }
-    .modal-btn-cancel:hover {
-        color: var(--navy);
-        background: #e2eaf5;
-    }
-    
-    .modal-btn-submit {
-        padding: 10px 20px;
-        background: var(--orange);
-        color: #fff;
-        border: none;
-        font-size: 13px;
-        font-weight: 600;
-        border-radius: calc(var(--radius-btn) - 2px);
-        cursor: pointer;
-        transition: background 0.15s;
-    }
-    .modal-btn-submit:hover {
-        background: #ea580c;
-    }
-    
-    .modal-btn-emerald {
-        background: #059669;
-    }
-    .modal-btn-emerald:hover {
-        background: #047857;
-    }
-
-    .receive-item-card {
-        display: flex;
-        align-items: center;
-        gap: 16px;
-        padding: 12px 16px;
-        background: var(--alice);
-        border-radius: calc(var(--radius-btn) - 2px);
-        border: 1px solid var(--border);
-    }
-    
-    /* ─── Pricing view styles ─── */
-    .config-header {
-        background: #fff;
-        border: 1px solid var(--border);
-        border-radius: var(--radius-card);
-        padding: 20px;
-        margin-bottom: 20px;
-    }
-    .config-badge {
-        display: inline-flex;
-        align-items: center;
-        gap: 6px;
-        padding: 4px 10px;
-        font-size: 11px;
-        font-weight: 600;
-        background: rgba(6, 182, 212, 0.1);
-        color: #0891b2;
-        border: 1px solid rgba(6, 182, 212, 0.2);
-        border-radius: calc(var(--radius-btn) - 2px);
-        margin-bottom: 12px;
-        text-transform: uppercase;
-        letter-spacing: 0.05em;
-    }
-    .config-badge svg {
-        width: 14px;
-        height: 14px;
-    }
-    .config-title {
-        font-size: 22px;
-        font-weight: 800;
-        color: var(--navy);
-        letter-spacing: -0.03em;
-        margin-bottom: 4px;
-    }
-    .config-desc {
-        font-size: 13px;
-        color: rgba(16, 55, 92, 0.6);
-        max-width: 800px;
-    }
-
-    .pricing-table-card {
-        background: #fff;
-        border: 1px solid var(--border);
-        border-radius: var(--radius-card);
-        overflow: hidden;
-    }
-    .pricing-table {
-        width: 100%;
-        border-collapse: collapse;
-    }
-    .pricing-table th {
-        background: var(--alice);
-        padding: 12px 16px;
-        font-size: 11px;
-        font-weight: 700;
-        color: rgba(16, 55, 92, 0.50);
-        text-transform: uppercase;
-        letter-spacing: 0.05em;
-        border-bottom: 1px solid var(--border);
-        text-align: left;
-    }
-    .pricing-table td {
-        padding: 14px 16px;
-        border-bottom: 1px solid var(--border);
-        vertical-align: middle;
-        font-size: 13px;
-    }
-    .pricing-table tr:hover td {
-        background: rgba(240, 244, 250, 0.50);
-    }
-    .pricing-table tr:last-child td {
-        border-bottom: none;
-    }
-    
-    .price-input {
-        width: 140px;
-        padding: 8px 12px;
-        border: 1px solid var(--border);
-        border-radius: calc(var(--radius-btn) - 2px);
-        outline: none;
-        text-align: right;
-        font-size: 13px;
-        color: var(--navy);
-        font-family: inherit;
-        background: #fff;
-        transition: border-color 0.15s;
-    }
-    .price-input:focus {
-        border-color: rgba(16, 55, 92, 0.3);
-    }
-    .price-input:disabled {
-        background: var(--alice);
-        color: rgba(16, 55, 92, 0.40);
-        cursor: not-allowed;
-    }
-
-    .btn-save-inline {
-        display: inline-flex;
-        align-items: center;
-        gap: 6px;
-        padding: 8px 14px;
-        background: var(--navy);
-        color: #fff;
-        font-size: 12px;
-        font-weight: 600;
-        border: none;
-        border-radius: calc(var(--radius-btn) - 2px);
-        cursor: pointer;
-        transition: background 0.15s;
-    }
-    .btn-save-inline:hover {
-        background: #0d2e4e;
-    }
-    .btn-save-inline:disabled {
-        background: #f1f5f9;
-        color: #cbd5e1;
-        cursor: not-allowed;
-    }
-    .btn-save-inline svg {
-        width: 14px;
-        height: 14px;
-    }
-
-    .pricing-bottom-bar {
-        display: flex;
-        align-items: center;
-        justify-content: flex-end;
-        gap: 16px;
-        margin-top: 20px;
-    }
-    .pricing-status-text {
-        font-size: 12px;
-        color: rgba(16, 55, 92, 0.4);
-        font-style: italic;
-    }
-
-    /* ─── Draft creation item table ─── */
-    .draft-items-box {
-        background: #fff;
-        border: 1px solid var(--border);
-        border-radius: var(--radius-card);
-        overflow: hidden;
-    }
-    .draft-items-hdr {
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        padding: 12px 16px;
-        border-bottom: 1px solid var(--border);
-    }
-    .draft-items-title {
-        font-size: 13px;
-        font-weight: 600;
-        color: var(--navy);
-    }
-    .btn-add-row {
-        padding: 6px 12px;
-        background: var(--orange);
-        color: #fff;
-        border: none;
-        font-size: 12px;
-        font-weight: 600;
-        border-radius: calc(var(--radius-btn) - 2px);
-        cursor: pointer;
-        transition: background 0.12s;
-    }
-    .btn-add-row:hover {
-        background: #ea580c;
-    }
-    .draft-row {
-        display: grid;
-        grid-template-columns: 1.2fr 2fr 120px 40px;
-        gap: 12px;
-        padding: 12px 16px;
-        border-bottom: 1px solid var(--border);
-        align-items: center;
-    }
-    .draft-row:last-child {
-        border-bottom: none;
-    }
-    .btn-del-row {
-        width: 32px;
-        height: 32px;
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-        background: none;
-        border: none;
-        color: #ef4444;
-        cursor: pointer;
-        font-size: 20px;
-        border-radius: 4px;
-        transition: background 0.15s;
-    }
-    .btn-del-row:hover {
-        background: #fef2f2;
-    }
-
-    .sku-select-input {
-        width: 100%;
-        padding: 10px 14px;
-        border: 1px solid var(--border);
-        background: var(--alice);
-        border-radius: calc(var(--radius-btn) - 2px);
-        font-size: 13px;
-        color: var(--navy);
-        outline: none;
-    }
-</style>
+<link rel="stylesheet" href="${pageContext.request.contextPath}/assets/css/inbound--warehouse-inbound.css"/>
 
 <!-- ══ MAIN TAB NAVIGATION ══════════════════════════════════ -->
 <div class="tabs-wrap">
@@ -1052,79 +46,36 @@
             </div>
         </div>
 
-        <!-- Card: Total SKU Count -->
-        <div class="inbound-kpi-card tone-navy">
+        <!-- Card: SKU Received -->
+        <div class="inbound-kpi-card tone-violet">
             <div class="inbound-kpi-card__icon-box">
-                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path><polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline><line x1="12" y1="22.08" x2="12" y2="12"></line></svg>
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m7.5 4.27 9 5.15"/><path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z"/><path d="m3.3 7 8.7 5 8.7-5"/><path d="M12 22V12"/></svg>
             </div>
             <div class="inbound-kpi-card__info">
                 <div class="inbound-kpi-card__val" id="stat-sku-received">0</div>
-                <div class="inbound-kpi-card__lbl">SKU đã nhập (tuần)</div>
+                <div class="inbound-kpi-card__lbl">SKU đã nhập</div>
             </div>
         </div>
     </div>
 
-    <!-- ─── DB-SIDE INBOUND ORDERS ─── -->
-    <!-- Pulls from InboundDAO.findAll() passed by WarehouseInboundServlet -->
-    <c:if test="${not empty inboundList || param.showDb eq 'true'}">
-    <div class="db-section-header" style="margin-bottom:16px;">
-        <div>
-            <div class="db-section-title">Danh sách phiếu nhập (từ Database)</div>
-            <div style="font-size:12px; color:rgba(16,55,92,0.40); margin-top:2px;">Dữ liệu thực từ MySQL — InboundOrder</div>
-        </div>
-        <div class="db-badge">
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:12px;height:12px;"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/></svg>
-            MySQL
-        </div>
-    </div>
-
-    <!-- Server-side status filter -->
-    <div class="db-filter-tabs" id="dbFilterTabs">
-        <button class="db-filter-btn active" data-filter="all">Tất cả <span class="db-filter-count" id="db-count-all">0</span></button>
-        <button class="db-filter-btn" data-filter="PENDING">Chờ <span class="db-filter-count" id="db-count-PENDING">0</span></button>
-        <button class="db-filter-btn" data-filter="IN_PROGRESS">Đang nhập <span class="db-filter-count" id="db-count-IN_PROGRESS">0</span></button>
-        <button class="db-filter-btn" data-filter="RECEIVED">Đã nhập <span class="db-filter-count" id="db-count-RECEIVED">0</span></button>
-        <button class="db-filter-btn" data-filter="CANCELLED">Đã hủy <span class="db-filter-count" id="db-count-CANCELLED">0</span></button>
-    </div>
-
-    <div class="db-table-card">
-        <table class="db-table">
-            <thead>
-                <tr>
-                    <th>Mã phiếu</th>
-                    <th>Nhà cung cấp</th>
-                    <th>Kho</th>
-                    <th>Ngày tạo</th>
-                    <th>Trạng thái</th>
-                    <th class="text-right">Thao tác</th>
-                </tr>
-            </thead>
-            <tbody id="dbInboundTableBody">
-            </tbody>
-        </table>
-    </div>
-    </c:if>
-
-    <div class="toolbar">
+    <!-- GRN List Container (rendered by JavaScript) -->
+    <!-- Toolbar -->
+    <div class="toolbar" style="margin-bottom:12px;">
         <div class="search-wrap">
             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"></svg>
             <input type="text" placeholder="Tìm mã phiếu hoặc nhà cung cấp..." id="grnSearchInput"/>
         </div>
-        <button class="btn-create" id="btnCreateGRNTrigger" onclick="openDraftModal('create')">
+        <button class="btn-create" onclick="openCreatePOModal()">
             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
             Tạo phiếu nhập
         </button>
     </div>
 
-    <!-- Status Tabs -->
-    <div class="status-tabs" id="statusTabsContainer">
-        <!-- Rendered dynamically -->
-    </div>
+    <!-- Status Filter Tabs -->
+    <div class="status-tabs" id="statusTabsContainer"></div>
 
-    <!-- GRN Accordion List -->
-    <div class="grn-list" id="grnListContainer">
-        <!-- Rendered dynamically -->
-    </div>
+    <!-- GRN Table (unified) -->
+    <div class="grn-list" id="grnListContainer"></div>
 </div>
 
 <!-- ══ VIEW 2: PRICING TAB ═══════════════════════════════════ -->
@@ -1387,7 +338,7 @@
 <script id="db-page-flags-data" type="application/json">{"hasInboundList": ${not empty inboundList ? 'true' : 'false'}}</script>
 <script id="db-user-data" type="application/json">{"fullName":"<c:out value='${loggedInUser.fullName}'/>","role":"<c:out value='${loggedInUser.role}'/>"}</script>
 <script id="db-inbound-list-data" type="application/json">[
-<c:forEach items="${inboundList}" var="io" varStatus="s">{"inboundId":${io.inboundId},"inboundCode":"<c:out value='${io.inboundCode}'/>","supplierName":"<c:out value='${io.supplierName}'/>","warehouseName":"<c:out value='${io.warehouseName}'/>","status":"<c:out value='${io.status}'/>","createdAt":"<c:out value='${io.createdAt}'/>"}${!s.last ? ',' : ''}
+<c:forEach items="${inboundList}" var="io" varStatus="s">{"inboundId":${io.inboundId},"inboundCode":"<c:out value='${io.inboundCode}'/>","supplierName":"<c:out value='${io.supplierName}'/>","warehouseName":"<c:out value='${io.warehouseName}'/>","status":"<c:out value='${io.status}'/>","createdAt":"<c:out value='${io.createdAt}'/>","items":${io.itemsJson}}${!s.last ? ',' : ''}
 </c:forEach>]
 </script>
 
@@ -1415,9 +366,42 @@ window.WMS_USER = {
     role: WMS_USER_DATA.role || 'Guest'
 };
 
-// Inbound Receipts
+// Inbound Receipts (from server database)
 var savedGRNs = localStorage.getItem('wh_inbound_grns');
 var grns = safeJsonParse(savedGRNs, []);
+
+// Load from server data if available
+var serverInboundList = safeJsonParse(document.getElementById('db-inbound-list-data') && document.getElementById('db-inbound-list-data').textContent, []);
+console.log('[INBOUND] serverInboundList:', serverInboundList.length, serverInboundList);
+if (serverInboundList && serverInboundList.length > 0) {
+    grns = serverInboundList.map(function(o) {
+        var mappedStatus = o.status;
+        if (o.status === 'PENDING') mappedStatus = 'pending';
+        else if (o.status === 'IN_PROGRESS') mappedStatus = 'in_progress';
+        else if (o.status === 'RECEIVED') mappedStatus = 'completed';
+        else if (o.status === 'CANCELLED') mappedStatus = 'cancelled';
+        else mappedStatus = 'draft';
+
+        return {
+            id: o.inboundId,
+            inboundCode: o.inboundCode,
+            supplier: o.supplierName,
+            warehouseName: o.warehouseName,
+            status: mappedStatus,
+            createdAt: o.createdAt,
+            items: (o.items || []).map(function(item) {
+                return {
+                    skuCode: item.skuCode || item.sku || '',
+                    skuName: item.skuName || item.productName || '',
+                    orderedQty: parseFloat(item.orderedQty || item.expectedQty || 0),
+                    receivedQty: parseFloat(item.receivedQty || 0)
+                };
+            })
+        };
+    });
+    console.log('[INBOUND] grns after server mapping:', grns.length, grns);
+}
+console.log('[INBOUND] final grns:', grns.length, grns);
 
 // Master SKUs
 var savedSKUs = localStorage.getItem('wms_skus');
@@ -1425,10 +409,10 @@ var skus = safeJsonParse(savedSKUs, []);
 if ((!skus || skus.length === 0) && DB_PRODUCTS.length > 0) {
     skus = DB_PRODUCTS.map(function(p) {
         return {
-            id: p.id,
-            sku: p.sku,
-            name: p.name,
-            category: p.category || 'Chưa phân loại',
+            id: p.productId || p.id,
+            sku: p.skuCode || p.sku,
+            name: p.productName || p.name,
+            category: p.categoryName || p.category || 'Chưa phân loại',
             status: p.status || 'PENDING',
             qtyOnHand: p.qtyOnHand || 0
         };
@@ -1529,8 +513,9 @@ if (searchInput) {
 function getFilteredGRNs() {
     return grns.filter(function (g) {
         var matchTab = activeStatusTab === 'all' || g.status === activeStatusTab;
-        var matchSearch = g.id.toLowerCase().indexOf(searchKeyword.toLowerCase()) > -1 || 
-                          g.supplier.toLowerCase().indexOf(searchKeyword.toLowerCase()) > -1;
+        var matchSearch = g.id.toString().toLowerCase().indexOf(searchKeyword.toLowerCase()) > -1 || 
+                          (g.supplier && g.supplier.toLowerCase().indexOf(searchKeyword.toLowerCase()) > -1) ||
+                          (g.inboundCode && g.inboundCode.toLowerCase().indexOf(searchKeyword.toLowerCase()) > -1);
         return matchTab && matchSearch;
     });
 }
@@ -1559,8 +544,6 @@ function updateReceiptsKPIs() {
 function renderStatusTabs() {
     var counts = {
         all: grns.length,
-        draft: grns.filter(function(g) { return g.status === 'draft'; }).length,
-        pending_bm: grns.filter(function(g) { return g.status === 'pending_bm'; }).length,
         pending: grns.filter(function(g) { return g.status === 'pending'; }).length,
         in_progress: grns.filter(function(g) { return g.status === 'in_progress'; }).length,
         completed: grns.filter(function(g) { return g.status === 'completed'; }).length,
@@ -1569,11 +552,9 @@ function renderStatusTabs() {
 
     var tabsData = [
         { id: 'all', label: 'Tất cả' },
-        { id: 'draft', label: 'Bản nháp' },
-        { id: 'pending_bm', label: 'Chờ duyệt' },
-        { id: 'pending', label: 'Chờ hàng về' },
+        { id: 'pending', label: 'Chờ' },
         { id: 'in_progress', label: 'Đang nhập' },
-        { id: 'completed', label: 'Hoàn thành' },
+        { id: 'completed', label: 'Đã nhập' },
         { id: 'cancelled', label: 'Đã hủy' }
     ];
 
@@ -1585,7 +566,8 @@ function renderStatusTabs() {
             '</button>';
     }).join('');
 
-    document.getElementById('statusTabsContainer').innerHTML = html;
+    var tabsContainer = document.getElementById('statusTabsContainer');
+    if (tabsContainer) tabsContainer.innerHTML = html;
 }
 
 window.selectStatusTab = function(statusId) {
@@ -1659,15 +641,15 @@ function renderReceipts() {
             '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:10px;height:10px;margin-right:2px;"><rect width="18" height="11" x="3" y="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>' +
             'Khóa</span>' : '';
 
-        // Eye action button (only completed)
-        var detailBtn = grn.status === 'completed' ?
+        // Inbound action button (pending / in_progress / confirmed)
+        var receiveBtn = (grn.status === 'pending' || grn.status === 'in_progress' || grn.status === 'confirmed') ?
+            '<button class="btn-action-grn" onclick="openReceiveModal(\'' + grn.id + '\', event)">Nhập kho</button>' : '';
+
+        // Eye action button (view detail - for all statuses)
+        var detailBtn =
             '<button class="btn-action-icon" onclick="openDetailModal(\'' + grn.id + '\', event)" title="Xem chi tiết">' +
             '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>' +
-            '</button>' : '';
-
-        // Inbound action button (pending / in_progress)
-        var receiveBtn = (grn.status === 'pending' || grn.status === 'in_progress') ?
-            '<button class="btn-action-grn" onclick="openReceiveModal(\'' + grn.id + '\', event)">Nhập kho</button>' : '';
+            '</button>';
 
         // Pending BM badge
         var pendingBmLabel = grn.status === 'pending_bm' ?
@@ -1748,7 +730,7 @@ function renderReceipts() {
                 '</div>' +
                 '<div class="grn-hdr__info">' +
                     '<div class="grn-meta-row">' +
-                        '<span class="grn-id">' + grn.id + '</span>' +
+                        '<span class="grn-id">' + grn.inboundCode + '</span>' +
                         '<span class="pill-badge ' + grn.status + '"><span class="pill-badge__dot"></span>' + sc.label + '</span>' +
                         lockHtml +
                     '</div>' +
@@ -1827,7 +809,7 @@ window.openDraftModal = function(mode, sourceId) {
             items: [{ skuCode: '', skuName: '', orderedQty: 10 }]
         };
     } else { // duplicate
-        var source = grns.find(function(g) { return g.id === sourceId; });
+        var source = grns.find(function(g) { return g.id == sourceId; });
         titleEl.textContent = 'Nhân bản phiếu nhập';
         draftForm = {
             supplier: source ? source.supplier : '',
@@ -1977,7 +959,7 @@ window.submitDraftGRN = function() {
 // ─── ACTION BUTTONS ───
 window.submitForBMAvailability = function(grnId, event) {
     if (event) event.stopPropagation();
-    var grn = grns.find(function(g) { return g.id === grnId; });
+    var grn = grns.find(function(g) { return g.id == grnId; });
     if (grn) {
         grn.status = 'pending_bm';
         grn.isLocked = true;
@@ -1989,7 +971,7 @@ window.submitForBMAvailability = function(grnId, event) {
 window.cancelDraftGRN = function(grnId, event) {
     if (event) event.stopPropagation();
     if (confirm('Bạn có chắc chắn muốn hủy bản nháp phiếu nhập này không?')) {
-        var grn = grns.find(function(g) { return g.id === grnId; });
+        var grn = grns.find(function(g) { return g.id == grnId; });
         if (grn) {
             grn.status = 'cancelled';
             grn.isLocked = true;
@@ -2004,7 +986,7 @@ var receiveQuantities = {};
 
 window.openReceiveModal = function(grnId, event) {
     if (event) event.stopPropagation();
-    var grn = grns.find(function(g) { return g.id === grnId; });
+    var grn = grns.find(function(g) { return g.id == grnId; });
     if (!grn) return;
     
     document.getElementById('receive-grn-id').value = grnId;
@@ -2045,7 +1027,7 @@ window.closeReceiveModal = function() {
 
 window.submitConfirmReceive = function() {
     var grnId = document.getElementById('receive-grn-id').value;
-    var grn = grns.find(function(g) { return g.id === grnId; });
+    var grn = grns.find(function(g) { return g.id == grnId; });
     if (!grn) return;
     
     var now = new Date();
@@ -2140,10 +1122,10 @@ var detailOverlay = document.getElementById('detailModalOverlay');
 
 window.openDetailModal = function(grnId, event) {
     if (event) event.stopPropagation();
-    var grn = grns.find(function(g) { return g.id === grnId; });
+    var grn = grns.find(function(g) { return g.id == grnId; });
     if (!grn) return;
     
-    document.getElementById('detailModalSubtitle').textContent = grn.id;
+    document.getElementById('detailModalSubtitle').textContent = grn.inboundCode;
     document.getElementById('detail-supplier').textContent = grn.supplier;
     document.getElementById('detail-created-at').textContent = grn.createdAt;
     document.getElementById('detail-expected-date').textContent = grn.expectedDate;
@@ -2308,10 +1290,6 @@ function padZero(n) { return n < 10 ? '0' + n : n; }
 renderReceipts();
 
 // ─── DB-SIDE INBOUND TABLE (from WarehouseInboundServlet) ───
-var dbInboundList = safeJsonParse(document.getElementById('db-inbound-list-data').textContent, []);
-
-var dbActiveFilter = 'all';
-
 function dbStatusLabel(status) {
     var m = {
         'PENDING':    { label: 'Chờ',        cls: 'pending' },
@@ -2324,59 +1302,28 @@ function dbStatusLabel(status) {
     return '<span class="status-pill ' + c.cls + '"><span class="status-pill__dot"></span>' + c.label + '</span>';
 }
 
+// DB Inbound counts (for filter tabs)
 function dbCounts() {
     return {
-        all:         dbInboundList.length,
-        PENDING:     dbInboundList.filter(function(o){ return o.status === 'PENDING'; }).length,
-        IN_PROGRESS: dbInboundList.filter(function(o){ return o.status === 'IN_PROGRESS'; }).length,
-        CONFIRMED:   dbInboundList.filter(function(o){ return o.status === 'CONFIRMED'; }).length,
-        RECEIVED:    dbInboundList.filter(function(o){ return o.status === 'RECEIVED'; }).length,
-        CANCELLED:   dbInboundList.filter(function(o){ return o.status === 'CANCELLED'; }).length
+        all:         grns.length,
+        pending:     grns.filter(function(o){ return o.status === 'pending'; }).length,
+        in_progress: grns.filter(function(o){ return o.status === 'in_progress'; }).length,
+        completed:   grns.filter(function(o){ return o.status === 'completed'; }).length,
+        cancelled:   grns.filter(function(o){ return o.status === 'cancelled'; }).length
     };
 }
+
+// Update filter tab counts
+var counts = dbCounts();
+document.getElementById('db-count-all').textContent = counts.all;
+document.getElementById('db-count-pending').textContent = counts.pending;
+document.getElementById('db-count-in_progress').textContent = counts.in_progress;
+document.getElementById('db-count-completed').textContent = counts.completed;
+document.getElementById('db-count-cancelled').textContent = counts.cancelled;
 
 function esc(v) {
     if (v == null) return '';
     return String(v).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
-}
-
-function renderDbTable() {
-    var filtered = dbActiveFilter === 'all'
-        ? dbInboundList
-        : dbInboundList.filter(function(o){ return o.status === dbActiveFilter; });
-
-    var counts = dbCounts();
-    document.getElementById('db-count-all').textContent = counts.all;
-    document.getElementById('db-count-PENDING').textContent = counts.PENDING;
-    document.getElementById('db-count-IN_PROGRESS').textContent = counts.IN_PROGRESS;
-    document.getElementById('db-count-RECEIVED').textContent = counts.RECEIVED;
-    document.getElementById('db-count-CANCELLED').textContent = counts.CANCELLED;
-
-    var tbody = document.getElementById('dbInboundTableBody');
-    if (!tbody) return;
-
-    if (filtered.length === 0) {
-        tbody.innerHTML = '<tr class="db-empty-row"><td colspan="6">Không có phiếu nhập nào.</td></tr>';
-        return;
-    }
-
-    tbody.innerHTML = filtered.map(function(o) {
-        var confirmBtn = o.status === 'PENDING'
-            ? '<button class="db-action-btn db-action-btn--navy" onclick="dbConfirmInbound(' + o.inboundId + ',\'' + esc(o.inboundCode) + '\')">Xác nhận</button>'
-            : '';
-        var receiveBtn = (o.status === 'CONFIRMED' || o.status === 'IN_PROGRESS')
-            ? '<button class="db-action-btn db-action-btn--emerald" onclick="dbOpenReceiveModal(' + o.inboundId + ',\'' + esc(o.inboundCode) + '\')">Nhập kho</button>'
-            : '';
-
-        return '<tr>' +
-            '<td><span class="db-inbound-code">' + esc(o.inboundCode) + '</span></td>' +
-            '<td><span class="db-supplier">' + esc(o.supplierName) + '</span></td>' +
-            '<td><span class="db-warehouse">' + esc(o.warehouseName || '—') + '</span></td>' +
-            '<td style="font-size:12px; color:rgba(16,55,92,0.5);">' + esc(o.createdAt) + '</td>' +
-            '<td>' + dbStatusLabel(o.status) + '</td>' +
-            '<td class="text-right">' + confirmBtn + receiveBtn + '</td>' +
-        '</tr>';
-    }).join('');
 }
 
 var tabs = document.getElementById('dbFilterTabs');
@@ -2384,10 +1331,10 @@ if (tabs) {
     tabs.addEventListener('click', function(e) {
         var btn = e.target.closest('.db-filter-btn');
         if (!btn) return;
-        dbActiveFilter = btn.dataset.filter;
+        activeStatusTab = btn.dataset.filter;
         tabs.querySelectorAll('.db-filter-btn').forEach(function(b) { b.classList.remove('active'); });
         btn.classList.add('active');
-        renderDbTable();
+        renderReceipts();
     });
 }
 
@@ -2464,6 +1411,27 @@ if (createBtn) {
             openDraftModal('create');
         }
     });
+}
+
+// Auto-open create modal if action=create parameter is found
+var params = new URLSearchParams(window.location.search);
+if (params.get('action') === 'create') {
+    var prefilledSku = params.get('sku') || '';
+    setTimeout(function() {
+        if (hasInboundList) {
+            if (typeof openCreatePOModal === 'function') openCreatePOModal();
+        } else {
+            if (typeof openDraftModal === 'function') {
+                openDraftModal('create');
+                if (prefilledSku && draftForm && draftForm.items && draftForm.items[0]) {
+                    var foundItem = skus.find(function(s) { return s.sku === prefilledSku; });
+                    draftForm.items[0].skuCode = prefilledSku;
+                    draftForm.items[0].skuName = foundItem ? foundItem.name : '';
+                    if (typeof renderDraftRows === 'function') renderDraftRows();
+                }
+            }
+        }
+    }, 300);
 }
 })();
 

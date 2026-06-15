@@ -19,7 +19,7 @@ import java.util.logging.Logger;
 /**
  * OutboundDAO — Data Access Object for outbound order and item operations.
  */
-public class OutboundDAO {
+public class OutboundDAO extends BaseDAO {
 
     private static final Logger LOGGER = Logger.getLogger(OutboundDAO.class.getName());
 
@@ -29,9 +29,12 @@ public class OutboundDAO {
     public List<OutboundOrder> findAll() {
         List<OutboundOrder> list = new ArrayList<>();
         String sql = "SELECT o.outbound_id, o.outbound_code, o.order_id, o.warehouse_id, "
-                   + "w.warehouse_name, o.status, o.notes, o.created_at, o.picked_by, o.picked_at "
+                   + "w.warehouse_name, o.status, o.note, o.created_at, o.picked_by, o.shipped_at, "
+                   + "ord.order_code, sd.shipping_address, sd.courier_name, sd.recipient_name "
                    + "FROM outbound_orders o "
                    + "LEFT JOIN warehouses w ON o.warehouse_id = w.warehouse_id "
+                   + "LEFT JOIN orders ord ON o.order_id = ord.order_id "
+                   + "LEFT JOIN order_shipping_details sd ON o.order_id = sd.order_id "
                    + "ORDER BY o.created_at DESC LIMIT 100";
 
         try (Connection conn = DBConnection.getConnection();
@@ -39,7 +42,9 @@ public class OutboundDAO {
              ResultSet rs = ps.executeQuery()) {
 
             while (rs.next()) {
-                list.add(mapRow(rs));
+                OutboundOrder order = mapRow(rs);
+                order.setItems(findItemsByOutboundId(order.getOutboundId()));
+                list.add(order);
             }
         } catch (SQLException e) {
             LOGGER.log(Level.WARNING, "OutboundDAO: Failed to retrieve outbound orders", e);
@@ -52,9 +57,12 @@ public class OutboundDAO {
      */
     public OutboundOrder findById(int id) {
         String sql = "SELECT o.outbound_id, o.outbound_code, o.order_id, o.warehouse_id, "
-                   + "w.warehouse_name, o.status, o.notes, o.created_at, o.picked_by, o.picked_at "
+                   + "w.warehouse_name, o.status, o.note, o.created_at, o.picked_by, o.shipped_at, "
+                   + "ord.order_code, sd.shipping_address, sd.courier_name, sd.recipient_name "
                    + "FROM outbound_orders o "
                    + "LEFT JOIN warehouses w ON o.warehouse_id = w.warehouse_id "
+                   + "LEFT JOIN orders ord ON o.order_id = ord.order_id "
+                   + "LEFT JOIN order_shipping_details sd ON o.order_id = sd.order_id "
                    + "WHERE o.outbound_id = ?";
 
         try (Connection conn = DBConnection.getConnection();
@@ -63,7 +71,9 @@ public class OutboundDAO {
             ps.setInt(1, id);
             try (ResultSet rs = ps.executeQuery()) {
                 if (rs.next()) {
-                    return mapRow(rs);
+                    OutboundOrder order = mapRow(rs);
+                    order.setItems(findItemsByOutboundId(order.getOutboundId()));
+                    return order;
                 }
             }
         } catch (SQLException e) {
@@ -78,9 +88,12 @@ public class OutboundDAO {
     public List<OutboundOrder> findByStatus(String status) {
         List<OutboundOrder> list = new ArrayList<>();
         String sql = "SELECT o.outbound_id, o.outbound_code, o.order_id, o.warehouse_id, "
-                   + "w.warehouse_name, o.status, o.notes, o.created_at, o.picked_by, o.picked_at "
+                   + "w.warehouse_name, o.status, o.note, o.created_at, o.picked_by, o.shipped_at, "
+                   + "ord.order_code, sd.shipping_address, sd.courier_name, sd.recipient_name "
                    + "FROM outbound_orders o "
                    + "LEFT JOIN warehouses w ON o.warehouse_id = w.warehouse_id "
+                   + "LEFT JOIN orders ord ON o.order_id = ord.order_id "
+                   + "LEFT JOIN order_shipping_details sd ON o.order_id = sd.order_id "
                    + "WHERE o.status = ? "
                    + "ORDER BY o.created_at DESC LIMIT 100";
 
@@ -90,7 +103,9 @@ public class OutboundDAO {
             ps.setString(1, status);
             try (ResultSet rs = ps.executeQuery()) {
                 while (rs.next()) {
-                    list.add(mapRow(rs));
+                    OutboundOrder order = mapRow(rs);
+                    order.setItems(findItemsByOutboundId(order.getOutboundId()));
+                    list.add(order);
                 }
             }
         } catch (SQLException e) {
@@ -105,9 +120,12 @@ public class OutboundDAO {
     public List<OutboundOrder> findByWarehouse(int warehouseId) {
         List<OutboundOrder> list = new ArrayList<>();
         String sql = "SELECT o.outbound_id, o.outbound_code, o.order_id, o.warehouse_id, "
-                   + "w.warehouse_name, o.status, o.notes, o.created_at, o.picked_by, o.picked_at "
+                   + "w.warehouse_name, o.status, o.note, o.created_at, o.picked_by, o.shipped_at, "
+                   + "ord.order_code, sd.shipping_address, sd.courier_name, sd.recipient_name "
                    + "FROM outbound_orders o "
                    + "LEFT JOIN warehouses w ON o.warehouse_id = w.warehouse_id "
+                   + "LEFT JOIN orders ord ON o.order_id = ord.order_id "
+                   + "LEFT JOIN order_shipping_details sd ON o.order_id = sd.order_id "
                    + "WHERE o.warehouse_id = ? "
                    + "ORDER BY o.created_at DESC LIMIT 100";
 
@@ -117,7 +135,9 @@ public class OutboundDAO {
             ps.setInt(1, warehouseId);
             try (ResultSet rs = ps.executeQuery()) {
                 while (rs.next()) {
-                    list.add(mapRow(rs));
+                    OutboundOrder order = mapRow(rs);
+                    order.setItems(findItemsByOutboundId(order.getOutboundId()));
+                    list.add(order);
                 }
             }
         } catch (SQLException e) {
@@ -131,7 +151,7 @@ public class OutboundDAO {
      */
     public int insert(OutboundOrder order) {
         String sql = "INSERT INTO outbound_orders "
-                   + "(outbound_code, order_id, warehouse_id, status, notes, created_at, picked_by, picked_at) "
+                   + "(outbound_code, order_id, warehouse_id, status, note, created_at, picked_by, shipped_at) "
                    + "VALUES (?, ?, ?, ?, ?, ?, ?, ?)";
 
         try (Connection conn = DBConnection.getConnection();
@@ -170,7 +190,7 @@ public class OutboundDAO {
     public boolean update(OutboundOrder order) {
         String sql = "UPDATE outbound_orders SET "
                    + "outbound_code = ?, order_id = ?, warehouse_id = ?, status = ?, "
-                   + "notes = ?, picked_by = ?, picked_at = ? "
+                   + "note = ?, picked_by = ?, shipped_at = ? "
                    + "WHERE outbound_id = ?";
 
         try (Connection conn = DBConnection.getConnection();
@@ -211,6 +231,35 @@ public class OutboundDAO {
             return ps.executeUpdate() > 0;
         } catch (SQLException e) {
             LOGGER.log(Level.SEVERE, "OutboundDAO: Failed to update status for id=" + outboundId, e);
+        }
+        return false;
+    }
+
+    /**
+     * Optimistic Locking for SHIPPED.
+     *
+     * Previously updateStatus() only set WHERE outbound_id = ?, ignoring version.
+     * Two pickers could both click SHIPPED → race condition → stock deducted twice.
+     *
+     * Fix: pass expectedVersion (the version read earlier). If the DB version
+     * already changed, 0 rows affected → return false, caller must surface error.
+     *
+     * Requires the "version" column on outbound_orders (schema migration included).
+     */
+    public boolean compareAndSetStatus(int outboundId, String status, int expectedVersion) {
+        String sql = "UPDATE outbound_orders SET status = ?, version = version + 1 "
+                   + "WHERE outbound_id = ? AND version = ?";
+
+        try (Connection conn = DBConnection.getConnection();
+             PreparedStatement ps = conn.prepareStatement(sql)) {
+
+            ps.setString(1, status);
+            ps.setInt(2, outboundId);
+            ps.setInt(3, expectedVersion);
+
+            return ps.executeUpdate() > 0;
+        } catch (SQLException e) {
+            LOGGER.log(Level.SEVERE, "OutboundDAO.compareAndSetStatus failed id=" + outboundId, e);
         }
         return false;
     }
@@ -285,7 +334,7 @@ public class OutboundDAO {
         o.setWarehouseId(rs.getInt("warehouse_id"));
         o.setWarehouseName(rs.getString("warehouse_name"));
         o.setStatus(rs.getString("status"));
-        o.setNotes(rs.getString("notes"));
+        o.setNotes(rs.getString("note"));
 
         Timestamp createdAt = rs.getTimestamp("created_at");
         if (createdAt != null) {
@@ -295,11 +344,168 @@ public class OutboundDAO {
         int pickedBy = rs.getInt("picked_by");
         o.setPickedBy(rs.wasNull() ? null : pickedBy);
 
-        Timestamp pickedAt = rs.getTimestamp("picked_at");
-        if (pickedAt != null) {
-            o.setPickedAt(pickedAt.toLocalDateTime());
+        Timestamp shippedAt = rs.getTimestamp("shipped_at");
+        if (shippedAt != null) {
+            o.setPickedAt(shippedAt.toLocalDateTime());
         }
 
+        try {
+            o.setOrderCode(rs.getString("order_code"));
+        } catch (SQLException e) { /* ignore */ }
+        try {
+            o.setShippingAddress(rs.getString("shipping_address"));
+        } catch (SQLException e) { /* ignore */ }
+        try {
+            o.setCourierName(rs.getString("courier_name"));
+        } catch (SQLException e) { /* ignore */ }
+        try {
+            o.setRecipientName(rs.getString("recipient_name"));
+        } catch (SQLException e) { /* ignore */ }
+
         return o;
+    }
+
+    // ── Picking-sheet lifecycle (Directed Picking) ──
+    // Replaces prior stubs with real implementations to support directed picking.
+
+    public void assignPicker(int outboundId, Integer userId) {
+        String sql = "UPDATE outbound_orders SET picked_by = ? WHERE outbound_id = ?";
+        try (Connection conn = DBConnection.getConnection();
+             PreparedStatement ps = conn.prepareStatement(sql)) {
+            if (userId != null) ps.setInt(1, userId);
+            else ps.setNull(1, java.sql.Types.INTEGER);
+            ps.setInt(2, outboundId);
+            ps.executeUpdate();
+        } catch (SQLException e) {
+            LOGGER.log(Level.WARNING, "OutboundDAO.assignPicker failed outboundId=" + outboundId, e);
+        }
+    }
+
+    public void createPickingSheet(int outboundId, Integer userId) {
+        String checkSql = "SELECT sheet_id FROM picking_sheets WHERE outbound_id = ? LIMIT 1";
+        String insertSql = "INSERT INTO picking_sheets (outbound_id, picker_id, status, started_at) "
+                         + "VALUES (?, ?, 'IN_PROGRESS', NOW())";
+
+        try (Connection conn = DBConnection.getConnection()) {
+            try (PreparedStatement check = conn.prepareStatement(checkSql)) {
+                check.setInt(1, outboundId);
+                try (ResultSet rs = check.executeQuery()) {
+                    if (rs.next()) {
+                        return;
+                    }
+                }
+            }
+
+            try (PreparedStatement ps = conn.prepareStatement(insertSql)) {
+                ps.setInt(1, outboundId);
+                if (userId != null) {
+                    ps.setInt(2, userId);
+                } else {
+                    ps.setNull(2, java.sql.Types.INTEGER);
+                }
+                ps.executeUpdate();
+            }
+        } catch (SQLException e) {
+            LOGGER.log(Level.WARNING, "OutboundDAO: Failed to create picking sheet outboundId=" + outboundId, e);
+        }
+    }
+
+    /**
+     * Marks all line items as picked (set picked_qty = qty).
+     * Called when Warehouse staff clicks "Complete picking".
+     */
+    public void markAllPicked(int outboundId) {
+        String sql = "UPDATE outbound_items SET picked_qty = qty WHERE outbound_id = ?";
+        try (Connection conn = DBConnection.getConnection();
+             PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setInt(1, outboundId);
+            ps.executeUpdate();
+        } catch (SQLException e) {
+            LOGGER.log(Level.WARNING, "OutboundDAO.markAllPicked failed outboundId=" + outboundId, e);
+        }
+    }
+
+    /**
+     * Closes the picking sheet with status COMPLETED.
+     */
+    public void completePickingSheet(int outboundId) {
+        String sql = "UPDATE picking_sheets SET status = 'COMPLETED', completed_at = NOW() "
+                   + "WHERE outbound_id = ? AND status = 'IN_PROGRESS'";
+        try (Connection conn = DBConnection.getConnection();
+             PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setInt(1, outboundId);
+            ps.executeUpdate();
+        } catch (SQLException e) {
+            LOGGER.log(Level.WARNING, "OutboundDAO.completePickingSheet failed outboundId=" + outboundId, e);
+        }
+    }
+
+    /**
+     * Creates a shipping label record when packing is done.
+     * Stores a placeholder tracking_no if Sales has not provided one.
+     */
+    public void createShippingLabel(int outboundId) {
+        String sql = "INSERT INTO shipping_labels (outbound_id, courier_name, status, created_at) "
+                   + "VALUES (?, 'CHƯA CHỌN', 'CREATED', NOW())";
+        try (Connection conn = DBConnection.getConnection();
+             PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setInt(1, outboundId);
+            ps.executeUpdate();
+        } catch (SQLException e) {
+            LOGGER.log(Level.WARNING, "OutboundDAO.createShippingLabel failed outboundId=" + outboundId, e);
+        }
+    }
+
+    /**
+     * Creates a delivery note record when the order is SHIPPED.
+     */
+    public void createDeliveryNote(int outboundId, Integer userId) {
+        String sql = "INSERT INTO delivery_notes (outbound_id, delivered_by, status, created_at) "
+                   + "VALUES (?, ?, 'SHIPPED', NOW())";
+        try (Connection conn = DBConnection.getConnection();
+             PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setInt(1, outboundId);
+            if (userId != null) ps.setInt(2, userId);
+            else ps.setNull(2, java.sql.Types.INTEGER);
+            ps.executeUpdate();
+        } catch (SQLException e) {
+            LOGGER.log(Level.WARNING, "OutboundDAO.createDeliveryNote failed outboundId=" + outboundId, e);
+        }
+    }
+
+    /**
+     * Persists the picked state of a single outbound line item.
+     * When picked=true, picked_qty is set equal to the ordered qty; when
+     * picked=false it is reset to 0.
+     */
+    public boolean updateItemPicked(int outboundId, int productId, boolean picked) {
+        return super.update(LOGGER,
+            "UPDATE outbound_items SET picked_qty = CASE WHEN ? THEN qty ELSE 0 END "
+          + "WHERE outbound_id = ? AND product_id = ?",
+            picked, outboundId, productId) > 0;
+    }
+
+    /**
+     * Find outbound orders for one warehouse filtered by status.
+     * Used by warehouse staff dashboards.
+     */
+    public List<OutboundOrder> findByWarehouseAndStatus(int warehouseId, String status) {
+        List<OutboundOrder> list = new ArrayList<>();
+        String sql = "SELECT outbound_id, outbound_code, order_id, warehouse_id, status, note, "
+                   + "created_at, picked_by, shipped_at "
+                   + "FROM outbound_orders WHERE warehouse_id = ? AND status = ? "
+                   + "ORDER BY created_at DESC LIMIT 100";
+        try (Connection conn = DBConnection.getConnection();
+             PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setInt(1, warehouseId);
+            ps.setString(2, status);
+            try (ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) list.add(mapRow(rs));
+            }
+        } catch (SQLException e) {
+            LOGGER.log(Level.WARNING,
+                "OutboundDAO: Failed to find by warehouse=" + warehouseId + " status=" + status, e);
+        }
+        return list;
     }
 }

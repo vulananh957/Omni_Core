@@ -8,13 +8,11 @@ import java.util.List;
 
 /**
  * Product — Domain model representing a master SKU product.
- * Status workflow: PENDING → APPROVED / REJECTED
+ *
+ * Manager-created SKUs are immediately active — there is no PENDING/APPROVED/REJECTED
+ * workflow. Approval gating only exists for non-manager sales roles if/when added.
  */
 public class Product {
-
-    public static final String STATUS_PENDING = "PENDING";
-    public static final String STATUS_APPROVED = "APPROVED";
-    public static final String STATUS_REJECTED = "REJECTED";
 
     private int productId;
     private String skuCode;
@@ -24,9 +22,6 @@ public class Product {
     private String unit;
     private Double minStock;
     private Double maxStock;
-    private String status;
-    private LocalDateTime approvedAt;
-    private Integer approvedBy;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
     private String categoryName;
@@ -34,9 +29,7 @@ public class Product {
     private String creatorName;
     private String attributesText;
     private Double weightKg;
-    private String reviewNote;
     private Double qtyOnHand = 0.0;
-    private String approverName;
     private List<LocationConfig> locationConfigs = new ArrayList<>();
 
     public static class LocationConfig {
@@ -73,12 +66,11 @@ public class Product {
     public Product() {
     }
 
-    public Product(int productId, String skuCode, String productName, Integer categoryId, String status) {
+    public Product(int productId, String skuCode, String productName, Integer categoryId) {
         this.productId = productId;
         this.skuCode = skuCode;
         this.productName = productName;
         this.categoryId = categoryId;
-        this.status = status;
     }
 
     // ── Getters / Setters ─────────────────────────────────────
@@ -161,37 +153,6 @@ public class Product {
         this.maxStock = maxStock;
     }
 
-    public String getStatus() {
-        return status;
-    }
-
-    public void setStatus(String status) {
-        this.status = status;
-    }
-
-    @JsonIgnore
-    public LocalDateTime getApprovedAt() {
-        return approvedAt;
-    }
-
-    @JsonProperty("approvedAt")
-    public String getApprovedAtAsString() {
-        if (approvedAt == null) return "";
-        return approvedAt.format(java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm"));
-    }
-
-    public void setApprovedAt(LocalDateTime approvedAt) {
-        this.approvedAt = approvedAt;
-    }
-
-    public Integer getApprovedBy() {
-        return approvedBy;
-    }
-
-    public void setApprovedBy(Integer approvedBy) {
-        this.approvedBy = approvedBy;
-    }
-
     @JsonIgnore
     public LocalDateTime getCreatedAt() {
         return createdAt;
@@ -268,29 +229,12 @@ public class Product {
         this.weightKg = weightKg;
     }
 
-    // New Fields Getters and Setters
-    public String getReviewNote() {
-        return reviewNote;
-    }
-
-    public void setReviewNote(String reviewNote) {
-        this.reviewNote = reviewNote;
-    }
-
     public Double getQtyOnHand() {
         return qtyOnHand;
     }
 
     public void setQtyOnHand(Double qtyOnHand) {
         this.qtyOnHand = qtyOnHand;
-    }
-
-    public String getApproverName() {
-        return approverName;
-    }
-
-    public void setApproverName(String approverName) {
-        this.approverName = approverName;
     }
 
     public List<LocationConfig> getLocationConfigs() {
@@ -322,10 +266,11 @@ public class Product {
         return weightKg != null ? weightKg + " kg" : "N/A";
     }
 
+    // Manager-created SKUs are always approved; kept for backward compat with
+    // views that filter on approvalStatus to build "active" SKU lists.
     @JsonProperty("approvalStatus")
     public String getApprovalStatus() {
-        if (status == null) return "pending";
-        return status.toLowerCase();
+        return "approved";
     }
 
     @JsonProperty("createdBy")
@@ -335,7 +280,7 @@ public class Product {
 
     @JsonProperty("updatedBy")
     public String getUpdatedBy() {
-        return approverName != null ? approverName : "";
+        return creatorName != null ? creatorName : "";
     }
 
 
@@ -345,7 +290,6 @@ public class Product {
                 "productId=" + productId +
                 ", skuCode='" + skuCode + '\'' +
                 ", productName='" + productName + '\'' +
-                ", status='" + status + '\'' +
                 '}';
     }
 }

@@ -31,7 +31,7 @@ public class SkuMappingDAO {
                    + "c.channel_name, c.platform, s.sku_code, s.product_name "
                    + "FROM sku_mappings sm "
                    + "LEFT JOIN channels c ON sm.channel_id = c.channel_id "
-                   + "LEFT JOIN skus s ON sm.sku_id = s.sku_id "
+                   + "LEFT JOIN products s ON sm.sku_id = s.product_id "
                    + "ORDER BY sm.created_at DESC";
 
         try (Connection conn = DBConnection.getConnection();
@@ -55,7 +55,7 @@ public class SkuMappingDAO {
                    + "c.channel_name, c.platform, s.sku_code, s.product_name "
                    + "FROM sku_mappings sm "
                    + "LEFT JOIN channels c ON sm.channel_id = c.channel_id "
-                   + "LEFT JOIN skus s ON sm.sku_id = s.sku_id "
+                   + "LEFT JOIN products s ON sm.sku_id = s.product_id "
                    + "WHERE sm.mapping_id = ?";
 
         try (Connection conn = DBConnection.getConnection();
@@ -82,7 +82,7 @@ public class SkuMappingDAO {
                    + "c.channel_name, c.platform, s.sku_code, s.product_name "
                    + "FROM sku_mappings sm "
                    + "LEFT JOIN channels c ON sm.channel_id = c.channel_id "
-                   + "LEFT JOIN skus s ON sm.sku_id = s.sku_id "
+                   + "LEFT JOIN products s ON sm.sku_id = s.product_id "
                    + "WHERE sm.channel_id = ? "
                    + "ORDER BY sm.created_at DESC";
 
@@ -110,7 +110,7 @@ public class SkuMappingDAO {
                    + "c.channel_name, c.platform, s.sku_code, s.product_name "
                    + "FROM sku_mappings sm "
                    + "LEFT JOIN channels c ON sm.channel_id = c.channel_id "
-                   + "LEFT JOIN skus s ON sm.sku_id = s.sku_id "
+                   + "LEFT JOIN products s ON sm.sku_id = s.product_id "
                    + "WHERE sm.sku_id = ? "
                    + "ORDER BY sm.created_at DESC";
 
@@ -138,7 +138,7 @@ public class SkuMappingDAO {
                    + "c.channel_name, c.platform, s.sku_code, s.product_name "
                    + "FROM sku_mappings sm "
                    + "LEFT JOIN channels c ON sm.channel_id = c.channel_id "
-                   + "LEFT JOIN skus s ON sm.sku_id = s.sku_id "
+                   + "LEFT JOIN products s ON sm.sku_id = s.product_id "
                    + "WHERE sm.sync_status = ? "
                    + "ORDER BY sm.created_at DESC";
 
@@ -277,17 +277,17 @@ public class SkuMappingDAO {
     }
 
     /**
-     * Lấy tất cả thông tin Master SKU từ bảng skus để hiển thị trên form mapping.
+     * Lấy tất cả APPROVED Master SKU từ bảng products để hiển thị trên form mapping.
      */
     public List<Product> findAllSkus() {
         List<Product> list = new ArrayList<>();
-        String sql = "SELECT sku_id, sku_code, product_name FROM skus ORDER BY sku_code ASC";
+        String sql = "SELECT product_id, sku_code, product_name FROM products WHERE status = 'APPROVED' ORDER BY sku_code ASC";
         try (Connection conn = DBConnection.getConnection();
              PreparedStatement ps = conn.prepareStatement(sql);
              ResultSet rs = ps.executeQuery()) {
             while (rs.next()) {
                 Product p = new Product();
-                p.setProductId(rs.getInt("sku_id"));
+                p.setProductId(rs.getInt("product_id"));
                 p.setSkuCode(rs.getString("sku_code"));
                 p.setProductName(rs.getString("product_name"));
                 list.add(p);
@@ -296,5 +296,63 @@ public class SkuMappingDAO {
             LOGGER.log(Level.WARNING, "SkuMappingDAO: Failed to retrieve all master SKUs", e);
         }
         return list;
+    }
+
+    /**
+     * Looks up a SKU mapping by channel + external_sku (the marketplace SKU).
+     * Returns the mapping only if sync_status = 'SYNCED' (approved for that channel).
+     *
+     * Replaces the previous behaviour where LazadaSyncScheduler hardcoded a
+     * dummy product ID, leaving real internal SKUs disconnected from marketplace orders.
+     *
+     * @return The active mapping, or null if not found
+     */
+    public SkuMapping findActiveMapping(int channelId, String externalSku) {
+        if (externalSku == null || externalSku.trim().isEmpty()) return null;
+        String sql = "SELECT sm.mapping_id, sm.sku_id, sm.channel_id, sm.external_sku, "
+                   + "sm.seller_sku, sm.sync_status, sm.last_sync_at, sm.created_at, sm.updated_at, "
+                   + "c.channel_name, c.platform, s.sku_code, s.product_name "
+                   + "FROM sku_mappings sm "
+                   + "LEFT JOIN channels c ON sm.channel_id = c.channel_id "
+                   + "LEFT JOIN products s ON sm.sku_id = s.product_id "
+                   + "WHERE sm.channel_id = ? AND sm.external_sku = ? AND sm.sync_status = 'SYNCED' "
+                   + "LIMIT 1";
+        try (Connection conn = DBConnection.getConnection();
+             PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setInt(1, channelId);
+            ps.setString(2, externalSku.trim());
+            try (ResultSet rs = ps.executeQuery()) {
+                if (rs.next()) {
+                    return mapResultSetToSkuMapping(rs);
+                }
+            }
+        } catch (SQLException e) {
+            LOGGER.log(Level.WARNING,
+                "SkuMappingDAO.findActiveMapping: failed channelId=" + channelId
+                    + " externalSku=" + externalSku, e);
+        }
+        return null;
+    }
+
+    /**
+     * Logs an exception when an SKU mapping is missing.
+     * Feeds the "Mapping Exception Management" page used by Sales staff.
+     */
+    public void logMappingException(int channelId, String externalSku,
+                                    String orderCode, String reason) {
+        String sql = "INSERT INTO mapping_exceptions "
+                   + "(channel_id, external_sku, order_code, reason, created_at) "
+                   + "VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP)";
+        try (Connection conn = DBConnection.getConnection();
+             PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setInt(1, channelId);
+            ps.setString(2, externalSku);
+            ps.setString(3, orderCode);
+            ps.setString(4, reason);
+            ps.executeUpdate();
+        } catch (SQLException e) {
+            LOGGER.log(Level.WARNING,
+                "SkuMappingDAO.logMappingException: failed to log", e);
+        }
     }
 }

@@ -2,6 +2,7 @@ package com.wms.controller.auth;
 
 import com.wms.controller.BaseController;
 import com.wms.model.User;
+import com.wms.service.auth.AuthException;
 import com.wms.service.auth.AuthService;
 import com.wms.util.AppConstants;
 
@@ -54,34 +55,42 @@ public class LoginServlet extends BaseController {
             return;
         }
 
-        // Authenticate via service layer
-        User user = authService.authenticate(identity.trim(), password);
+        // Authenticate via service layer — distinct errors for locked / not-found / wrong password
+        try {
+            User user = authService.authenticate(identity.trim(), password);
 
-        if (user == null) {
-            setError(req, "Tên đăng nhập hoặc mật khẩu không đúng.");
-            req.setAttribute("identity", identity); // preserve input
-            forward(req, res, "auth/login");
-            return;
-        }
+            // Check if user is active
+            if (!user.isActive()) {
+                setError(req, "Tài khoản của bạn đã bị khóa. Vui lòng liên hệ quản trị hệ thống.");
+                req.setAttribute("identity", identity);
+                forward(req, res, "auth/login");
+                return;
+            }
 
-        // Check if user is active
-        if (!user.isActive()) {
-            setError(req, "Tài khoản của bạn đã bị khóa. Vui lòng liên hệ quản trị hệ thống.");
+            // Initialize session and set intermediate 2-Factor Authentication state
+            HttpSession session = req.getSession(true);
+            clearPendingOtp(session);
+
+            session.setAttribute(AppConstants.SESSION_PENDING_USER, user);
+            session.setAttribute(AppConstants.SESSION_PENDING_OTP_TARGET, getDashboardTarget(user.getRole()));
+            session.setMaxInactiveInterval(10 * 60); // 10 min limit to complete 2FA
+
+            // Redirect to OTP verification page
+            redirect(res, req.getContextPath() + "/otp");
+
+        } catch (AuthException e) {
+            switch (e.getReason()) {
+                case NOT_FOUND:
+                case WRONG_PASSWORD:
+                    setError(req, "Tên đăng nhập hoặc mật khẩu không đúng.");
+                    break;
+                case ACCOUNT_LOCKED:
+                    setError(req, "Tài khoản của bạn đã bị khóa. Vui lòng liên hệ quản trị hệ thống.");
+                    break;
+            }
             req.setAttribute("identity", identity);
             forward(req, res, "auth/login");
-            return;
         }
-
-        // Initialize session and set intermediate 2-Factor Authentication state
-        HttpSession session = req.getSession(true);
-        clearPendingOtp(session);
-
-        session.setAttribute(AppConstants.SESSION_PENDING_USER, user);
-        session.setAttribute(AppConstants.SESSION_PENDING_OTP_TARGET, getDashboardTarget(user.getRole()));
-        session.setMaxInactiveInterval(10 * 60); // 10 min limit to complete 2FA
-
-        // Redirect to OTP verification page
-        redirect(res, req.getContextPath() + "/otp");
     }
 
     /**

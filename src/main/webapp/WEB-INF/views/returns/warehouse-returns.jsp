@@ -1,19 +1,7 @@
 <%@ page language="java" contentType="text/html; charset=UTF-8" pageEncoding="UTF-8" %>
 <%@ taglib prefix="c" uri="jakarta.tags.core" %>
 
-<style>
-    .ret-status-pill {
-        display: inline-flex; align-items: center; gap: 4px;
-        padding: 3px 10px; border-radius: 20px; font-size: 10px; font-weight: 700;
-    }
-    .ret-status-pill__dot { width: 5px; height: 5px; border-radius: 50%; }
-    .ret-status-pill.pending_qc { background: rgba(255,186,8,.20); color: #c2410c; }
-    .ret-status-pill.pending_qc .ret-status-pill__dot { background: #fbbf24; }
-    .ret-status-pill.approved { background: rgba(26,115,232,.08); color: #1a73e8; }
-    .ret-status-pill.approved .ret-status-pill__dot { background: #1a73e8; }
-    .ret-status-pill.rejected { background: #fef2f2; color: #991b1b; }
-    .ret-status-pill.rejected .ret-status-pill__dot { background: #ef4444; }
-</style>
+<link rel="stylesheet" href="${pageContext.request.contextPath}/assets/css/returns--warehouse-returns.css"/>
 
 <style>
     /* ─── Stats Grid ─── */
@@ -621,7 +609,8 @@
 [
     <c:forEach items="${returns}" var="r" varStatus="status">
         {
-            "id": "${r.returnId}",
+            "dbId": ${r.returnId},
+            "id": "${r.returnCode}",
             "soRef": "${r.orderCode}",
             "channel": "${r.channel}",
             "customer": "${r.customerName}",
@@ -680,7 +669,15 @@
     var PRODUCTS = JSON.parse(document.getElementById('products-data').textContent || '[]');
 
     // ─── Returns Data (Empty initial list, populated from servlet if available) ───
-    var returns = JSON.parse(document.getElementById('returns-data').textContent || '[]');
+    var returnsDataEl = document.getElementById('returns-data');
+    var returns = [];
+    try {
+        returns = JSON.parse(returnsDataEl.textContent || '[]');
+        console.log('[DEBUG] returns loaded:', returns.length, returns);
+    } catch (e) {
+        console.error('[DEBUG] JSON parse error:', e);
+        console.log('[DEBUG] raw data:', returnsDataEl.textContent);
+    }
 
     var activeTab = 'all';
     var searchText = '';
@@ -854,6 +851,13 @@
         rma.status = 'qc_done';
         rma.qcBy = 'Nhân viên QC';
         qcOverlay.style.display = 'none';
+
+        // Persist QC results to backend
+        submitPostAction('qc', {
+            returnId: rma.dbId,
+            itemsJson: JSON.stringify(rma.items)
+        });
+
         render();
     });
 
@@ -928,9 +932,10 @@
             return;
         }
 
-        // Determine next status: scrapped if ALL are defective, restocked otherwise
-        var allDefective = rma.items.every(function (i) { return i.qcDecision === 'defective'; });
-        rma.status = allDefective ? 'scrapped' : 'restocked';
+        // Persist apply to backend — backend will validate QC completeness
+        submitPostAction('apply', {
+            returnId: rma.dbId
+        });
 
         render();
     };
@@ -1223,8 +1228,12 @@
             scrapped:   returns.filter(function (r) { return r.status === 'scrapped'; }).length
         };
 
-        var totalResalableItems = returns.flatMap(function (r) { return r.items; }).filter(function (i) { return i.qcDecision === 'resalable'; }).length;
-        var totalDefectiveItems = returns.flatMap(function (r) { return r.items; }).filter(function (i) { return i.qcDecision === 'defective'; }).length;
+        var totalResalableItems = returns.filter(function (r) { return r.status === 'restocked'; })
+                                         .flatMap(function (r) { return r.items; })
+                                         .filter(function (i) { return i.qcDecision === 'resalable'; }).length;
+        var totalDefectiveItems = returns.filter(function (r) { return r.status === 'restocked' || r.status === 'scrapped'; })
+                                         .flatMap(function (r) { return r.items; })
+                                         .filter(function (i) { return i.qcDecision === 'defective'; }).length;
 
         // Apply count cards
         statPendingQC.textContent = counts.pending_qc;

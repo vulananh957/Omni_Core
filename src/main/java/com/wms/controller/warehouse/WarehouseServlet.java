@@ -1,9 +1,9 @@
 package com.wms.controller.warehouse;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.wms.controller.BaseController;
 import com.wms.model.Warehouse;
 import com.wms.service.warehouse.WarehouseService;
+import com.wms.util.JsonUtil;
 
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -20,7 +20,6 @@ public class WarehouseServlet extends BaseController {
 
     private static final String CONTEXT_PATH = "/business/warehouses";
     private final WarehouseService warehouseService = new WarehouseService();
-    private final ObjectMapper objectMapper = new ObjectMapper();
 
     @Override
     protected void doGet(HttpServletRequest req, HttpServletResponse resp)
@@ -57,15 +56,14 @@ public class WarehouseServlet extends BaseController {
                 writeJson(resp, "{\"success\":false,\"message\":\"Hành động không hợp lệ.\"}");
             }
         } catch (Exception e) {
-            writeJson(resp, "{\"success\":false,\"message\":\"Đã xảy ra lỗi hệ thống: " + e.getMessage() + "\"}");
+            writeJson(resp, "{\"success\":false,\"message\":\"Đã xảy ra lỗi hệ thống: " + escapeJson(e.getMessage()) + "\"}");
         }
     }
 
     private void handleList(HttpServletRequest req, HttpServletResponse resp) throws IOException {
         try {
             List<Warehouse> list = warehouseService.findAll();
-            String json = objectMapper.writeValueAsString(list);
-            writeJson(resp, json);
+            writeJson(resp, JsonUtil.toJson(list));
         } catch (Exception e) {
             writeJson(resp, "[]");
         }
@@ -73,16 +71,16 @@ public class WarehouseServlet extends BaseController {
 
     private void handleSave(HttpServletRequest req, HttpServletResponse resp) throws IOException {
         try {
-            Warehouse w = objectMapper.readValue(req.getReader(), Warehouse.class);
+            Warehouse w = parseJson(req.getReader().lines().reduce("", (a, b) -> a + b), Warehouse.class);
             WarehouseService.SaveResult result = warehouseService.saveWarehouse(w);
 
             if (result.isSuccess()) {
                 writeJson(resp, "{\"success\":true}");
             } else {
-                writeJson(resp, "{\"success\":false,\"message\":\"" + result.getMessage() + "\"}");
+                writeJson(resp, "{\"success\":false,\"message\":\"" + escapeJson(result.getMessage()) + "\"}");
             }
         } catch (Exception e) {
-            writeJson(resp, "{\"success\":false,\"message\":\"Lỗi định dạng dữ liệu: " + e.getMessage() + "\"}");
+            writeJson(resp, "{\"success\":false,\"message\":\"Lỗi định dạng dữ liệu: " + escapeJson(e.getMessage()) + "\"}");
         }
     }
 
@@ -107,7 +105,7 @@ public class WarehouseServlet extends BaseController {
         } catch (NumberFormatException e) {
             writeJson(resp, "{\"success\":false,\"message\":\"ID không hợp lệ.\"}");
         } catch (Exception e) {
-            writeJson(resp, "{\"success\":false,\"message\":\"Lỗi: " + e.getMessage() + "\"}");
+            writeJson(resp, "{\"success\":false,\"message\":\"Lỗi: " + escapeJson(e.getMessage()) + "\"}");
         }
     }
 }

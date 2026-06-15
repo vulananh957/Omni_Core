@@ -1,5 +1,6 @@
 package com.wms.model;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
@@ -9,6 +10,10 @@ import java.util.List;
  * OutboundOrder — Domain model for the outbound_orders table.
  * Represents a warehouse dispatch order (Xuất kho).
  * Status workflow: PENDING → PICKING → PACKED → SHIPPED / CANCELLED
+ *
+ * Note: @JsonProperty annotations keep the wire format used by the JSP
+ * scripts (id, orderId, warehouseName, ...) stable while the Java
+ * getters keep the longer JavaBean names.
  */
 public class OutboundOrder {
 
@@ -18,7 +23,9 @@ public class OutboundOrder {
     public static final String STATUS_SHIPPED  = "SHIPPED";
     public static final String STATUS_CANCELLED = "CANCELLED";
 
+    @JsonProperty("id")
     private int outboundId;
+    @JsonProperty("code")
     private String outboundCode;
     private int orderId;
     private int warehouseId;
@@ -30,6 +37,12 @@ public class OutboundOrder {
 
     private List<OutboundItem> items = new ArrayList<>();
     private String warehouseName;
+
+    private String shippingAddress;
+    private String courierName;
+    private String recipientName;
+    private String orderCode;
+    private String pickerName;
 
     public OutboundOrder() {
     }
@@ -46,6 +59,47 @@ public class OutboundOrder {
         this.createdAt = createdAt;
         this.pickedBy = pickedBy;
         this.pickedAt = pickedAt;
+    }
+
+    // Getters / Setters for new fields
+    public String getShippingAddress() {
+        return shippingAddress;
+    }
+
+    public void setShippingAddress(String shippingAddress) {
+        this.shippingAddress = shippingAddress;
+    }
+
+    public String getCourierName() {
+        return courierName;
+    }
+
+    public void setCourierName(String courierName) {
+        this.courierName = courierName;
+    }
+
+    public String getRecipientName() {
+        return recipientName;
+    }
+
+    public void setRecipientName(String recipientName) {
+        this.recipientName = recipientName;
+    }
+
+    public String getOrderCode() {
+        return orderCode;
+    }
+
+    public void setOrderCode(String orderCode) {
+        this.orderCode = orderCode;
+    }
+
+    public String getPickerName() {
+        return pickerName;
+    }
+
+    public void setPickerName(String pickerName) {
+        this.pickerName = pickerName;
     }
 
     // ── Getters / Setters ─────────────────────────────────────

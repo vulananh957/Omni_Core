@@ -13,16 +13,24 @@ import java.util.Arrays;
 import java.util.HashSet;
 import java.util.Set;
 import java.util.Optional;
+import java.util.logging.Logger;
 
 /**
- * AuthFilter — Session-based authentication guard.
+ * AuthFilter — Session-based authentication + Role-based access control (RBAC).
  *
- * React equivalent: PrivateRoute / AuthGuard wrapper component.
+ * React equivalent: PrivateRoute / AuthGuard wrapper component + role-based redirect.
  *
  * Allows unauthenticated access to public paths (login, assets, etc.)
- * All other requests require a valid session with SESSION_USER set.
+ * All other requests require:
+ *   1. Valid session with SESSION_USER set
+ *   2. Active user account
+ *   3. Role allowed to access the requested URL prefix
+ *
+ * RBAC: if the user accesses a URL outside their role, returns 403.
  */
 public class AuthFilter implements Filter {
+
+    private static final Logger log = Logger.getLogger(AuthFilter.class.getName());
 
     /** Paths accessible WITHOUT login (React: public routes) */
     private static final Set<String> PUBLIC_PATHS = new HashSet<>(Arrays.asList(
@@ -34,6 +42,19 @@ public class AuthFilter implements Filter {
             "/forgot-password",
             "/reset-password"
     ));
+
+    /** Map URL prefix → allowed roles. */
+    private static final java.util.Map<String, Set<String>> PATH_ROLES = new java.util.HashMap<>();
+    static {
+        PATH_ROLES.put("/admin",       setOf(AppConstants.ROLE_ADMIN));
+        PATH_ROLES.put("/business",    setOf(AppConstants.ROLE_MANAGER, AppConstants.ROLE_ADMIN));
+        PATH_ROLES.put("/warehouse",   setOf(AppConstants.ROLE_WAREHOUSE_STAFF, AppConstants.ROLE_MANAGER, AppConstants.ROLE_ADMIN));
+        PATH_ROLES.put("/sales",       setOf(AppConstants.ROLE_SALES_STAFF, AppConstants.ROLE_MANAGER, AppConstants.ROLE_ADMIN));
+    }
+
+    private static Set<String> setOf(String... values) {
+        return new HashSet<>(Arrays.asList(values));
+    }
 
     @Override
     public void init(FilterConfig filterConfig) throws ServletException {}
@@ -66,7 +87,7 @@ public class AuthFilter implements Filter {
             try {
                 UserDAO userDAO = new UserDAO();
                 Optional<User> uOpt = userDAO.findById(userInSession.getUserId());
-                
+
                 if (uOpt.isPresent() && uOpt.get().isActive()) {
                     User currentUser = uOpt.get();
                     // Sync changed role to current session immediately
@@ -78,6 +99,16 @@ public class AuthFilter implements Filter {
                         session.setAttribute(AppConstants.SESSION_USER, currentUser);
                         session.setAttribute(AppConstants.SESSION_WAREHOUSE, currentUser.getWarehouseId());
                     }
+
+                    // RBAC check
+                    if (!isAuthorized(path, currentUser.getRole())) {
+                        log.warning("RBAC denied: user=" + currentUser.getUsername()
+                            + " role=" + currentUser.getRole() + " path=" + path);
+                        res.sendError(HttpServletResponse.SC_FORBIDDEN,
+                            "Tài khoản của bạn không có quyền truy cập trang này.");
+                        return;
+                    }
+
                     chain.doFilter(request, response);
                 } else {
                     // Account was deactivated or deleted: force logout
@@ -91,6 +122,20 @@ public class AuthFilter implements Filter {
         } else {
             res.sendRedirect(contextPath + "/login");
         }
+    }
+
+    /** Checks whether the user is allowed to access the URL based on their role. */
+    private boolean isAuthorized(String path, String role) {
+        if (role == null) return false;
+        for (java.util.Map.Entry<String, Set<String>> entry : PATH_ROLES.entrySet()) {
+            String prefix = entry.getKey();
+            if (path.equals(prefix) || path.startsWith(prefix + "/")) {
+                return entry.getValue().contains(role);
+            }
+        }
+        // Path không thuộc prefix nào trong PATH_ROLES → mặc định cho phép
+        // (các URL chung như /, /profile, /api không cần RBAC cụ thể)
+        return true;
     }
 
     private boolean isPublicPath(String path) {

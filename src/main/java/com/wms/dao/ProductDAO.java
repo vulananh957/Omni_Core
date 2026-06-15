@@ -28,13 +28,13 @@ public class ProductDAO {
     private static final Logger LOGGER = Logger.getLogger(ProductDAO.class.getName());
 
     private static final String SELECT_CORE =
-        "SELECT p.*, c.category_name, u.full_name AS creator_name, "
-        + "u2.full_name AS approver_name, "
+        "SELECT p.product_id, p.sku_code, p.product_name, p.category_id, p.barcode, p.unit, "
+        + "p.min_stock, p.max_stock, p.attributes_text, p.weight_kg, p.created_by, p.created_at, p.updated_at, "
+        + "c.category_name, u.full_name AS creator_name, "
         + "COALESCE(i.qty_on_hand, 0) AS qty_on_hand "
         + "FROM products p "
         + "LEFT JOIN categories c ON p.category_id = c.category_id "
         + "LEFT JOIN users u ON p.created_by = u.user_id "
-        + "LEFT JOIN users u2 ON p.approved_by = u2.user_id "
         + "LEFT JOIN (SELECT product_id, SUM(qty_on_hand) AS qty_on_hand FROM inventory GROUP BY product_id) i ON p.product_id = i.product_id";
 
     public ProductDAO() {
@@ -110,48 +110,6 @@ public class ProductDAO {
     }
 
     /**
-     * Finds all products with status = PENDING (pending approval).
-     */
-    public List<Product> findPendingApproval() {
-        Map<Integer, List<Product.LocationConfig>> zonesMap = batchFindDefaultZones();
-        List<Product> list = new ArrayList<>();
-        String sql = SELECT_CORE + " WHERE p.status = ? ORDER BY p.product_id DESC";
-        try (Connection conn = DBConnection.getConnection();
-             PreparedStatement ps = conn.prepareStatement(sql)) {
-            ps.setString(1, Product.STATUS_PENDING);
-            try (ResultSet rs = ps.executeQuery()) {
-                while (rs.next()) {
-                    list.add(mapRow(rs, zonesMap.getOrDefault(getProductId(rs), List.of())));
-                }
-            }
-        } catch (SQLException e) {
-            LOGGER.log(Level.WARNING, "ProductDAO: Failed to find pending approval products", e);
-        }
-        return list;
-    }
-
-    /**
-     * Finds all approved products.
-     */
-    public List<Product> findApproved() {
-        Map<Integer, List<Product.LocationConfig>> zonesMap = batchFindDefaultZones();
-        List<Product> list = new ArrayList<>();
-        String sql = SELECT_CORE + " WHERE p.status = ? ORDER BY p.product_id DESC";
-        try (Connection conn = DBConnection.getConnection();
-             PreparedStatement ps = conn.prepareStatement(sql)) {
-            ps.setString(1, Product.STATUS_APPROVED);
-            try (ResultSet rs = ps.executeQuery()) {
-                while (rs.next()) {
-                    list.add(mapRow(rs, zonesMap.getOrDefault(getProductId(rs), List.of())));
-                }
-            }
-        } catch (SQLException e) {
-            LOGGER.log(Level.WARNING, "ProductDAO: Failed to find approved products", e);
-        }
-        return list;
-    }
-
-    /**
      * Batch-fetches all product-to-zone mappings in a single query,
      * then builds a Map(productId -> zones list). This eliminates N queries
      * when loading N products — only 1 extra query is needed regardless of list size.
@@ -179,8 +137,8 @@ public class ProductDAO {
 
     public boolean insert(Product product) {
         String sql = "INSERT INTO products (sku_code, product_name, category_id, barcode, unit, "
-                + "min_stock, max_stock, status, attributes_text, weight_kg, created_by) "
-                + "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+                + "min_stock, max_stock, attributes_text, weight_kg, created_by) "
+                + "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
         try (Connection conn = DBConnection.getConnection();
              PreparedStatement ps = conn.prepareStatement(sql)) {
             ps.setString(1, product.getSkuCode());
@@ -194,17 +152,16 @@ public class ProductDAO {
             ps.setString(5, product.getUnit());
             ps.setDouble(6, product.getMinStock() != null ? product.getMinStock() : 0.0);
             ps.setDouble(7, product.getMaxStock() != null ? product.getMaxStock() : 0.0);
-            ps.setString(8, product.getStatus() != null ? product.getStatus() : Product.STATUS_PENDING);
-            ps.setString(9, product.getAttributesText());
+            ps.setString(8, product.getAttributesText());
             if (product.getWeightKg() != null) {
-                ps.setDouble(10, product.getWeightKg());
+                ps.setDouble(9, product.getWeightKg());
             } else {
-                ps.setNull(10, java.sql.Types.DECIMAL);
+                ps.setNull(9, java.sql.Types.DECIMAL);
             }
             if (product.getCreatedBy() != null) {
-                ps.setInt(11, product.getCreatedBy());
+                ps.setInt(10, product.getCreatedBy());
             } else {
-                ps.setNull(11, java.sql.Types.INTEGER);
+                ps.setNull(10, java.sql.Types.INTEGER);
             }
             return ps.executeUpdate() > 0;
         } catch (SQLException e) {
@@ -213,10 +170,89 @@ public class ProductDAO {
         }
     }
 
+    public boolean insertWithZones(Product product, Integer createdByUserId, List<Product.LocationConfig> zones) {
+        Connection conn = null;
+        PreparedStatement psProduct = null;
+        PreparedStatement psInsertZone = null;
+        ResultSet rs = null;
+        try {
+            conn = DBConnection.getConnection();
+            conn.setAutoCommit(false);
+
+            String productSql = "INSERT INTO products (sku_code, product_name, category_id, barcode, unit, "
+                    + "min_stock, max_stock, attributes_text, weight_kg, created_by) "
+                    + "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+            psProduct = conn.prepareStatement(productSql, PreparedStatement.RETURN_GENERATED_KEYS);
+            psProduct.setString(1, product.getSkuCode());
+            psProduct.setString(2, product.getProductName());
+            if (product.getCategoryId() != null) {
+                psProduct.setInt(3, product.getCategoryId());
+            } else {
+                psProduct.setNull(3, java.sql.Types.INTEGER);
+            }
+            psProduct.setString(4, product.getBarcode());
+            psProduct.setString(5, product.getUnit());
+            psProduct.setDouble(6, product.getMinStock() != null ? product.getMinStock() : 0.0);
+            psProduct.setDouble(7, product.getMaxStock() != null ? product.getMaxStock() : 0.0);
+            psProduct.setString(8, product.getAttributesText());
+            if (product.getWeightKg() != null) {
+                psProduct.setDouble(9, product.getWeightKg());
+            } else {
+                psProduct.setNull(9, java.sql.Types.DECIMAL);
+            }
+            if (createdByUserId != null) {
+                psProduct.setInt(10, createdByUserId);
+            } else {
+                psProduct.setNull(10, java.sql.Types.INTEGER);
+            }
+            psProduct.executeUpdate();
+
+            int productId;
+            rs = psProduct.getGeneratedKeys();
+            if (rs.next()) {
+                productId = rs.getInt(1);
+            } else {
+                conn.rollback();
+                return false;
+            }
+
+            if (zones != null && !zones.isEmpty()) {
+                String zoneSql = "INSERT INTO product_default_zones (product_id, warehouse_id, zone_id) VALUES (?, ?, ?)";
+                psInsertZone = conn.prepareStatement(zoneSql);
+                for (Product.LocationConfig cfg : zones) {
+                    psInsertZone.setInt(1, productId);
+                    psInsertZone.setInt(2, Integer.parseInt(cfg.getLocationId()));
+                    psInsertZone.setInt(3, Integer.parseInt(cfg.getZoneId()));
+                    psInsertZone.addBatch();
+                }
+                psInsertZone.executeBatch();
+            }
+
+            conn.commit();
+            return true;
+        } catch (SQLException | NumberFormatException e) {
+            LOGGER.log(Level.WARNING, "ProductDAO: insertWithZones failed for " + product.getSkuCode(), e);
+            if (conn != null) {
+                try { conn.rollback(); } catch (SQLException ex) { LOGGER.log(Level.SEVERE, "Rollback failed", ex); }
+            }
+            return false;
+        } finally {
+            DBConnection.closeQuietly(rs, psProduct, psInsertZone);
+            if (conn != null) {
+                try {
+                    conn.setAutoCommit(true);
+                    conn.close();
+                } catch (SQLException e) {
+                    LOGGER.log(Level.WARNING, "Failed to close Connection", e);
+                }
+            }
+        }
+    }
+
     public boolean update(Product product) {
         String sql = "UPDATE products SET "
                 + "sku_code = ?, product_name = ?, category_id = ?, barcode = ?, unit = ?, "
-                + "min_stock = ?, max_stock = ?, status = ?, attributes_text = ?, weight_kg = ?, "
+                + "min_stock = ?, max_stock = ?, attributes_text = ?, weight_kg = ?, "
                 + "updated_at = CURRENT_TIMESTAMP "
                 + "WHERE product_id = ?";
         try (Connection conn = DBConnection.getConnection();
@@ -232,14 +268,13 @@ public class ProductDAO {
             ps.setString(5, product.getUnit());
             ps.setDouble(6, product.getMinStock() != null ? product.getMinStock() : 0.0);
             ps.setDouble(7, product.getMaxStock() != null ? product.getMaxStock() : 0.0);
-            ps.setString(8, product.getStatus());
-            ps.setString(9, product.getAttributesText());
+            ps.setString(8, product.getAttributesText());
             if (product.getWeightKg() != null) {
-                ps.setDouble(10, product.getWeightKg());
+                ps.setDouble(9, product.getWeightKg());
             } else {
-                ps.setNull(10, java.sql.Types.DECIMAL);
+                ps.setNull(9, java.sql.Types.DECIMAL);
             }
-            ps.setInt(11, product.getProductId());
+            ps.setInt(10, product.getProductId());
             return ps.executeUpdate() > 0;
         } catch (SQLException e) {
             LOGGER.log(Level.WARNING, "ProductDAO: Failed to update product " + product.getProductId(), e);
@@ -247,40 +282,78 @@ public class ProductDAO {
         }
     }
 
-    public boolean approve(int productId, int approvedBy) {
-        String sql = "UPDATE products SET "
-                + "status = ?, approved_at = CURRENT_TIMESTAMP, approved_by = ?, updated_at = CURRENT_TIMESTAMP "
-                + "WHERE product_id = ?";
-        try (Connection conn = DBConnection.getConnection();
-             PreparedStatement ps = conn.prepareStatement(sql)) {
-            ps.setString(1, Product.STATUS_APPROVED);
-            ps.setInt(2, approvedBy);
-            ps.setInt(3, productId);
-            return ps.executeUpdate() > 0;
-        } catch (SQLException e) {
-            LOGGER.log(Level.WARNING, "ProductDAO: Failed to approve product " + productId, e);
-            return false;
-        }
-    }
+    public boolean updateWithZones(Product product, List<Product.LocationConfig> zones) {
+        Connection conn = null;
+        PreparedStatement psProduct = null;
+        PreparedStatement psDelete = null;
+        PreparedStatement psInsert = null;
+        try {
+            conn = DBConnection.getConnection();
+            conn.setAutoCommit(false);
 
-    public boolean reject(int productId, String reviewNote) {
-        String sql = "UPDATE products SET "
-                + "status = ?, review_note = ?, updated_at = CURRENT_TIMESTAMP "
-                + "WHERE product_id = ?";
-        try (Connection conn = DBConnection.getConnection();
-             PreparedStatement ps = conn.prepareStatement(sql)) {
-            ps.setString(1, Product.STATUS_REJECTED);
-            ps.setString(2, reviewNote);
-            ps.setInt(3, productId);
-            return ps.executeUpdate() > 0;
-        } catch (SQLException e) {
-            LOGGER.log(Level.WARNING, "ProductDAO: Failed to reject product " + productId, e);
-            return false;
-        }
-    }
+            String productSql = "UPDATE products SET "
+                    + "product_name = ?, category_id = ?, barcode = ?, unit = ?, "
+                    + "min_stock = ?, max_stock = ?, attributes_text = ?, weight_kg = ?, "
+                    + "updated_at = CURRENT_TIMESTAMP "
+                    + "WHERE product_id = ?";
+            psProduct = conn.prepareStatement(productSql);
+            psProduct.setString(1, product.getProductName());
+            if (product.getCategoryId() != null) {
+                psProduct.setInt(2, product.getCategoryId());
+            } else {
+                psProduct.setNull(2, java.sql.Types.INTEGER);
+            }
+            psProduct.setString(3, product.getBarcode());
+            psProduct.setString(4, product.getUnit());
+            psProduct.setDouble(5, product.getMinStock() != null ? product.getMinStock() : 0.0);
+            psProduct.setDouble(6, product.getMaxStock() != null ? product.getMaxStock() : 0.0);
+            psProduct.setString(7, product.getAttributesText());
+            if (product.getWeightKg() != null) {
+                psProduct.setDouble(8, product.getWeightKg());
+            } else {
+                psProduct.setNull(8, java.sql.Types.DECIMAL);
+            }
+            psProduct.setInt(9, product.getProductId());
+            psProduct.executeUpdate();
 
-    public boolean reject(int productId) {
-        return reject(productId, null);
+            // Delete existing configs
+            String deleteSql = "DELETE FROM product_default_zones WHERE product_id = ?";
+            psDelete = conn.prepareStatement(deleteSql);
+            psDelete.setInt(1, product.getProductId());
+            psDelete.executeUpdate();
+
+            // Insert new ones
+            if (zones != null && !zones.isEmpty()) {
+                String insertSql = "INSERT INTO product_default_zones (product_id, warehouse_id, zone_id) VALUES (?, ?, ?)";
+                psInsert = conn.prepareStatement(insertSql);
+                for (Product.LocationConfig cfg : zones) {
+                    psInsert.setInt(1, product.getProductId());
+                    psInsert.setInt(2, Integer.parseInt(cfg.getLocationId()));
+                    psInsert.setInt(3, Integer.parseInt(cfg.getZoneId()));
+                    psInsert.addBatch();
+                }
+                psInsert.executeBatch();
+            }
+
+            conn.commit();
+            return true;
+        } catch (SQLException | NumberFormatException e) {
+            LOGGER.log(Level.WARNING, "ProductDAO: updateWithZones failed for ID " + product.getProductId(), e);
+            if (conn != null) {
+                try { conn.rollback(); } catch (SQLException ex) { LOGGER.log(Level.SEVERE, "Rollback failed", ex); }
+            }
+            return false;
+        } finally {
+            DBConnection.closeQuietly(psProduct, psDelete, psInsert);
+            if (conn != null) {
+                try {
+                    conn.setAutoCommit(true);
+                    conn.close();
+                } catch (SQLException e) {
+                    LOGGER.log(Level.WARNING, "Failed to close Connection", e);
+                }
+            }
+        }
     }
 
     /**
@@ -306,60 +379,6 @@ public class ProductDAO {
         return list;
     }
 
-    public boolean approveProductWithZones(int productId, int approvedBy, List<Product.LocationConfig> configs) {
-        Connection conn = null;
-        PreparedStatement psApprove = null;
-        PreparedStatement psDelete = null;
-        PreparedStatement psInsert = null;
-        try {
-            conn = DBConnection.getConnection();
-            conn.setAutoCommit(false);
-
-            String approveSql = "UPDATE products SET status = ?, approved_at = CURRENT_TIMESTAMP, approved_by = ?, updated_at = CURRENT_TIMESTAMP WHERE product_id = ?";
-            psApprove = conn.prepareStatement(approveSql);
-            psApprove.setString(1, Product.STATUS_APPROVED);
-            psApprove.setInt(2, approvedBy);
-            psApprove.setInt(3, productId);
-            psApprove.executeUpdate();
-
-            String deleteSql = "DELETE FROM product_default_zones WHERE product_id = ?";
-            psDelete = conn.prepareStatement(deleteSql);
-            psDelete.setInt(1, productId);
-            psDelete.executeUpdate();
-
-            if (configs != null && !configs.isEmpty()) {
-                String insertSql = "INSERT INTO product_default_zones (product_id, warehouse_id, zone_id) VALUES (?, ?, ?)";
-                psInsert = conn.prepareStatement(insertSql);
-                for (Product.LocationConfig cfg : configs) {
-                    psInsert.setInt(1, productId);
-                    psInsert.setInt(2, Integer.parseInt(cfg.getLocationId()));
-                    psInsert.setInt(3, Integer.parseInt(cfg.getZoneId()));
-                    psInsert.addBatch();
-                }
-                psInsert.executeBatch();
-            }
-
-            conn.commit();
-            return true;
-        } catch (SQLException | NumberFormatException e) {
-            LOGGER.log(Level.WARNING, "ProductDAO: Failed to approve product with zones for ID " + productId, e);
-            if (conn != null) {
-                try { conn.rollback(); } catch (SQLException ex) { LOGGER.log(Level.SEVERE, "Rollback failed", ex); }
-            }
-            return false;
-        } finally {
-            DBConnection.closeQuietly(psApprove, psDelete, psInsert);
-            if (conn != null) {
-                try {
-                    conn.setAutoCommit(true);
-                    conn.close();
-                } catch (SQLException e) {
-                    LOGGER.log(Level.WARNING, "Failed to close Connection", e);
-                }
-            }
-        }
-    }
-
     public boolean delete(int productId) {
         String sql = "DELETE FROM products WHERE product_id = ?";
         try (Connection conn = DBConnection.getConnection();
@@ -373,6 +392,41 @@ public class ProductDAO {
     }
 
     // ── Row mapping helpers ─────────────────────────────────────────
+
+    /**
+     * Isolated zone update for a single (product, warehouse) pair. Used by warehouse staff
+     * to set/clear the default storage zone of their own warehouse without touching other
+     * warehouses' zone rows. Toggles active=1 for the chosen row; all other rows for the
+     * same product keep their state.
+     */
+    public boolean updateZoneForWarehouse(int productId, int warehouseId, Integer zoneId) {
+        if (zoneId == null) {
+            String sql = "UPDATE product_warehouse_zone SET active = 0 "
+                       + "WHERE product_id = ? AND warehouse_id = ?";
+            try (Connection conn = DBConnection.getConnection();
+                 PreparedStatement ps = conn.prepareStatement(sql)) {
+                ps.setInt(1, productId);
+                ps.setInt(2, warehouseId);
+                return ps.executeUpdate() >= 0;
+            } catch (SQLException e) {
+                LOGGER.log(Level.SEVERE, "ProductDAO.updateZoneForWarehouse (clear) failed", e);
+                return false;
+            }
+        }
+        String upsert = "INSERT INTO product_warehouse_zone (product_id, warehouse_id, zone_id, active) "
+                      + "VALUES (?, ?, ?, 1) "
+                      + "ON DUPLICATE KEY UPDATE zone_id = VALUES(zone_id), active = 1";
+        try (Connection conn = DBConnection.getConnection();
+             PreparedStatement ps = conn.prepareStatement(upsert)) {
+            ps.setInt(1, productId);
+            ps.setInt(2, warehouseId);
+            ps.setInt(3, zoneId);
+            return ps.executeUpdate() > 0;
+        } catch (SQLException e) {
+            LOGGER.log(Level.SEVERE, "ProductDAO.updateZoneForWarehouse failed", e);
+            return false;
+        }
+    }
 
     private int getProductId(ResultSet rs) throws SQLException {
         return rs.getInt("product_id");
@@ -393,15 +447,6 @@ public class ProductDAO {
         product.setUnit(rs.getString("unit"));
         product.setMinStock(rs.getDouble("min_stock"));
         product.setMaxStock(rs.getDouble("max_stock"));
-        product.setStatus(rs.getString("status"));
-        Timestamp approvedAt = rs.getTimestamp("approved_at");
-        if (approvedAt != null) {
-            product.setApprovedAt(approvedAt.toLocalDateTime());
-        }
-        int approvedBy = rs.getInt("approved_by");
-        if (!rs.wasNull()) {
-            product.setApprovedBy(approvedBy);
-        }
         Timestamp createdAt = rs.getTimestamp("created_at");
         if (createdAt != null) {
             product.setCreatedAt(createdAt.toLocalDateTime());
@@ -414,9 +459,7 @@ public class ProductDAO {
         // Joined and transient fields — use safe getters to avoid SQLException on missing columns
         product.setCategoryName(getString(rs, "category_name"));
         product.setCreatorName(getString(rs, "creator_name"));
-        product.setApproverName(getString(rs, "approver_name"));
         product.setAttributesText(getString(rs, "attributes_text"));
-        product.setReviewNote(getString(rs, "review_note"));
 
         double w = rs.getDouble("weight_kg");
         product.setWeightKg(rs.wasNull() ? null : w);
@@ -458,5 +501,40 @@ public class ProductDAO {
             LOGGER.log(Level.WARNING, "ProductDAO.findBySkuCode: failed for " + skuCode, e);
         }
         return null;
+    }
+
+    /**
+     * Gets the next sequence number for a category and prefix.
+     * Searches for existing SKUs with format: {PREFIX}-{SEQ:03d}
+     * E.g. EYE-CON-001 or EYE-001
+     *
+     * @param categoryId The category ID.
+     * @param prefix The SKU prefix (MÃ CHA-MÃ CON or MÃ CON).
+     * @return Next sequence number (1-based).
+     */
+    public int getNextSequence(int categoryId, String prefix) throws SQLException {
+        String sql = "SELECT sku_code FROM products WHERE category_id = ?";
+        int maxSeq = 0;
+        try (Connection conn = DBConnection.getConnection();
+             PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setInt(1, categoryId);
+            try (ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) {
+                    String sku = rs.getString("sku_code");
+                    if (sku != null && sku.startsWith(prefix + "-")) {
+                        String seqPart = sku.substring(prefix.length() + 1);
+                        if (seqPart.matches("^\\d{3}$")) {
+                            try {
+                                int seq = Integer.parseInt(seqPart);
+                                if (seq > maxSeq) {
+                                    maxSeq = seq;
+                                }
+                            } catch (NumberFormatException ignored) {}
+                        }
+                    }
+                }
+            }
+        }
+        return maxSeq + 1;
     }
 }

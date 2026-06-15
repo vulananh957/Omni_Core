@@ -207,41 +207,7 @@
     </div>
 </div>
 
-<style>
-/* Toast Notification CSS */
-.prof-toast {
-    position: fixed;
-    top: 24px;
-    right: 24px;
-    background: #0F2C59;
-    color: #fff;
-    padding: 12px 20px;
-    border-radius: 8px;
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    font-size: 13px;
-    font-weight: 600;
-    box-shadow: 0 10px 25px rgba(0,0,0,0.15);
-    z-index: 9999;
-    opacity: 0;
-    transform: translateY(-20px);
-    transition: opacity 0.3s, transform 0.3s;
-}
-.prof-toast.show {
-    opacity: 1;
-    transform: translateY(0);
-}
-.prof-toast.error {
-    background: #DC2626;
-}
-.prof-toast__icon {
-    font-size: 16px;
-}
-.prof-toast.hidden {
-    display: none;
-}
-</style>
+<link rel="stylesheet" href="${pageContext.request.contextPath}/assets/css/warehouse--warehouse-profile.css"/>
 
 <script>
 document.addEventListener("DOMContentLoaded", function () {

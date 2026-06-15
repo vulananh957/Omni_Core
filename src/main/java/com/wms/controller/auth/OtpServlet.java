@@ -93,14 +93,14 @@ public class OtpServlet extends BaseController {
 
                 boolean sent = emailService.sendOtpCode(pendingUser, otpCode, newExpiresAt);
 
+                session.setAttribute(AppConstants.SESSION_PENDING_OTP, otpCode);
+                session.setAttribute(AppConstants.SESSION_PENDING_OTP_EXPIRES, newExpiresAt);
+                session.setAttribute(AppConstants.SESSION_PENDING_OTP_DEST, maskEmail(pendingUser.getEmail()));
+                session.setAttribute("otpSentTime", now);
                 if (sent) {
-                    session.setAttribute(AppConstants.SESSION_PENDING_OTP, otpCode);
-                    session.setAttribute(AppConstants.SESSION_PENDING_OTP_EXPIRES, newExpiresAt);
-                    session.setAttribute(AppConstants.SESSION_PENDING_OTP_DEST, maskEmail(pendingUser.getEmail()));
-                    session.setAttribute("otpSentTime", now);
                     session.setAttribute(FLASH_OTP_AUTOMESSAGE, "Mã xác thực OTP đã được gửi thành công! Hãy nhập mã bên dưới để tiếp tục đăng nhập.");
                 } else {
-                    session.setAttribute(AppConstants.ATTR_ERROR, "Không thể gửi mã OTP qua Email. Vui lòng kiểm tra cấu hình SMTP.");
+                    session.setAttribute(FLASH_OTP_AUTOMESSAGE, "Không thể gửi mail SMTP. Lấy mã OTP trong log hệ thống để đăng nhập.");
                 }
             }
 
@@ -169,17 +169,15 @@ public class OtpServlet extends BaseController {
             String maskedDest = maskEmail(pendingUser.getEmail());
             boolean sent = emailService.sendOtpCode(pendingUser, otpCode, newExpiresAt);
 
-            if (!sent) {
-                session.setAttribute(AppConstants.ATTR_ERROR, "Không thể gửi mã OTP qua Email. Vui lòng kiểm tra cấu hình SMTP.");
-                redirect(res, req.getContextPath() + "/otp");
-                return;
-            }
-
             session.setAttribute(AppConstants.SESSION_PENDING_OTP, otpCode);
             session.setAttribute(AppConstants.SESSION_PENDING_OTP_EXPIRES, newExpiresAt);
             session.setAttribute(AppConstants.SESSION_PENDING_OTP_DEST, maskedDest);
             session.setAttribute("otpSentTime", now);
-            session.setAttribute(FLASH_OTP_AUTOMESSAGE, "Mã xác thực mới đã được gửi thành công!");
+            if (sent) {
+                session.setAttribute(FLASH_OTP_AUTOMESSAGE, "Mã xác thực mới đã được gửi thành công!");
+            } else {
+                session.setAttribute(FLASH_OTP_AUTOMESSAGE, "Không thể gửi mail SMTP. Lấy mã OTP mới trong log hệ thống để đăng nhập.");
+            }
 
             redirect(res, req.getContextPath() + "/otp");
             return;

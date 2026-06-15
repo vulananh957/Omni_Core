@@ -15,6 +15,11 @@ public class LedgerService {
         return ledgerDAO.findAllDocuments();
     }
 
+    /** Documents scoped to one warehouse (Warehouse Staff view). */
+    public List<LedgerDAO.LedgerDocument> findAllDocuments(int warehouseId) {
+        return ledgerDAO.findAllDocuments(warehouseId);
+    }
+
     public List<LedgerDAO.GlobalLedgerEntry> findGlobalLedgerEntries() {
         return ledgerDAO.findGlobalLedgerEntries();
     }

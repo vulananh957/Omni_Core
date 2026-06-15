@@ -26,9 +26,25 @@ public class SalesSKUMappingServlet extends BaseController {
         try {
             req.setAttribute("skuMappings", skuMappingService.findAllMappings());
             req.setAttribute("channels", skuMappingService.findAllChannels());
+            req.setAttribute("products", skuMappingService.findAllSkus());
+
+            var allMappings = skuMappingService.findAllMappings();
+            req.setAttribute("totalMappings", allMappings.size());
+            req.setAttribute("pendingMappings",
+                (int) allMappings.stream()
+                    .filter(m -> "PENDING".equals(m.getSyncStatus()) || "ERROR".equals(m.getSyncStatus()))
+                    .count());
+            req.setAttribute("syncedMappings",
+                (int) allMappings.stream()
+                    .filter(m -> "SYNCED".equals(m.getSyncStatus()))
+                    .count());
         } catch (Exception e) {
             req.setAttribute("skuMappings", List.of());
             req.setAttribute("channels", List.of());
+            req.setAttribute("products", List.of());
+            req.setAttribute("totalMappings", 0);
+            req.setAttribute("pendingMappings", 0);
+            req.setAttribute("syncedMappings", 0);
         }
 
         req.setAttribute("pageTitle",    "Trung Tâm Ánh Xạ SKU Đa Sàn");

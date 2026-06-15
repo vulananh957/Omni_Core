@@ -26,6 +26,7 @@ public final class AppConstants {
     // ── Request attribute keys (replaces React prop passing) ──
     public static final String ATTR_ERROR   = "errorMessage";
     public static final String ATTR_SUCCESS = "successMessage";
+    public static final String ATTR_INFO    = "infoMessage";
     public static final String ATTR_DATA    = "data";
     public static final String ATTR_PAGE    = "pageTitle";
     public static final String ATTR_LIST    = "itemList";
@@ -39,7 +40,7 @@ public final class AppConstants {
     public static final String ROLE_MANAGER  = "MANAGER";
     public static final String ROLE_WAREHOUSE_STAFF = "WAREHOUSE_STAFF";
     public static final String ROLE_SALES_STAFF     = "SALES_STAFF";
-    public static final String ROLE_CUSTOMER = "CUSTOMER";
+    // ROLE_CUSTOMER removed — not used. B2B WMS has 3 business roles + admin only.
 
     // ── Pagination defaults ───────────────────────────────────
     public static final int DEFAULT_PAGE_SIZE = 15;

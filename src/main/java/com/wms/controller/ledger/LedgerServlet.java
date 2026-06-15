@@ -28,8 +28,10 @@ public class LedgerServlet extends BaseController {
         try {
             List<LedgerDAO.LedgerDocument> docs = ledgerService.findAllDocuments();
             req.setAttribute("documents", docs);
+            setJsonAttr(req, "documentsJson", docs);
         } catch (Exception e) {
             req.setAttribute("documents", List.of());
+            req.setAttribute("documentsJson", "[]");
         }
 
         try {

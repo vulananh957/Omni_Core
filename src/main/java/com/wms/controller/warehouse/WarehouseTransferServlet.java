@@ -1,11 +1,13 @@
 package com.wms.controller.warehouse;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.wms.controller.BaseController;
 import com.wms.dao.TransferDAO;
 import com.wms.model.Product;
+import com.wms.model.User;
 import com.wms.model.Warehouse;
 import com.wms.service.warehouse.TransferService;
+import com.wms.util.AppConstants;
+import com.wms.util.JsonUtil;
 
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -24,7 +26,6 @@ import java.util.Map;
 public class WarehouseTransferServlet extends BaseController {
 
     private final TransferService transferService = new TransferService();
-    private final ObjectMapper objectMapper = new ObjectMapper();
 
     @Override
     protected void doGet(HttpServletRequest req, HttpServletResponse resp)
@@ -68,7 +69,7 @@ public class WarehouseTransferServlet extends BaseController {
         resp.setContentType("application/json; charset=UTF-8");
 
         try {
-            var body = objectMapper.readTree(req.getInputStream());
+            var body = JsonUtil.getMapper().readTree(req.getInputStream());
             String action = body.has("action") ? body.get("action").asText() : "";
 
             if ("create".equals(action)) {
@@ -78,8 +79,8 @@ public class WarehouseTransferServlet extends BaseController {
                 int qty     = body.get("qty").asInt();
                 String note = body.has("note") ? body.get("note").asText() : "";
 
-                Integer userId = (Integer) req.getSession().getAttribute("userId");
-                int creatorId = userId != null ? userId : 1;
+                User currentUser = (User) req.getSession().getAttribute(AppConstants.SESSION_USER);
+                int creatorId = currentUser != null ? currentUser.getUserId() : 1;
 
                 TransferDAO.Transfer created =
                     transferService.createTransfer(fromWarehouseId, toWarehouseId,
@@ -89,7 +90,7 @@ public class WarehouseTransferServlet extends BaseController {
                 result.put("success", true);
                 result.put("transferId", created.getTransferId());
                 result.put("transferCode", created.getTransferCode());
-                resp.getWriter().write(objectMapper.writeValueAsString(result));
+                resp.getWriter().write(JsonUtil.toJson(result));
 
             } else if ("receive".equals(action)) {
                 int transferId = body.get("transferId").asInt();

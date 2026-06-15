@@ -1,10 +1,10 @@
 package com.wms.controller.admin;
 
 import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.wms.model.Channel;
 import com.wms.service.auth.AuthService;
 import com.wms.service.sales.ChannelService;
+import com.wms.util.JsonUtil;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServlet;
 import jakarta.servlet.http.HttpServletRequest;
@@ -28,7 +28,6 @@ public class LazadaAuthCallbackServlet extends HttpServlet {
 
     private final AuthService authService = new AuthService();
     private final ChannelService channelService = new ChannelService();
-    private final ObjectMapper objectMapper = new ObjectMapper();
 
     @Override
     protected void doGet(HttpServletRequest request, HttpServletResponse response)
@@ -83,7 +82,7 @@ public class LazadaAuthCallbackServlet extends HttpServlet {
                     "Initiating token exchange for channel '" + channel.getChannelName() + "' (ID: " + channelId + ")");
             String jsonResponse = authService.getAccessToken(channel, code);
 
-            JsonNode rootNode = objectMapper.readTree(jsonResponse);
+            JsonNode rootNode = JsonUtil.getMapper().readTree(jsonResponse);
 
             if (rootNode.has("code") && !rootNode.has("access_token")) {
                 String errorCode = rootNode.path("code").asText();

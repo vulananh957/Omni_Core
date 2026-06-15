@@ -1,8 +1,8 @@
 package com.wms.controller.admin;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.wms.util.DBConnection;
+import com.wms.util.JsonUtil;
 import jakarta.servlet.annotation.WebServlet;
 import jakarta.servlet.http.HttpServlet;
 import jakarta.servlet.http.HttpServletRequest;
@@ -44,9 +44,8 @@ public class HealthCheckServlet extends HttpServlet {
     protected void doGet(HttpServletRequest request, HttpServletResponse response)
             throws IOException {
 
-        ObjectMapper mapper = new ObjectMapper();
-        ObjectNode root = mapper.createObjectNode();
-        ObjectNode checks = mapper.createObjectNode();
+        ObjectNode root = JsonUtil.getMapper().createObjectNode();
+        ObjectNode checks = JsonUtil.getMapper().createObjectNode();
 
         boolean allHealthy = true;
 
@@ -75,7 +74,7 @@ public class HealthCheckServlet extends HttpServlet {
         }
 
         try (PrintWriter out = response.getWriter()) {
-            mapper.writerWithDefaultPrettyPrinter().writeValue(out, root);
+            JsonUtil.getMapper().writerWithDefaultPrettyPrinter().writeValue(out, root);
         }
     }
 

@@ -142,6 +142,18 @@ html, body {
 .nav-item__icon { width: 18px; height: 18px; flex-shrink: 0; }
 .nav-item.active .nav-item__icon { color: var(--orange); }
 .nav-item__chevron { margin-left: auto; width: 14px; height: 14px; color: rgba(235,131,23,0.70); }
+.nav-item__count {
+    margin-left: auto;
+    margin-right: 8px;
+    background: #ef4444;
+    color: #fff;
+    font-size: 0.7rem;
+    font-weight: 600;
+    padding: 2px 8px;
+    border-radius: 10px;
+    min-width: 20px;
+    text-align: center;
+}
 
 .sidebar__settings-divider {
   margin-top: 16px;

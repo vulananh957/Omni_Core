@@ -32,7 +32,9 @@ public class LedgerDAO {
         public String type; // "Phiếu Nhập Kho" | "Phiếu Xuất Kho" | "Phiếu Kiểm Kê" | "Phiếu Chuyển Kho" | "Phiếu Hoàn Hàng"
         public String date;
         public String warehouse;
+        public int warehouseId;
         public String createdBy;
+        public int createdById;
         public int items;
         public String status;
         public String statusColor;
@@ -60,21 +62,42 @@ public class LedgerDAO {
 
     /**
      * Fetch all documents from all tables, mapping them to a unified format.
+     * (Business Manager view — every warehouse.)
      */
     public List<LedgerDocument> findAllDocuments() {
+        return findDocuments(null);
+    }
+
+    /**
+     * Warehouse Staff view — documents scoped to ONE warehouse.
+     * Stock transfers match when the warehouse is either the source OR the destination.
+     */
+    public List<LedgerDocument> findAllDocuments(int warehouseId) {
+        return findDocuments(warehouseId);
+    }
+
+    /**
+     * Aggregates documents from all 6 sources. When {@code warehouseId} is null, returns
+     * documents of every warehouse; otherwise scopes each source to that warehouse
+     * (stock transfers match on either from_warehouse_id or to_warehouse_id).
+     */
+    private List<LedgerDocument> findDocuments(Integer warehouseId) {
         List<LedgerDocument> docs = new ArrayList<>();
-        
+        boolean byWh = warehouseId != null;
+
         // 1. Fetch Inbound Orders
-        String sqlInbound = 
+        String sqlInbound =
             "SELECT io.inbound_id, io.inbound_code, io.supplier, io.status, io.note, io.created_at, " +
-            "w.warehouse_name, u.full_name AS creator_name " +
+            "w.warehouse_id, w.warehouse_name, u.full_name AS creator_name " +
             "FROM inbound_orders io " +
             "LEFT JOIN warehouses w ON io.warehouse_id = w.warehouse_id " +
             "LEFT JOIN users u ON io.received_by = u.user_id " +
+            (byWh ? "WHERE io.warehouse_id = ? " : "") +
             "ORDER BY io.created_at DESC LIMIT 100";
         try (Connection conn = DBConnection.getConnection();
-             PreparedStatement ps = conn.prepareStatement(sqlInbound);
-             ResultSet rs = ps.executeQuery()) {
+             PreparedStatement ps = conn.prepareStatement(sqlInbound)) {
+            if (byWh) ps.setInt(1, warehouseId);
+            try (ResultSet rs = ps.executeQuery()) {
             while (rs.next()) {
                 LedgerDocument d = new LedgerDocument();
                 d.id = rs.getString("inbound_code");
@@ -83,6 +106,7 @@ public class LedgerDAO {
                 Timestamp ca = rs.getTimestamp("created_at");
                 d.date = (ca != null) ? ca.toLocalDateTime().format(DATE_FORMATTER) : "";
                 d.warehouse = rs.getString("warehouse_name");
+                d.warehouseId = rs.getInt("warehouse_id");
                 
                 String creator = rs.getString("creator_name");
                 d.createdBy = (creator != null) ? creator : "Hệ thống";
@@ -93,23 +117,25 @@ public class LedgerDAO {
                 d.items = countInboundItems(conn, rs.getInt("inbound_id"));
                 docs.add(d);
             }
+            }
         } catch (SQLException e) {
             LOGGER.log(Level.WARNING, "LedgerDAO: Failed to fetch inbound documents", e);
         }
 
         // 2. Fetch Outbound Orders
-        String sqlOutbound = 
+        String sqlOutbound =
             "SELECT oo.outbound_id, oo.outbound_code, oo.status, oo.note, oo.created_at, " +
-            "w.warehouse_name, u.full_name AS creator_name, c.channel_name " +
+            "w.warehouse_id, w.warehouse_name, u.full_name AS creator_name, o.channel " +
             "FROM outbound_orders oo " +
             "LEFT JOIN warehouses w ON oo.warehouse_id = w.warehouse_id " +
             "LEFT JOIN users u ON oo.picked_by = u.user_id " +
             "LEFT JOIN orders o ON oo.order_id = o.order_id " +
-            "LEFT JOIN channels c ON o.channel_id = c.channel_id " +
+            (byWh ? "WHERE oo.warehouse_id = ? " : "") +
             "ORDER BY oo.created_at DESC LIMIT 100";
         try (Connection conn = DBConnection.getConnection();
-             PreparedStatement ps = conn.prepareStatement(sqlOutbound);
-             ResultSet rs = ps.executeQuery()) {
+             PreparedStatement ps = conn.prepareStatement(sqlOutbound)) {
+            if (byWh) ps.setInt(1, warehouseId);
+            try (ResultSet rs = ps.executeQuery()) {
             while (rs.next()) {
                 LedgerDocument d = new LedgerDocument();
                 d.id = rs.getString("outbound_code");
@@ -121,33 +147,50 @@ public class LedgerDAO {
                 Timestamp ca = rs.getTimestamp("created_at");
                 d.date = (ca != null) ? ca.toLocalDateTime().format(DATE_FORMATTER) : "";
                 d.warehouse = rs.getString("warehouse_name");
+                d.warehouseId = rs.getInt("warehouse_id");
                 
                 String creator = rs.getString("creator_name");
                 d.createdBy = (creator != null) ? creator : "Hệ thống";
-                d.status = mapOutboundStatus(rs.getString("status"));
-                d.statusColor = getStatusColor(d.status);
                 d.remarks = rs.getString("note");
-                d.customer = rs.getString("channel_name");
+                d.customer = rs.getString("channel");
                 if (d.customer == null) d.customer = "Khách mua lẻ";
+
+                String dbStatus = rs.getString("status");
+                if (isOmnichannelChannel(d.customer)) {
+                    if ("PENDING".equals(dbStatus) || "PICKING".equals(dbStatus) || "PACKED".equals(dbStatus)) {
+                        d.status = "Đã duyệt";
+                    } else if ("SHIPPED".equals(dbStatus) || "DELIVERED".equals(dbStatus)) {
+                        d.status = "Hoàn thành";
+                    } else {
+                        d.status = mapOutboundStatus(dbStatus);
+                    }
+                } else {
+                    d.status = mapOutboundStatus(dbStatus);
+                }
+
+                d.statusColor = getStatusColor(d.status);
                 d.items = countOutboundItems(conn, rs.getInt("outbound_id"));
                 docs.add(d);
+            }
             }
         } catch (SQLException e) {
             LOGGER.log(Level.WARNING, "LedgerDAO: Failed to fetch outbound documents", e);
         }
 
         // 3. Fetch Stock Transfers
-        String sqlTransfers = 
+        String sqlTransfers =
             "SELECT st.transfer_id, st.transfer_code, st.status, st.note, st.created_at, " +
-            "w1.warehouse_name AS from_wh, w2.warehouse_name AS to_wh, u.full_name AS creator_name " +
+            "st.from_warehouse_id, w1.warehouse_name AS from_wh, w2.warehouse_name AS to_wh, u.full_name AS creator_name " +
             "FROM stock_transfers st " +
             "LEFT JOIN warehouses w1 ON st.from_warehouse_id = w1.warehouse_id " +
             "LEFT JOIN warehouses w2 ON st.to_warehouse_id = w2.warehouse_id " +
             "LEFT JOIN users u ON st.created_by = u.user_id " +
+            (byWh ? "WHERE (st.from_warehouse_id = ? OR st.to_warehouse_id = ?) " : "") +
             "ORDER BY st.created_at DESC LIMIT 100";
         try (Connection conn = DBConnection.getConnection();
-             PreparedStatement ps = conn.prepareStatement(sqlTransfers);
-             ResultSet rs = ps.executeQuery()) {
+             PreparedStatement ps = conn.prepareStatement(sqlTransfers)) {
+            if (byWh) { ps.setInt(1, warehouseId); ps.setInt(2, warehouseId); }
+            try (ResultSet rs = ps.executeQuery()) {
             while (rs.next()) {
                 LedgerDocument d = new LedgerDocument();
                 d.id = rs.getString("transfer_code");
@@ -156,6 +199,7 @@ public class LedgerDAO {
                 Timestamp ca = rs.getTimestamp("created_at");
                 d.date = (ca != null) ? ca.toLocalDateTime().format(DATE_FORMATTER) : "";
                 d.warehouse = rs.getString("from_wh") + " → " + rs.getString("to_wh");
+                d.warehouseId = rs.getInt("from_warehouse_id");
                 
                 String creator = rs.getString("creator_name");
                 d.createdBy = (creator != null) ? creator : "Hệ thống";
@@ -165,21 +209,24 @@ public class LedgerDAO {
                 d.items = countTransferItems(conn, rs.getInt("transfer_id"));
                 docs.add(d);
             }
+            }
         } catch (SQLException e) {
             LOGGER.log(Level.WARNING, "LedgerDAO: Failed to fetch transfer documents", e);
         }
 
         // 4. Fetch Physical Inventories
-        String sqlPhysical = 
+        String sqlPhysical =
             "SELECT pi.inventory_check_id, pi.check_code, pi.status, pi.note, pi.created_at, " +
-            "w.warehouse_name, u.full_name AS creator_name " +
+            "w.warehouse_id, w.warehouse_name, u.full_name AS creator_name " +
             "FROM physical_inventories pi " +
             "LEFT JOIN warehouses w ON pi.warehouse_id = w.warehouse_id " +
             "LEFT JOIN users u ON pi.created_by = u.user_id " +
+            (byWh ? "WHERE pi.warehouse_id = ? " : "") +
             "ORDER BY pi.created_at DESC LIMIT 100";
         try (Connection conn = DBConnection.getConnection();
-             PreparedStatement ps = conn.prepareStatement(sqlPhysical);
-             ResultSet rs = ps.executeQuery()) {
+             PreparedStatement ps = conn.prepareStatement(sqlPhysical)) {
+            if (byWh) ps.setInt(1, warehouseId);
+            try (ResultSet rs = ps.executeQuery()) {
             while (rs.next()) {
                 LedgerDocument d = new LedgerDocument();
                 d.id = rs.getString("check_code");
@@ -188,6 +235,7 @@ public class LedgerDAO {
                 Timestamp ca = rs.getTimestamp("created_at");
                 d.date = (ca != null) ? ca.toLocalDateTime().format(DATE_FORMATTER) : "";
                 d.warehouse = rs.getString("warehouse_name");
+                d.warehouseId = rs.getInt("warehouse_id");
                 
                 String creator = rs.getString("creator_name");
                 d.createdBy = (creator != null) ? creator : "Hệ thống";
@@ -197,20 +245,23 @@ public class LedgerDAO {
                 d.items = countPhysicalItems(conn, rs.getInt("inventory_check_id"));
                 docs.add(d);
             }
+            }
         } catch (SQLException e) {
             LOGGER.log(Level.WARNING, "LedgerDAO: Failed to fetch physical check documents", e);
         }
 
         // 5. Fetch RMA / Return Orders
-        String sqlReturns = 
+        String sqlReturns =
             "SELECT ro.return_id, ro.customer_name, ro.reason, ro.status, ro.created_at, " +
-            "w.warehouse_name " +
+            "w.warehouse_id, w.warehouse_name " +
             "FROM return_orders ro " +
             "LEFT JOIN warehouses w ON ro.warehouse_id = w.warehouse_id " +
+            (byWh ? "WHERE ro.warehouse_id = ? " : "") +
             "ORDER BY ro.created_at DESC LIMIT 100";
         try (Connection conn = DBConnection.getConnection();
-             PreparedStatement ps = conn.prepareStatement(sqlReturns);
-             ResultSet rs = ps.executeQuery()) {
+             PreparedStatement ps = conn.prepareStatement(sqlReturns)) {
+            if (byWh) ps.setInt(1, warehouseId);
+            try (ResultSet rs = ps.executeQuery()) {
             while (rs.next()) {
                 LedgerDocument d = new LedgerDocument();
                 d.id = "RMA-" + String.format("%05d", rs.getInt("return_id"));
@@ -219,6 +270,7 @@ public class LedgerDAO {
                 Timestamp ca = rs.getTimestamp("created_at");
                 d.date = (ca != null) ? ca.toLocalDateTime().format(DATE_FORMATTER) : "";
                 d.warehouse = rs.getString("warehouse_name");
+                d.warehouseId = rs.getInt("warehouse_id");
                 d.createdBy = "Nhân viên tiếp nhận";
                 
                 d.status = mapReturnStatus(rs.getString("status"));
@@ -228,8 +280,50 @@ public class LedgerDAO {
                 d.items = countReturnItems(conn, rs.getInt("return_id"));
                 docs.add(d);
             }
+            }
         } catch (SQLException e) {
             LOGGER.log(Level.WARNING, "LedgerDAO: Failed to fetch return documents", e);
+        }
+
+        // 6. Fetch Scrap / Disposal Issues (warehouse_issues, issue_type = SCRAP)
+        String sqlScrap =
+            "SELECT wi.issue_id, wi.issue_code, wi.status, wi.created_at, " +
+            "w.warehouse_id, w.warehouse_name, u.full_name AS creator_name " +
+            "FROM warehouse_issues wi " +
+            "LEFT JOIN warehouses w ON wi.warehouse_id = w.warehouse_id " +
+            "LEFT JOIN users u ON wi.created_by = u.user_id " +
+            "WHERE wi.issue_type = 'SCRAP' " +
+            (byWh ? "AND wi.warehouse_id = ? " : "") +
+            "ORDER BY wi.created_at DESC LIMIT 100";
+        try (Connection conn = DBConnection.getConnection();
+             PreparedStatement ps = conn.prepareStatement(sqlScrap)) {
+            if (byWh) ps.setInt(1, warehouseId);
+            try (ResultSet rs = ps.executeQuery()) {
+            while (rs.next()) {
+                LedgerDocument d = new LedgerDocument();
+                d.id = rs.getString("issue_code");
+                d.type = "Phiếu Xuất Hủy";
+                Timestamp ca = rs.getTimestamp("created_at");
+                d.date = (ca != null) ? ca.toLocalDateTime().format(DATE_FORMATTER) : "";
+                d.warehouse = rs.getString("warehouse_name");
+                d.warehouseId = rs.getInt("warehouse_id");
+                String creator = rs.getString("creator_name");
+                d.createdBy = (creator != null) ? creator : "Hệ thống";
+                String st = rs.getString("status");
+                d.status = "APPROVED".equals(st) ? "Đã duyệt" : ("CANCELLED".equals(st) ? "Đã hủy" : "Nháp");
+                d.statusColor = getStatusColor(d.status);
+                int itemCount = 0;
+                try (PreparedStatement cps = conn.prepareStatement(
+                        "SELECT COUNT(*) FROM issue_details WHERE issue_id = ?")) {
+                    cps.setInt(1, rs.getInt("issue_id"));
+                    try (ResultSet crs = cps.executeQuery()) { if (crs.next()) itemCount = crs.getInt(1); }
+                }
+                d.items = itemCount;
+                docs.add(d);
+            }
+            }
+        } catch (SQLException e) {
+            LOGGER.log(Level.WARNING, "LedgerDAO: Failed to fetch scrap documents", e);
         }
 
         // Sort overall list: newest first
@@ -527,7 +621,7 @@ public class LedgerDAO {
                 }
 
                 // Retrieve outbound items
-                String sqlItems = "SELECT product_id, picked_qty FROM outbound_items WHERE outbound_id = ?";
+                String sqlItems = "SELECT product_id, qty, picked_qty FROM outbound_items WHERE outbound_id = ?";
                 List<Map<String, Object>> issueItems = new ArrayList<>();
                 try (PreparedStatement ps = conn.prepareStatement(sqlItems)) {
                     ps.setInt(1, outboundId);
@@ -535,7 +629,10 @@ public class LedgerDAO {
                         while (rs.next()) {
                             Map<String, Object> map = new HashMap<>();
                             map.put("productId", rs.getInt("product_id"));
-                            map.put("qty", rs.getBigDecimal("picked_qty"));
+                            BigDecimal pQty = rs.getBigDecimal("picked_qty");
+                            BigDecimal reqQty = rs.getBigDecimal("qty");
+                            BigDecimal finalQty = (pQty != null && pQty.compareTo(BigDecimal.ZERO) > 0) ? pQty : reqQty;
+                            map.put("qty", finalQty);
                             issueItems.add(map);
                         }
                     }
@@ -545,7 +642,7 @@ public class LedgerDAO {
                 for (Map<String, Object> item : issueItems) {
                     int prodId = (int) item.get("productId");
                     BigDecimal qty = (BigDecimal) item.get("qty");
-                    if (qty.compareTo(BigDecimal.ZERO) <= 0) continue;
+                    if (qty == null || qty.compareTo(BigDecimal.ZERO) <= 0) continue;
 
                     BigDecimal negativeQty = qty.negate();
                     upsertInventory(conn, prodId, warehouseId, negativeQty, negativeQty);
@@ -831,6 +928,46 @@ public class LedgerDAO {
         return 0;
     }
 
+    /**
+     * Public wrapper of getInventoryId(Connection,...) for InventoryCommandBus.
+     * Opens a new connection since the bus runs outside a transaction.
+     */
+    public int getInventoryIdForUpdate(int productId, int warehouseId) {
+        try (Connection conn = DBConnection.getConnection()) {
+            return getInventoryId(conn, productId, warehouseId);
+        } catch (SQLException e) {
+            LOGGER.log(Level.WARNING, "getInventoryIdForUpdate failed", e);
+            return 0;
+        }
+    }
+
+    /**
+     * Inserts a simple ledger entry from a Map (used by InventoryCommandBus
+     * when receiving an InventoryEvent). ref_document_id = 0 (not tied to
+     * a specific document).
+     */
+    public void insertSimpleLedgerEntry(Map<String, Object> entry) {
+        String sql = "INSERT INTO inventory_ledger "
+                   + "(inventory_id, product_id, warehouse_id, transaction_type, "
+                   + "ref_document_id, qty_change, avail_change, created_by, note) "
+                   + "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)";
+        try (Connection conn = DBConnection.getConnection();
+             PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setInt(1, (Integer) entry.get("inventoryId"));
+            ps.setInt(2, (Integer) entry.get("productId"));
+            ps.setInt(3, (Integer) entry.get("warehouseId"));
+            ps.setString(4, (String) entry.get("type"));
+            ps.setInt(5, 0);  // ref_document_id = 0 cho event bus
+            ps.setBigDecimal(6, (BigDecimal) entry.get("qtyChange"));
+            ps.setBigDecimal(7, (BigDecimal) entry.get("availChange"));
+            ps.setInt(8, (Integer) entry.get("userId"));
+            ps.setString(9, (String) entry.get("note"));
+            ps.executeUpdate();
+        } catch (SQLException e) {
+            LOGGER.log(Level.WARNING, "insertSimpleLedgerEntry failed", e);
+        }
+    }
+
     private void insertLedgerEntry(Connection conn, int inventoryId, int productId, int warehouseId, 
                                    String xactType, int refDocId, BigDecimal qtyChange, BigDecimal availChange,
                                    int userId, String note) throws SQLException {
@@ -901,5 +1038,17 @@ public class LedgerDAO {
         if ("Hoàn thành".equals(status) || "Đã duyệt".equals(status) || "Đã xử lý".equals(status)) return "#059669"; // green
         if ("Từ chối".equals(status)) return "#dc2626"; // red
         return "#6b7280"; // gray (Draft/Nháp)
+    }
+
+    private boolean isOmnichannelChannel(String channelName) {
+        if (channelName == null) return true;
+        String lower = channelName.trim().toLowerCase();
+        return lower.contains("shopee") || 
+               lower.contains("tiktok") || 
+               lower.contains("lazada") || 
+               lower.contains("website") || 
+               lower.contains("online") || 
+               lower.contains("khách mua lẻ") ||
+               lower.contains("retail");
     }
 }

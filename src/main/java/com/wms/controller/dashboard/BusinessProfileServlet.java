@@ -99,16 +99,65 @@ public class BusinessProfileServlet extends BaseController {
                 resp.getWriter().write("{\"success\":true,\"message\":\"Cập nhật thông tin thành công!\"}");
 
             } else if ("updatePassword".equals(action)) {
-                resp.getWriter().write("{\"success\":false,\"message\":\"Vui lòng xác minh OTP để đổi mật khẩu\"}");
+                // OTP flow for password change:
+                //   1. User has called initPasswordChange → OTP generated and stored in session
+                //   2. User enters OTP in the form, submits with action="updatePassword"
+                //   3. Servlet validates OTP matches session → calls UserService to update password
+                String otp = req.getParameter("otp");
+                String newPassword = (String) session.getAttribute("pwdChangePendingNewPassword");
+
+                if (newPassword == null) {
+                    resp.getWriter().write("{\"success\":false,\"message\":\"Bạn cần khởi tạo đổi mật khẩu trước (initPasswordChange).\"}");
+                    return;
+                }
+                if (otp == null || otp.trim().isEmpty()) {
+                    resp.getWriter().write("{\"success\":false,\"message\":\"Vui lòng nhập mã OTP.\"}");
+                    return;
+                }
+
+                String sessionOtp = (String) session.getAttribute("pwdChangeOtp");
+                java.time.LocalDateTime expiresAt = (java.time.LocalDateTime) session.getAttribute("pwdChangeOtpExpires");
+                java.time.LocalDateTime now = java.time.LocalDateTime.now();
+
+                if (sessionOtp == null || expiresAt == null || now.isAfter(expiresAt)) {
+                    resp.getWriter().write("{\"success\":false,\"message\":\"Mã OTP đã hết hạn. Vui lòng yêu cầu mã mới.\"}");
+                    return;
+                }
+                if (!sessionOtp.equals(otp.trim())) {
+                    resp.getWriter().write("{\"success\":false,\"message\":\"Mã OTP không chính xác.\"}");
+                    return;
+                }
+
+                // OTP hợp lệ → hash mật khẩu mới rồi cập nhật
+                try {
+                    String newHash = org.mindrot.jbcrypt.BCrypt.hashpw(newPassword, org.mindrot.jbcrypt.BCrypt.gensalt(12));
+                    userService.updatePasswordDirect(sessionUser.getUserId(), newHash);
+                    // Xóa session OTP sau khi dùng
+                    session.removeAttribute("pwdChangeOtp");
+                    session.removeAttribute("pwdChangeOtpExpires");
+                    session.removeAttribute("pwdChangePendingNewPassword");
+                    resp.getWriter().write("{\"success\":true,\"message\":\"Đổi mật khẩu thành công!\"}");
+                } catch (SQLException e) {
+                    resp.getWriter().write("{\"success\":false,\"message\":\"Lỗi hệ thống: " + e.getMessage() + "\"}");
+                }
 
             } else if ("initPasswordChange".equals(action)) {
+                // Initialises OTP for password change.
                 String newPassword = req.getParameter("newPassword");
                 if (newPassword == null || newPassword.length() < 8) {
                     resp.getWriter().write("{\"success\":false,\"message\":\"Mật khẩu mới phải có ít nhất 8 ký tự\"}");
                     return;
                 }
                 session.setAttribute("pwdChangePendingNewPassword", newPassword);
-                resp.getWriter().write("{\"success\":true,\"message\":\"OK\"}");
+
+                // Generate a 6-digit OTP, valid for 5 minutes
+                String otp = String.format("%06d", (int)(Math.random() * 1_000_000));
+                session.setAttribute("pwdChangeOtp", otp);
+                session.setAttribute("pwdChangeOtpExpires", java.time.LocalDateTime.now().plusMinutes(5));
+                // Trong thực tế sẽ gửi qua email/SMS. Ở đây trả về cho test/dev.
+                resp.getWriter().write("{\"success\":true,\"message\":\"Mã OTP của bạn là: " + otp
+                    + " (có hiệu lực 5 phút)\"}");
+
             } else {
                 resp.getWriter().write("{\"success\":false,\"message\":\"Hành động không xác định\"}");
             }

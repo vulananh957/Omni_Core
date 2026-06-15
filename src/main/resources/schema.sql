@@ -71,7 +71,7 @@ CREATE TABLE IF NOT EXISTS warehouses (
 CREATE TABLE IF NOT EXISTS zones (
     zone_id     INT AUTO_INCREMENT PRIMARY KEY,
     warehouse_id INT NOT NULL,
-    zone_code   VARCHAR(10)  NOT NULL,
+    zone_code   VARCHAR(50)  NOT NULL,
     zone_name   VARCHAR(100) NOT NULL,
     zone_type   ENUM('NORMAL','RETURN','DAMAGED','DESTROY') NOT NULL DEFAULT 'NORMAL',
     description TEXT,
@@ -88,12 +88,18 @@ CREATE TABLE IF NOT EXISTS zones (
 CREATE TABLE IF NOT EXISTS categories (
     category_id   INT AUTO_INCREMENT PRIMARY KEY,
     parent_id     INT DEFAULT NULL,
+    category_code VARCHAR(10)  NOT NULL UNIQUE COMMENT 'Ma dinh danh 3-4 ky tu, viet HOA, bat bien sau khi tao',
     category_name VARCHAR(100) NOT NULL,
     description   VARCHAR(255) DEFAULT NULL,
     level_depth   INT DEFAULT 0,
-    active        TINYINT(1) NOT NULL DEFAULT 1,
+    is_immutable  TINYINT(1) NOT NULL DEFAULT 0 COMMENT '1 = da lock, khong cho sua category_code',
+    active        TINYINT(1) NOT NULL DEFAULT 1 COMMENT '1 = dang hoat dong, 0 = ngung hoat dong',
+    created_at    DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at    DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     FOREIGN KEY (parent_id) REFERENCES categories(category_id) ON DELETE SET NULL,
-    INDEX idx_cat_parent (parent_id)
+    INDEX idx_cat_parent (parent_id),
+    INDEX idx_cat_active (active),
+    INDEX idx_cat_code (category_code)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 -- Products (ERD: products)
@@ -146,6 +152,27 @@ CREATE TABLE IF NOT EXISTS channels (
     updated_at     DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
+-- Shipping carriers (dynamic, used by Sales filters and order processing)
+CREATE TABLE IF NOT EXISTS shipping_carriers (
+    carrier_id    INT AUTO_INCREMENT PRIMARY KEY,
+    carrier_code  VARCHAR(50) NOT NULL UNIQUE,
+    carrier_name  VARCHAR(100) NOT NULL,
+    platform      VARCHAR(50) DEFAULT NULL,
+    priority      INT NOT NULL DEFAULT 0,
+    is_active     TINYINT(1) NOT NULL DEFAULT 1,
+    created_at    DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at    DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    INDEX idx_carriers_active_priority (is_active, priority),
+    INDEX idx_carriers_platform (platform)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- Seed default carriers (idempotent)
+INSERT IGNORE INTO shipping_carriers (carrier_code, carrier_name, platform, priority) VALUES
+    ('SPX',  'SPX Express',    'Shopee', 10),
+    ('LZE',  'Lazada Express', 'Lazada', 20),
+    ('TKT',  'TikTok Express', 'TikTok', 30),
+    ('VTP',  'Viettel Post',   NULL,     40);
+
 -- Channel-specific products (ERD: channel_products)
 CREATE TABLE IF NOT EXISTS channel_products (
     id               INT AUTO_INCREMENT PRIMARY KEY,
@@ -163,6 +190,22 @@ CREATE TABLE IF NOT EXISTS channel_products (
     INDEX idx_cp_external (channel_sku_code)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
+-- SKU-to-channel mapping (ERD: sku_mappings)
+CREATE TABLE IF NOT EXISTS sku_mappings (
+    mapping_id    INT AUTO_INCREMENT PRIMARY KEY,
+    sku_id        INT NOT NULL,
+    channel_id    INT NOT NULL,
+    external_sku  VARCHAR(100),
+    seller_sku    VARCHAR(100),
+    sync_status   ENUM('SYNCED','PENDING','ERROR') DEFAULT 'PENDING',
+    last_sync_at  DATETIME,
+    created_at    DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at    DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    FOREIGN KEY (sku_id)    REFERENCES products(product_id),
+    FOREIGN KEY (channel_id) REFERENCES channels(channel_id),
+    UNIQUE KEY uq_sku_channel (sku_id, channel_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
 -- Webhook event log (ERD: webhook_logs)
 CREATE TABLE IF NOT EXISTS webhook_logs (
     log_id      INT AUTO_INCREMENT PRIMARY KEY,
@@ -176,6 +219,22 @@ CREATE TABLE IF NOT EXISTS webhook_logs (
     INDEX idx_wl_event (event_type),
     INDEX idx_wl_status (status),
     INDEX idx_wl_channel (channel_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- Stores marketplace orders that could not be matched to an internal SKU.
+-- Sales staff review this table to create mappings for unknown SKUs.
+CREATE TABLE IF NOT EXISTS mapping_exceptions (
+    exception_id  INT AUTO_INCREMENT PRIMARY KEY,
+    channel_id    INT NOT NULL,
+    external_sku  VARCHAR(100) NOT NULL,
+    order_code    VARCHAR(100),
+    reason        VARCHAR(255),
+    resolved      TINYINT(1) NOT NULL DEFAULT 0,
+    created_at    DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    resolved_at   DATETIME,
+    FOREIGN KEY (channel_id) REFERENCES channels(channel_id) ON DELETE CASCADE,
+    INDEX idx_me_channel (channel_id),
+    INDEX idx_me_resolved (resolved)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 -- Lazada sync log
@@ -414,6 +473,7 @@ CREATE TABLE IF NOT EXISTS outbound_orders (
     picked_by     INT,
     shipped_at    DATETIME,
     note          TEXT,
+    version       INT NOT NULL DEFAULT 0,
     created_at    DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at    DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     FOREIGN KEY (order_id)    REFERENCES orders(order_id) ON DELETE CASCADE,
@@ -505,6 +565,7 @@ CREATE TABLE IF NOT EXISTS qc_inspections (
 -- Legacy alias (for existing code compatibility)
 CREATE TABLE IF NOT EXISTS return_orders (
     return_id     INT AUTO_INCREMENT PRIMARY KEY,
+    return_code   VARCHAR(50),
     order_id       INT,
     outbound_id   INT,
     customer_name  VARCHAR(100),
@@ -516,7 +577,8 @@ CREATE TABLE IF NOT EXISTS return_orders (
     FOREIGN KEY (order_id)    REFERENCES orders(order_id) ON DELETE SET NULL,
     FOREIGN KEY (outbound_id) REFERENCES outbound_orders(outbound_id) ON DELETE SET NULL,
     FOREIGN KEY (warehouse_id) REFERENCES warehouses(warehouse_id),
-    INDEX idx_ro_status (status)
+    INDEX idx_ro_status (status),
+    INDEX idx_ro_code (return_code)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 CREATE TABLE IF NOT EXISTS qc_records (
@@ -553,6 +615,7 @@ CREATE TABLE IF NOT EXISTS physical_inventories (
     warehouse_id       INT NOT NULL,
     created_by         INT NOT NULL,
     status             ENUM('DRAFT','IN_PROGRESS','APPROVED') NOT NULL DEFAULT 'DRAFT',
+    note               TEXT,
     created_at         DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (warehouse_id) REFERENCES warehouses(warehouse_id),
     FOREIGN KEY (created_by)   REFERENCES users(user_id),
@@ -669,10 +732,40 @@ VALUES ('quanpm',
 INSERT IGNORE INTO user_warehouse_assignments (user_id, warehouse_id, is_primary)
 SELECT user_id, 1, 1 FROM users WHERE username = 'quanpm';
 
--- Default categories
-INSERT IGNORE INTO categories (category_name, level_depth) VALUES
-    ('Thuc Pham', 0),
-    ('Do Gia Dung', 0),
-    ('Dien Tu', 0),
-    ('My Pham', 0),
-    ('Sach', 0);
+-- Categories: managed via the app UI at /business/categories
+
+-- ============================================================
+-- Indexes for Performance Optimization
+-- ============================================================
+
+-- inventory_ledger: range scans by sku+warehouse+time (inventory dashboard, stock history)
+CREATE INDEX idx_ledger_sku_wh_time
+    ON inventory_ledger (product_id, warehouse_id, timestamp);
+
+-- inventory_ledger: filter by transaction type per sku (e.g., all INBOUND for a SKU)
+CREATE INDEX idx_ledger_sku_type
+    ON inventory_ledger (product_id, transaction_type);
+
+-- orders: filter by customer + date range (customer order history)
+CREATE INDEX idx_orders_customer_date
+    ON orders (customer_id, created_at);
+
+-- orders: filter by status + channel (dashboard KPIs, order queue)
+CREATE INDEX idx_orders_status_channel
+    ON orders (order_status, channel_id);
+
+-- inbound_orders: filter by status + date (inbound processing queue)
+CREATE INDEX idx_inbound_status_date
+    ON inbound_orders (status, created_at);
+
+-- outbound_orders: filter by status + date (outbound processing queue)
+CREATE INDEX idx_outbound_status_date
+    ON outbound_orders (status, created_at);
+
+-- product_default_zones: lookup zones by product (N+1 fix: fetch all in 1 query)
+CREATE INDEX idx_pdz_product
+    ON product_default_zones (product_id);
+
+-- channels: quick lookup by platform (Lazada/Shopee filter)
+CREATE INDEX idx_channels_platform
+    ON channels (platform);

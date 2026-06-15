@@ -8,11 +8,30 @@
     <display-name>B2C Omnichannel WMS Hub</display-name>
 
     <!-- ======================================================
+         CONTEXT LISTENERS
+    ====================================================== -->
+
+    <!-- Runs DB schema initialisation on first deployment -->
+    <listener>
+        <listener-class>com.wms.listener.SchemaInitListener</listener-class>
+    </listener>
+
+    <!-- ======================================================
          CONTEXT PARAMETERS
     ====================================================== -->
     <context-param>
         <param-name>app.name</param-name>
         <param-value>WMS Hub - Grocery</param-value>
+    </context-param>
+
+    <!-- Lazada Auto-Sync Scheduler config (read by LazadaSyncScheduler listener) -->
+    <context-param>
+        <param-name>lazada.sync.enabled</param-name>
+        <param-value>true</param-value>
+    </context-param>
+    <context-param>
+        <param-name>lazada.sync.interval.minutes</param-name>
+        <param-value>5</param-value>
     </context-param>
 
     <!-- ======================================================
@@ -188,6 +207,28 @@
     </servlet-mapping>
 
     <servlet>
+        <servlet-name>WarehouseInfoServlet</servlet-name>
+        <servlet-class>com.wms.controller.warehouse.WarehouseInfoServlet</servlet-class>
+    </servlet>
+    <servlet-mapping>
+        <servlet-name>WarehouseInfoServlet</servlet-name>
+        <url-pattern>/warehouse/information</url-pattern>
+    </servlet-mapping>
+
+    <servlet>
+        <servlet-name>GenerateSKUServlet</servlet-name>
+        <servlet-class>com.wms.controller.warehouse.GenerateSKUServlet</servlet-class>
+    </servlet>
+    <servlet-mapping>
+        <servlet-name>GenerateSKUServlet</servlet-name>
+        <url-pattern>/warehouse/sku/generate</url-pattern>
+    </servlet-mapping>
+    <servlet-mapping>
+        <servlet-name>GenerateSKUServlet</servlet-name>
+        <url-pattern>/business/sku/generate</url-pattern>
+    </servlet-mapping>
+
+    <servlet>
         <servlet-name>WarehouseInboundServlet</servlet-name>
         <servlet-class>com.wms.controller.warehouse.WarehouseInboundServlet</servlet-class>
     </servlet>
@@ -203,6 +244,15 @@
     <servlet-mapping>
         <servlet-name>WarehouseOutboundServlet</servlet-name>
         <url-pattern>/warehouse/outbound</url-pattern>
+    </servlet-mapping>
+
+    <servlet>
+        <servlet-name>FulfillmentRequestServlet</servlet-name>
+        <servlet-class>com.wms.controller.warehouse.FulfillmentRequestServlet</servlet-class>
+    </servlet>
+    <servlet-mapping>
+        <servlet-name>FulfillmentRequestServlet</servlet-name>
+        <url-pattern>/warehouse/fulfillment</url-pattern>
     </servlet-mapping>
 
     <servlet>
@@ -248,6 +298,15 @@
     <servlet-mapping>
         <servlet-name>WarehouseProfileServlet</servlet-name>
         <url-pattern>/warehouse/profile</url-pattern>
+    </servlet-mapping>
+
+    <servlet>
+        <servlet-name>PendingTrackingServlet</servlet-name>
+        <servlet-class>com.wms.controller.warehouse.PendingTrackingServlet</servlet-class>
+    </servlet>
+    <servlet-mapping>
+        <servlet-name>PendingTrackingServlet</servlet-name>
+        <url-pattern>/warehouse/pending-tracking</url-pattern>
     </servlet-mapping>
 
     <!-- ── Sales Staff routes ──────────────────────────────────── -->
@@ -303,6 +362,15 @@
     <servlet-mapping>
         <servlet-name>SalesChannelProductsServlet</servlet-name>
         <url-pattern>/sales/channel-products</url-pattern>
+    </servlet-mapping>
+
+    <servlet>
+        <servlet-name>SalesMappingExceptionServlet</servlet-name>
+        <servlet-class>com.wms.controller.sales.SalesMappingExceptionServlet</servlet-class>
+    </servlet>
+    <servlet-mapping>
+        <servlet-name>SalesMappingExceptionServlet</servlet-name>
+        <url-pattern>/sales/mapping-exceptions</url-pattern>
     </servlet-mapping>
 
     <!-- ── Admin routes ────────────────────────────────────────── -->

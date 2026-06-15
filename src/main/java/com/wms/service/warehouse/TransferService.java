@@ -1,5 +1,6 @@
 package com.wms.service.warehouse;
 
+import com.wms.dao.LedgerDAO;
 import com.wms.dao.ProductDAO;
 import com.wms.dao.TransferDAO;
 import com.wms.dao.WarehouseDAO;
@@ -16,6 +17,10 @@ public class TransferService {
 
     private static final DateTimeFormatter CODE_FMT =
             DateTimeFormatter.ofPattern("yyyyMMdd-HHmmss");
+
+    // Delegate to LedgerDAO for double-entry: deduct source + add destination + write
+    // TRANSFER_OUT/IN ledger entries.
+    private final LedgerDAO ledgerDAO = new LedgerDAO();
 
     private final TransferDAO transferDAO = new TransferDAO();
     private final ProductDAO productDAO = new ProductDAO();
@@ -34,7 +39,7 @@ public class TransferService {
     }
 
     public List<Product> findApprovedProducts() throws SQLException {
-        return productDAO.findApproved();
+        return productDAO.findAll();
     }
 
     public List<Warehouse> findAllWarehouses() throws SQLException {
@@ -87,12 +92,52 @@ public class TransferService {
     }
 
     /**
-     * Marks a transfer as received by updating its status in the database.
+     * Destination warehouse confirms receipt of a transfer.
+     *
+     * Previously: only updated status to RECEIVED, never touched inventory,
+     * so stock "vanished" between the two warehouses. Now: delegates to
+     * LedgerDAO.approveDocument() for double-entry:
+     *   - Deduct qty_on_hand + qty_available at source (TRANSFER_OUT)
+     *   - Add qty_on_hand + qty_available at destination (TRANSFER_IN)
+     *   - Insert 2 rows into inventory_ledger
+     *
+     * @param transferId  ID of the transfer
+     * @param userId      ID of the receiving user
      */
-    public void markReceived(int transferId) throws SQLException {
+    public void markReceived(int transferId, int userId) throws SQLException {
         TransferDAO.Transfer t = transferDAO.findById(transferId);
-        if (t != null) {
-            transferDAO.updateStatus(transferId, TransferDAO.Transfer.STATUS_RECEIVED);
+        if (t == null) {
+            throw new SQLException("Không tìm thấy phiếu chuyển kho ID=" + transferId);
         }
+
+        // Nếu đã RECEIVED rồi thì bỏ qua (idempotent — tránh double-count)
+        if (TransferDAO.Transfer.STATUS_RECEIVED.equals(t.getStatus())) {
+            return;
+        }
+
+        // Cập nhật received_qty cho từng item bằng shipped_qty (giả định nhận đủ)
+        // Phục vụ cho query bên LedgerDAO dùng received_qty nếu có
+        try {
+            for (TransferDAO.TransferItem item : transferDAO.findItemsByTransferId(transferId)) {
+                if (item.getReceivedQty() == null
+                    || item.getReceivedQty().compareTo(BigDecimal.ZERO) == 0) {
+                    transferDAO.updateReceivedQty(item.getTransferItemId(), item.getShippedQty());
+                }
+            }
+        } catch (Exception e) {
+            // Không chặn flow chính, chỉ log
+            System.err.println("markReceived: cập nhật received_qty thất bại: " + e.getMessage());
+        }
+
+        // Ủy quyền cho LedgerDAO xử lý double-entry + ghi ledger
+        boolean ok = ledgerDAO.approveDocument(t.getTransferCode(), "Phiếu Chuyển Kho", userId);
+        if (!ok) {
+            throw new SQLException("Không thể xử lý phiếu chuyển kho " + t.getTransferCode());
+        }
+    }
+
+    /** Backward-compat overload — gọi với userId mặc định = 1 (admin) cho code cũ. */
+    public void markReceived(int transferId) throws SQLException {
+        markReceived(transferId, 1);
     }
 }

@@ -2,6 +2,7 @@ package com.wms.dao;
 
 import com.wms.util.DBConnection;
 
+import java.math.BigDecimal;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
@@ -220,6 +221,20 @@ public class TransferDAO {
              PreparedStatement ps = conn.prepareStatement(sql)) {
             ps.setString(1, status);
             ps.setInt(2, transferId);
+            ps.executeUpdate();
+        }
+    }
+
+    /**
+     * Updates received_qty for a single stock_transfer_items row.
+     * Used when the destination warehouse confirms receipt.
+     */
+    public void updateReceivedQty(int transferItemId, BigDecimal receivedQty) throws SQLException {
+        String sql = "UPDATE stock_transfer_items SET received_qty = ? WHERE transfer_item_id = ?";
+        try (Connection conn = DBConnection.getConnection();
+             PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setBigDecimal(1, receivedQty);
+            ps.setInt(2, transferItemId);
             ps.executeUpdate();
         }
     }

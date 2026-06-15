@@ -29,7 +29,7 @@ public class ReturnDAO {
      */
     public List<ReturnOrder> findAll() {
         List<ReturnOrder> list = new ArrayList<>();
-        String sqlOrders = "SELECT ro.return_id, ro.order_id, o.order_code, ro.outbound_id, ro.customer_name, ro.customer_phone, "
+        String sqlOrders = "SELECT ro.return_id, ro.return_code, ro.order_id, o.order_code, ro.outbound_id, ro.customer_name, ro.customer_phone, "
                 + "ro.reason, ro.status, ro.warehouse_id, ro.created_at, ro.updated_at, o.channel "
                 + "FROM return_orders ro "
                 + "LEFT JOIN orders o ON ro.order_id = o.order_id "
@@ -42,15 +42,19 @@ public class ReturnDAO {
                 + "LEFT JOIN qc_records qr ON (ri.return_id = qr.return_id AND ri.product_id = qr.product_id) "
                 + "WHERE ri.return_id = ?";
 
+        System.out.println("[ReturnDAO] DEBUG: Executing findAll()...");
         try (Connection conn = DBConnection.getConnection();
                 PreparedStatement psOrders = conn.prepareStatement(sqlOrders);
                 ResultSet rsOrders = psOrders.executeQuery()) {
 
+            int orderCount = 0;
             try (PreparedStatement psItems = conn.prepareStatement(sqlItems)) {
                 while (rsOrders.next()) {
+                    orderCount++;
                     ReturnOrder ro = new ReturnOrder();
                     int returnId = rsOrders.getInt("return_id");
                     ro.setReturnId(returnId);
+                    ro.setReturnCode(rsOrders.getString("return_code"));
 
                     int orderId = rsOrders.getInt("order_id");
                     ro.setOrderId(rsOrders.wasNull() ? null : orderId);
@@ -106,7 +110,10 @@ public class ReturnDAO {
 
         } catch (SQLException e) {
             LOGGER.log(Level.WARNING, "ReturnDAO: Failed to retrieve return orders", e);
+            System.out.println("[ReturnDAO] SQL ERROR: " + e.getMessage());
+            e.printStackTrace();
         }
+        System.out.println("[ReturnDAO] DEBUG: Returning " + list.size() + " return orders");
         return list;
     }
 
@@ -146,20 +153,29 @@ public class ReturnDAO {
                 return false;
             }
 
-            String sqlInsertOrder = "INSERT INTO return_orders (order_id, outbound_id, customer_name, customer_phone, reason, status, warehouse_id, created_at, updated_at) "
-                    + "VALUES (?, ?, ?, ?, ?, 'RECEIVED', ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)";
+            String returnCode = order.getReturnCode();
+            if (returnCode == null || returnCode.trim().isEmpty()) {
+                String today = java.time.LocalDate.now().format(java.time.format.DateTimeFormatter.ofPattern("yyyyMMdd"));
+                int seq = (int)(Math.random() * 999);
+                returnCode = "RT-" + today + "-" + String.format("%03d", seq);
+                order.setReturnCode(returnCode);
+            }
+
+            String sqlInsertOrder = "INSERT INTO return_orders (return_code, order_id, outbound_id, customer_name, customer_phone, reason, status, warehouse_id, created_at, updated_at) "
+                    + "VALUES (?, ?, ?, ?, ?, ?, 'RECEIVED', ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)";
 
             psOrder = conn.prepareStatement(sqlInsertOrder, Statement.RETURN_GENERATED_KEYS);
-            psOrder.setInt(1, orderId);
+            psOrder.setString(1, returnCode);
+            psOrder.setInt(2, orderId);
             if (outboundId != null) {
-                psOrder.setInt(2, outboundId);
+                psOrder.setInt(3, outboundId);
             } else {
-                psOrder.setNull(2, java.sql.Types.INTEGER);
+                psOrder.setNull(3, java.sql.Types.INTEGER);
             }
-            psOrder.setString(3, order.getCustomerName());
-            psOrder.setString(4, order.getCustomerPhone());
-            psOrder.setString(5, order.getReason());
-            psOrder.setInt(6, order.getWarehouseId() > 0 ? order.getWarehouseId() : 1);
+            psOrder.setString(4, order.getCustomerName());
+            psOrder.setString(5, order.getCustomerPhone());
+            psOrder.setString(6, order.getReason());
+            psOrder.setInt(7, order.getWarehouseId() > 0 ? order.getWarehouseId() : 1);
 
             int rows = psOrder.executeUpdate();
             int returnId = -1;
@@ -263,6 +279,13 @@ public class ReturnDAO {
             for (ReturnItem item : items) {
                 if ("pending".equalsIgnoreCase(item.getQcDecision())) {
                     hasPending = true;
+                    // Still insert a pending QC record so history is preserved
+                    psIns.setInt(1, returnId);
+                    psIns.setInt(2, item.getProductId());
+                    psIns.setString(3, "PENDING");
+                    psIns.setString(4, item.getQcNote());
+                    psIns.setInt(5, userId > 0 ? userId : 1);
+                    psIns.addBatch();
                     continue;
                 }
 
@@ -330,7 +353,41 @@ public class ReturnDAO {
      * Applies restock for resalable items and scrap for defective items.
      * Updates return order status to RESTOCKED or SCRAPPED.
      */
+    /**
+     * Submits restock/scrap results for Manager approval.
+     * This method only updates the status to PENDING_APPROVAL.
+     * The actual UPSERT inventory + INSERT ledger is delegated to
+     * LedgerDAO.approveDocument() when Manager clicks "Approve" in /business/ledger.
+     *
+     * Previously applyRestock() did both, which caused double-count when Manager
+     * also clicked approve afterwards.
+     */
+    public boolean submitRestockForApproval(int returnId) {
+        String sql = "UPDATE return_orders SET status = 'PENDING_APPROVAL', updated_at = CURRENT_TIMESTAMP "
+                   + "WHERE return_id = ?";
+        try (Connection conn = DBConnection.getConnection();
+             PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setInt(1, returnId);
+            int rows = ps.executeUpdate();
+            LOGGER.info("ReturnDAO.submitRestockForApproval: returnId=" + returnId + " rows=" + rows);
+            return rows > 0;
+        } catch (SQLException e) {
+            LOGGER.log(Level.SEVERE, "ReturnDAO.submitRestockForApproval failed", e);
+            return false;
+        }
+    }
+
+    /** Backward-compat alias: gọi tới submitRestockForApproval. */
     public boolean applyRestock(int returnId, int userId) {
+        return submitRestockForApproval(returnId);
+    }
+
+    /**
+     * Manager approves a restock. Performs the actual UPSERT inventory +
+     * INSERT ledger. Called from LedgerServlet when user clicks "Approve"
+     * on a return voucher. Body kept identical to the original applyRestock().
+     */
+    public boolean approveRestock(int returnId, int userId) {
         Connection conn = null;
         PreparedStatement psInventory = null;
         PreparedStatement psLedger = null;
@@ -379,7 +436,6 @@ public class ReturnDAO {
             }
 
             boolean allDefective = true;
-            boolean hasResalable = false;
 
             // 2. Loop through items to apply restock/scrap
             String sqlUpsertInventory = "INSERT INTO inventory (product_id, warehouse_id, qty_on_hand, holding, qty_available, updated_at) "
@@ -397,10 +453,8 @@ public class ReturnDAO {
             psScrap = conn.prepareStatement(sqlInsertScrap);
 
             for (ReturnItem item : qcItems) {
-                if ("PASS".equalsIgnoreCase(item.getQcDecision())) {
-                    hasResalable = true;
-                    allDefective = false;
-
+                String decision = item.getQcDecision();
+                if ("PASS".equalsIgnoreCase(decision)) {
                     // A. Increment inventory (Auto Restock on Pass)
                     psInventory.setInt(1, item.getProductId());
                     psInventory.setInt(2, warehouseId);
@@ -431,8 +485,9 @@ public class ReturnDAO {
                     psLedger.setString(7, "Restock hàng hoàn trả (RMA #" + returnId + ")");
                     psLedger.executeUpdate();
 
-                } else {
+                } else if ("FAIL".equalsIgnoreCase(decision) || "defective".equalsIgnoreCase(decision)) {
                     // Defective -> Scrap
+                    allDefective = false;
                     psScrap.setInt(1, returnId);
                     psScrap.setInt(2, item.getProductId());
                     psScrap.setBigDecimal(3, item.getQty());
@@ -440,6 +495,9 @@ public class ReturnDAO {
                             item.getQcNote() != null && !item.getQcNote().isEmpty() ? item.getQcNote() : "Hàng lỗi QC");
                     psScrap.setInt(5, userId > 0 ? userId : 1);
                     psScrap.executeUpdate();
+
+                } else {
+                    continue;  // PENDING — skip
                 }
             }
 
@@ -451,8 +509,7 @@ public class ReturnDAO {
             psStatus.setInt(2, returnId);
             psStatus.executeUpdate();
 
-            // 4. Update original order status in orders table to RETURNED if orderId is
-            // valid
+            // 4. Update original order status in orders table to RETURNED if orderId is valid
             if (orderId > 0) {
                 String sqlOrderUpdate = "UPDATE orders SET status = 'RETURNED', updated_at = CURRENT_TIMESTAMP WHERE order_id = ?";
                 psOrderUpdate = conn.prepareStatement(sqlOrderUpdate);
@@ -461,29 +518,42 @@ public class ReturnDAO {
             }
 
             conn.commit();
-            LOGGER.info("ReturnDAO: Applied restock/scrap successfully for return ID " + returnId + ", nextStatus="
-                    + nextStatus);
+            LOGGER.info("ReturnDAO.approveRestock: returnId=" + returnId + " nextStatus=" + nextStatus);
             return true;
 
         } catch (SQLException e) {
-            LOGGER.log(Level.SEVERE, "ReturnDAO: Error applying restock/scrap", e);
+            LOGGER.log(Level.SEVERE, "ReturnDAO.approveRestock failed", e);
             if (conn != null) {
-                try {
-                    conn.rollback();
-                } catch (SQLException ex) {
-                    LOGGER.log(Level.SEVERE, "Rollback failed", ex);
-                }
+                try { conn.rollback(); } catch (SQLException ex) { /* ignore */ }
             }
             return false;
         } finally {
             DBConnection.closeQuietly(psInventory, psLedger, psScrap, psStatus, psOrderUpdate);
             if (conn != null) {
-                try {
-                    conn.setAutoCommit(true);
-                    conn.close();
-                } catch (SQLException ignored) {
-                }
+                try { conn.setAutoCommit(true); conn.close(); } catch (SQLException ignored) {}
             }
         }
+    }
+
+    /**
+     * Checks whether all items in a return order have been inspected (no pending
+     * items).
+     * Used to gate the apply/restock action.
+     */
+    public boolean isQCComplete(int returnId) {
+        String sql = "SELECT COUNT(*) AS pending_count FROM qc_records "
+                + "WHERE return_id = ? AND decision = 'PENDING'";
+        try (Connection conn = DBConnection.getConnection();
+                PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setInt(1, returnId);
+            try (ResultSet rs = ps.executeQuery()) {
+                if (rs.next()) {
+                    return rs.getInt("pending_count") == 0;
+                }
+            }
+        } catch (SQLException e) {
+            LOGGER.log(Level.WARNING, "ReturnDAO.isQCComplete: failed for returnId=" + returnId, e);
+        }
+        return false;
     }
 }

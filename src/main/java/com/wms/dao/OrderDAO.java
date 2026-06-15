@@ -18,7 +18,7 @@ import java.util.logging.Logger;
 /**
  * OrderDAO — Data Access Object for handling order records from MySQL.
  */
-public class OrderDAO {
+public class OrderDAO extends BaseDAO {
 
     private static final Logger LOGGER = Logger.getLogger(OrderDAO.class.getName());
 
@@ -156,76 +156,55 @@ public class OrderDAO {
     }
 
     public boolean updateOrderStatusAndWarehouse(String orderCode, String status, int warehouseId, String reviewNote) {
-        String sql = "UPDATE orders SET status = ?, warehouse_id = ?, review_note = ?, updated_at = CURRENT_TIMESTAMP WHERE order_code = ?";
-        try (Connection conn = DBConnection.getConnection();
-             PreparedStatement ps = conn.prepareStatement(sql)) {
-            ps.setString(1, status);
-            ps.setInt(2, warehouseId);
-            ps.setString(3, reviewNote);
-            ps.setString(4, orderCode);
-            return ps.executeUpdate() > 0;
-        } catch (SQLException e) {
-            LOGGER.log(Level.SEVERE, "OrderDAO: Failed to update order status and warehouse", e);
-        }
-        return false;
+        return update(LOGGER,
+            "UPDATE orders SET status = ?, warehouse_id = ?, review_note = ?, updated_at = CURRENT_TIMESTAMP WHERE order_code = ?",
+            status, warehouseId, reviewNote, orderCode) > 0;
     }
 
     public boolean updateOrderTrackingNo(String orderCode, String trackingNo) {
-        String sql = "UPDATE orders SET tracking_no = ?, status = 'PACKED', updated_at = CURRENT_TIMESTAMP WHERE order_code = ?";
+        // Bỏ logic set status='PACKED' ngầm - tách bạch tracking assignment với print_shipping action
+        return update(LOGGER,
+            "UPDATE orders SET tracking_no = ?, updated_at = CURRENT_TIMESTAMP WHERE order_code = ?",
+            trackingNo, orderCode) > 0;
+    }
+
+    /**
+     * Returns true if a tracking number already exists in the orders table.
+     * Used by OrderService to avoid duplicate tracking numbers during server-side generation.
+     */
+    public boolean existsByTrackingNo(String trackingNo) {
+        if (trackingNo == null || trackingNo.trim().isEmpty()) {
+            return false;
+        }
+        String sql = "SELECT 1 FROM orders WHERE tracking_no = ? LIMIT 1";
         try (Connection conn = DBConnection.getConnection();
              PreparedStatement ps = conn.prepareStatement(sql)) {
-            ps.setString(1, trackingNo);
-            ps.setString(2, orderCode);
-            return ps.executeUpdate() > 0;
+            ps.setString(1, trackingNo.trim());
+            try (ResultSet rs = ps.executeQuery()) {
+                return rs.next();
+            }
         } catch (SQLException e) {
-            LOGGER.log(Level.SEVERE, "OrderDAO: Failed to update tracking no", e);
+            LOGGER.log(Level.WARNING, "OrderDAO.existsByTrackingNo failed for " + trackingNo, e);
         }
         return false;
     }
 
     public boolean updateOrderStatus(String orderCode, String status) {
-        String sql = "UPDATE orders SET status = ?, updated_at = CURRENT_TIMESTAMP WHERE order_code = ?";
-        try (Connection conn = DBConnection.getConnection();
-             PreparedStatement ps = conn.prepareStatement(sql)) {
-            ps.setString(1, status);
-            ps.setString(2, orderCode);
-            return ps.executeUpdate() > 0;
-        } catch (SQLException e) {
-            LOGGER.log(Level.SEVERE, "OrderDAO: Failed to update status", e);
-        }
-        return false;
+        return update(LOGGER,
+            "UPDATE orders SET status = ?, updated_at = CURRENT_TIMESTAMP WHERE order_code = ?",
+            status, orderCode) > 0;
     }
 
     public boolean updateOrderRMA(String orderCode, String status, String rmaReason, String rmaPhysicalStatus, String rmaPlatformStatus) {
-        String sql = "UPDATE orders SET status = ?, rma_reason = ?, rma_physical_status = ?, rma_platform_status = ?, updated_at = CURRENT_TIMESTAMP WHERE order_code = ?";
-        try (Connection conn = DBConnection.getConnection();
-             PreparedStatement ps = conn.prepareStatement(sql)) {
-            ps.setString(1, status);
-            ps.setString(2, rmaReason);
-            ps.setString(3, rmaPhysicalStatus);
-            ps.setString(4, rmaPlatformStatus);
-            ps.setString(5, orderCode);
-            return ps.executeUpdate() > 0;
-        } catch (SQLException e) {
-            LOGGER.log(Level.SEVERE, "OrderDAO: Failed to update order RMA", e);
-        }
-        return false;
+        return update(LOGGER,
+            "UPDATE orders SET status = ?, rma_reason = ?, rma_physical_status = ?, rma_platform_status = ?, updated_at = CURRENT_TIMESTAMP WHERE order_code = ?",
+            status, rmaReason, rmaPhysicalStatus, rmaPlatformStatus, orderCode) > 0;
     }
 
     public boolean updateOrderDispute(String orderCode, String status, String video, String note, String platformStatus) {
-        String sql = "UPDATE orders SET status = ?, dispute_evidence_video = ?, dispute_note = ?, rma_platform_status = ?, updated_at = CURRENT_TIMESTAMP WHERE order_code = ?";
-        try (Connection conn = DBConnection.getConnection();
-             PreparedStatement ps = conn.prepareStatement(sql)) {
-            ps.setString(1, status);
-            ps.setString(2, video);
-            ps.setString(3, note);
-            ps.setString(4, platformStatus);
-            ps.setString(5, orderCode);
-            return ps.executeUpdate() > 0;
-        } catch (SQLException e) {
-            LOGGER.log(Level.SEVERE, "OrderDAO: Failed to update order dispute", e);
-        }
-        return false;
+        return update(LOGGER,
+            "UPDATE orders SET status = ?, dispute_evidence_video = ?, dispute_note = ?, rma_platform_status = ?, updated_at = CURRENT_TIMESTAMP WHERE order_code = ?",
+            status, video, note, platformStatus, orderCode) > 0;
     }
 
     /**

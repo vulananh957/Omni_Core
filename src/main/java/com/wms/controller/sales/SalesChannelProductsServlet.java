@@ -2,12 +2,12 @@ package com.wms.controller.sales;
 
 import com.wms.controller.BaseController;
 import com.wms.service.sales.ChannelService;
+import com.wms.util.JsonUtil;
 
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
-import java.math.BigDecimal;
 import java.util.List;
 
 /**
@@ -23,9 +23,12 @@ public class SalesChannelProductsServlet extends BaseController {
             throws ServletException, IOException {
 
         try {
-            req.setAttribute("channelsList", channelService.findAll());
+            List<?> channels = channelService.findAll();
+            req.setAttribute("channelsList", channels);
+            req.setAttribute("channelsJson", JsonUtil.toJson(channels));
         } catch (Exception e) {
             req.setAttribute("channelsList", List.of());
+            req.setAttribute("channelsJson", "[]");
         }
 
         req.setAttribute("pageTitle",    "Sản Phẩm Theo Kênh");

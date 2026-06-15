@@ -1,6 +1,5 @@
 package com.wms.controller.sales;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.wms.controller.BaseController;
 import com.wms.model.Channel;
 import com.wms.model.Order;
@@ -21,7 +20,6 @@ public class SalesOrdersServlet extends BaseController {
 
     private final OrderService orderService = new OrderService();
     private final ChannelService channelService = new ChannelService();
-    private final ObjectMapper objectMapper = new ObjectMapper();
 
     @Override
     protected void doGet(HttpServletRequest req, HttpServletResponse resp)
@@ -32,7 +30,7 @@ public class SalesOrdersServlet extends BaseController {
             List<Channel> channels = channelService.findAll();
             req.setAttribute("orderList", list);
             req.setAttribute("channels", channels);
-            req.setAttribute("channelsJson", objectMapper.writeValueAsString(channels));
+            setJsonAttr(req, "channelsJson", channels);
         } catch (Exception e) {
             req.setAttribute("orderList", List.of());
             req.setAttribute("channels", List.<Channel>of());

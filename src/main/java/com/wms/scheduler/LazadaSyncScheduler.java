@@ -81,6 +81,9 @@ public class LazadaSyncScheduler implements ServletContextListener {
         private final ChannelDAO channelDAO = new ChannelDAO();
         private final ObjectMapper objectMapper = new ObjectMapper();
 
+        /** Carries channelId from syncChannel() down to saveOrdersToDb(). */
+        private int currentChannelId;
+
         @Override
         public void run() {
             LOGGER.info("LazadaSyncScheduler: Sync cycle started.");
@@ -115,6 +118,7 @@ public class LazadaSyncScheduler implements ServletContextListener {
         }
 
         private int syncChannel(Channel channel) {
+            currentChannelId = channel.getChannelId();
             String responseBody = orderService.getPendingOrders(channel);
             logSync(channel.getChannelId(), "ORDER_SYNC", "SUCCESS", null, responseBody, null);
 
@@ -147,6 +151,8 @@ public class LazadaSyncScheduler implements ServletContextListener {
         }
 
         private int saveOrdersToDb(Connection conn, JsonNode ordersArray) throws SQLException {
+            // No more dummy product. Look up the SKU mapping; if not found, log
+            // the exception into mapping_exceptions for Sales staff to handle.
             int dummyProductId = ensureDummyProduct(conn);
             ensureDummyInventory(conn, dummyProductId);
 
@@ -156,6 +162,9 @@ public class LazadaSyncScheduler implements ServletContextListener {
             String selectOrderSql = "SELECT order_id FROM orders WHERE order_code = ?";
             String insertItemSql = "INSERT IGNORE INTO order_items (order_id, product_id, qty, unit_price) "
                     + "VALUES (?, ?, ?, ?)";
+
+            com.wms.dao.SkuMappingDAO mappingDAO = new com.wms.dao.SkuMappingDAO();
+            int channelId = currentChannelId; // set in syncChannel()
 
             try (PreparedStatement psOrder = conn.prepareStatement(insertOrderSql, Statement.RETURN_GENERATED_KEYS);
                  PreparedStatement psOrderSel = conn.prepareStatement(selectOrderSql);
@@ -167,8 +176,9 @@ public class LazadaSyncScheduler implements ServletContextListener {
                     double price = orderNode.path("price").asDouble(0);
                     String createdAt = orderNode.path("created_at").asText();
                     String status = resolveStatus(orderNode);
+                    String orderCode = String.valueOf(orderId);
 
-                    psOrder.setString(1, String.valueOf(orderId));
+                    psOrder.setString(1, orderCode);
                     psOrder.setInt(2, 1);
                     psOrder.setString(3, "LAZADA");
                     psOrder.setString(4, status);
@@ -183,18 +193,56 @@ public class LazadaSyncScheduler implements ServletContextListener {
                             if (rs.next()) generatedId = rs.getInt(1);
                         }
                     } else {
-                        psOrderSel.setString(1, String.valueOf(orderId));
+                        psOrderSel.setString(1, orderCode);
                         try (ResultSet rs = psOrderSel.executeQuery()) {
                             if (rs.next()) generatedId = rs.getInt("order_id");
                         }
                     }
 
                     if (generatedId != -1 && isNew) {
-                        psItem.setInt(1, generatedId);
-                        psItem.setInt(2, dummyProductId);
-                        psItem.setDouble(3, 1);
-                        psItem.setDouble(4, price);
-                        psItem.executeUpdate();
+                        // Look up the SKU mapping for each item in the order.
+                        // Lazada returns the order_items list under the "order_items" node.
+                        int itemCount = 0;
+                        JsonNode itemsNode = orderNode.path("order_items");
+                        if (itemsNode.isArray() && itemsNode.size() > 0) {
+                            for (JsonNode itemNode : itemsNode) {
+                                String externalSku = itemNode.path("sku").asText("");
+                                double qty = itemNode.path("quantity").asDouble(1);
+                                double unitPrice = itemNode.path("price").asDouble(price);
+
+                                com.wms.model.SkuMapping mapping =
+                                    mappingDAO.findActiveMapping(channelId, externalSku);
+
+                                int productId;
+                                if (mapping != null && mapping.getSkuId() > 0) {
+                                    // Real mapping → use actual product_id
+                                    productId = mapping.getSkuId();
+                                } else {
+                                    // No mapping → log exception and fall back to dummy
+                                    mappingDAO.logMappingException(channelId, externalSku,
+                                        orderCode, "No SKU mapping found for Lazada product");
+                                    LOGGER.warning("LazadaSyncScheduler: No mapping for externalSku="
+                                        + externalSku + " orderCode=" + orderCode);
+                                    productId = dummyProductId;
+                                }
+
+                                psItem.setInt(1, generatedId);
+                                psItem.setInt(2, productId);
+                                psItem.setDouble(3, qty);
+                                psItem.setDouble(4, unitPrice);
+                                psItem.executeUpdate();
+                                itemCount++;
+                            }
+                        }
+
+                        // Backward-compat: if the response has no order_items, create a dummy line
+                        if (itemCount == 0) {
+                            psItem.setInt(1, generatedId);
+                            psItem.setInt(2, dummyProductId);
+                            psItem.setDouble(3, 1);
+                            psItem.setDouble(4, price);
+                            psItem.executeUpdate();
+                        }
                         allocateInventory(conn, generatedId);
                         savedCount++;
                     }

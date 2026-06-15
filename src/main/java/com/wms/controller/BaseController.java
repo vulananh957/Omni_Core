@@ -1,6 +1,7 @@
 package com.wms.controller;
 
 import com.wms.util.AppConstants;
+import com.wms.util.JsonUtil;
 
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServlet;
@@ -67,6 +68,10 @@ public abstract class BaseController extends HttpServlet {
         req.setAttribute(AppConstants.ATTR_SUCCESS, message);
     }
 
+    protected void setInfo(HttpServletRequest req, String message) {
+        req.setAttribute(AppConstants.ATTR_INFO, message);
+    }
+
     // ── Session-based flash messages (survive POST-Redirect-GET) ──
 
     /**
@@ -87,6 +92,11 @@ public abstract class BaseController extends HttpServlet {
         session.setAttribute(AppConstants.ATTR_SUCCESS, message);
     }
 
+    protected void setFlashInfo(HttpServletRequest req, String message) {
+        HttpSession session = req.getSession(true);
+        session.setAttribute(AppConstants.ATTR_INFO, message);
+    }
+
     /**
      * Move any session flash messages into the request scope and remove them.
      * Call this at the start of every doGet that may follow a redirect.
@@ -103,6 +113,11 @@ public abstract class BaseController extends HttpServlet {
         if (ok != null) {
             req.setAttribute(AppConstants.ATTR_SUCCESS, ok);
             session.removeAttribute(AppConstants.ATTR_SUCCESS);
+        }
+        String info = (String) session.getAttribute(AppConstants.ATTR_INFO);
+        if (info != null) {
+            req.setAttribute(AppConstants.ATTR_INFO, info);
+            session.removeAttribute(AppConstants.ATTR_INFO);
         }
     }
 
@@ -127,6 +142,37 @@ public abstract class BaseController extends HttpServlet {
         }
     }
 
+    /**
+     * Serialise an object to JSON and put it on the request as a String attribute
+     * so the JSP can include it with EL: ${<name>Json}. Uses the shared
+     * {@link JsonUtil} mapper so every endpoint has identical LocalDateTime /
+     * UTF-8 / Vietnamese handling.
+     */
+    protected void setJsonAttr(HttpServletRequest req, String attrName, Object value) {
+        req.setAttribute(attrName, JsonUtil.toJson(value));
+    }
+
+    /**
+     * Deserialise a JSON string into the given type. Convenience wrapper
+     * around {@link JsonUtil} so servlets don't have to import Jackson
+     * types directly.
+     */
+    protected <T> T parseJson(String json, com.fasterxml.jackson.core.type.TypeReference<T> typeRef) {
+        try {
+            return JsonUtil.getMapper().readValue(json, typeRef);
+        } catch (Exception e) {
+            throw new RuntimeException("Failed to parse JSON: " + e.getMessage(), e);
+        }
+    }
+
+    protected <T> T parseJson(String json, Class<T> clazz) {
+        try {
+            return JsonUtil.getMapper().readValue(json, clazz);
+        } catch (Exception e) {
+            throw new RuntimeException("Failed to parse JSON: " + e.getMessage(), e);
+        }
+    }
+
     protected String escapeJson(String s) {
         if (s == null) return "";
         return s.replace("\\", "\\\\")
@@ -148,6 +194,35 @@ public abstract class BaseController extends HttpServlet {
             return (p != null) ? Math.max(1, Integer.parseInt(p)) : 1;
         } catch (NumberFormatException e) {
             return 1;
+        }
+    }
+
+    /**
+     * Read an int request parameter with a default fallback. Returns the
+     * default for null, empty, or non-numeric values.
+     */
+    protected int getIntParam(HttpServletRequest req, String name, int defaultValue) {
+        String v = req.getParameter(name);
+        if (v == null || v.isEmpty()) return defaultValue;
+        try {
+            return Integer.parseInt(v.trim());
+        } catch (NumberFormatException e) {
+            return defaultValue;
+        }
+    }
+
+    /**
+     * Read an int request parameter, returning null if missing or invalid.
+     * Use this when the caller wants to distinguish "0" (a valid value)
+     * from "not provided".
+     */
+    protected Integer getIntParamOrNull(HttpServletRequest req, String name) {
+        String v = req.getParameter(name);
+        if (v == null || v.isEmpty()) return null;
+        try {
+            return Integer.parseInt(v.trim());
+        } catch (NumberFormatException e) {
+            return null;
         }
     }
 }

@@ -207,6 +207,15 @@
     </servlet-mapping>
 
     <servlet>
+        <servlet-name>WarehouseInfoServlet</servlet-name>
+        <servlet-class>com.wms.controller.warehouse.WarehouseInfoServlet</servlet-class>
+    </servlet>
+    <servlet-mapping>
+        <servlet-name>WarehouseInfoServlet</servlet-name>
+        <url-pattern>/warehouse/information</url-pattern>
+    </servlet-mapping>
+
+    <servlet>
         <servlet-name>GenerateSKUServlet</servlet-name>
         <servlet-class>com.wms.controller.warehouse.GenerateSKUServlet</servlet-class>
     </servlet>
@@ -291,6 +300,15 @@
         <url-pattern>/warehouse/profile</url-pattern>
     </servlet-mapping>
 
+    <servlet>
+        <servlet-name>PendingTrackingServlet</servlet-name>
+        <servlet-class>com.wms.controller.warehouse.PendingTrackingServlet</servlet-class>
+    </servlet>
+    <servlet-mapping>
+        <servlet-name>PendingTrackingServlet</servlet-name>
+        <url-pattern>/warehouse/pending-tracking</url-pattern>
+    </servlet-mapping>
+
     <!-- ── Sales Staff routes ──────────────────────────────────── -->
     <servlet>
         <servlet-name>SalesProfileServlet</servlet-name>
@@ -344,6 +362,15 @@
     <servlet-mapping>
         <servlet-name>SalesChannelProductsServlet</servlet-name>
         <url-pattern>/sales/channel-products</url-pattern>
+    </servlet-mapping>
+
+    <servlet>
+        <servlet-name>SalesMappingExceptionServlet</servlet-name>
+        <servlet-class>com.wms.controller.sales.SalesMappingExceptionServlet</servlet-class>
+    </servlet>
+    <servlet-mapping>
+        <servlet-name>SalesMappingExceptionServlet</servlet-name>
+        <url-pattern>/sales/mapping-exceptions</url-pattern>
     </servlet-mapping>
 
     <!-- ── Admin routes ────────────────────────────────────────── -->

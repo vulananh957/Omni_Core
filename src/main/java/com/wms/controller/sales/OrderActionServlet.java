@@ -46,9 +46,23 @@ public class OrderActionServlet extends BaseController {
                 req.getParameter("disputeNote"));
 
         if (result.isSuccess()) {
-            out.write("{\"success\":true}");
+            // ActionResult có thể mang theo data (vd: trackingNo sau khi server sinh)
+            java.util.Map<String, Object> data = result.getData();
+            if (data != null && data.containsKey("trackingNo")) {
+                Object tracking = data.get("trackingNo");
+                // JSON-safe escape: chỉ cho phép string, loại bỏ ký tự đặc biệt
+                String trackingEscaped = tracking == null ? ""
+                    : tracking.toString().replace("\\", "\\\\").replace("\"", "\\\"");
+                out.write("{\"success\":true,\"trackingNo\":\"" + trackingEscaped + "\"}");
+            } else {
+                out.write("{\"success\":true}");
+            }
         } else {
-            out.write("{\"success\":false,\"message\":\"" + result.getMessage() + "\"}");
+            // JSON-safe escape message
+            String message = result.getMessage() == null ? ""
+                : result.getMessage().replace("\\", "\\\\").replace("\"", "\\\"")
+                       .replace("\n", "\\n").replace("\r", "\\r");
+            out.write("{\"success\":false,\"message\":\"" + message + "\"}");
         }
     }
 }

@@ -224,14 +224,6 @@ public class InventoryDAO {
     }
 
     /**
-     * Backward-compatible overload for addInventory without userId.
-     */
-    public boolean addInventory(int productId, int warehouseId, BigDecimal quantity) {
-        return addInventory(productId, warehouseId, quantity, 1);
-    }
-
-
-    /**
      * Load current inventory across all warehouses (joined with product + warehouse).
      * Returns List<Map<String,Object>> for easy JSP/Jackson consumption.
      */

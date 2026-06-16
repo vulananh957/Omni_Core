@@ -21,10 +21,10 @@ REPLACE INTO zones (zone_id, warehouse_id, zone_code, zone_name, zone_type, desc
 
 -- 3. CATEGORIES
 REPLACE INTO categories (category_id, category_code, category_name, level_depth, active) VALUES
-(1, 'TT', 'Thời trang', 0, 1),
-(2, 'DT', 'Điện tử', 0, 1),
-(3, 'GD', 'Gia dụng', 0, 1),
-(4, 'MP', 'Mỹ phẩm', 0, 1);
+(1, 'TTR', 'Thời trang', 0, 1),
+(2, 'DTE', 'Điện tử', 0, 1),
+(3, 'GDU', 'Gia dụng', 0, 1),
+(4, 'MPH', 'Mỹ phẩm', 0, 1);
 
 -- 4. PRODUCTS (Master SKU)
 -- Người tạo các Master SKU là Business Manager (Vũ Lan Anh, user_id=8)

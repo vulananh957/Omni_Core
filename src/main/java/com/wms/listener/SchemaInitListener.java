@@ -42,6 +42,7 @@ public class SchemaInitListener implements ServletContextListener {
             ensureProductDefaultZonesTable();
             ensureProductImagesTable();
             ensureChannelsTable();
+            ensureShippingCarriersTable();
             ensureChannelProductsTable();
             ensureWebhookLogsTable();
             ensureLazadaSyncLogTable();
@@ -343,6 +344,21 @@ public class SchemaInitListener implements ServletContextListener {
         try (Connection conn = DBConnection.getConnection()) {
             createTableIfNotExists(conn, "channels",
                 "CREATE TABLE channels (channel_id INT AUTO_INCREMENT PRIMARY KEY, channel_name VARCHAR(100) NOT NULL, platform VARCHAR(50) NOT NULL, api_url VARCHAR(255), api_key VARCHAR(255), app_secret VARCHAR(255), webhook_secret VARCHAR(255), buffer_stock DECIMAL(12,3) DEFAULT 0.00, is_active TINYINT(1) DEFAULT 1, access_token TEXT, refresh_token TEXT, created_at DATETIME DEFAULT CURRENT_TIMESTAMP, updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+        }
+    }
+
+    private void ensureShippingCarriersTable() throws SQLException {
+        try (Connection conn = DBConnection.getConnection()) {
+            createTableIfNotExists(conn, "shipping_carriers",
+                "CREATE TABLE shipping_carriers (carrier_id INT AUTO_INCREMENT PRIMARY KEY, carrier_code VARCHAR(50) NOT NULL UNIQUE, carrier_name VARCHAR(100) NOT NULL, platform VARCHAR(50) DEFAULT NULL, priority INT NOT NULL DEFAULT 0, is_active TINYINT(1) NOT NULL DEFAULT 1, created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP, updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP, INDEX idx_carriers_active_priority (is_active, priority), INDEX idx_carriers_platform (platform)) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+            // Idempotent seed: 4 default carriers
+            try (Statement st = conn.createStatement()) {
+                st.executeUpdate("INSERT IGNORE INTO shipping_carriers (carrier_code, carrier_name, platform, priority) VALUES "
+                    + "('SPX','SPX Express','Shopee',10),"
+                    + "('LZE','Lazada Express','Lazada',20),"
+                    + "('TKT','TikTok Express','TikTok',30),"
+                    + "('VTP','Viettel Post',NULL,40)");
+            }
         }
     }
 

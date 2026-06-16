@@ -1,19 +1,7 @@
 <%@ page language="java" contentType="text/html; charset=UTF-8" pageEncoding="UTF-8" %>
 <%@ taglib prefix="c" uri="jakarta.tags.core" %>
 
-<style>
-    .ret-status-pill {
-        display: inline-flex; align-items: center; gap: 4px;
-        padding: 3px 10px; border-radius: 20px; font-size: 10px; font-weight: 700;
-    }
-    .ret-status-pill__dot { width: 5px; height: 5px; border-radius: 50%; }
-    .ret-status-pill.pending_qc { background: rgba(255,186,8,.20); color: #c2410c; }
-    .ret-status-pill.pending_qc .ret-status-pill__dot { background: #fbbf24; }
-    .ret-status-pill.approved { background: rgba(26,115,232,.08); color: #1a73e8; }
-    .ret-status-pill.approved .ret-status-pill__dot { background: #1a73e8; }
-    .ret-status-pill.rejected { background: #fef2f2; color: #991b1b; }
-    .ret-status-pill.rejected .ret-status-pill__dot { background: #ef4444; }
-</style>
+<link rel="stylesheet" href="${pageContext.request.contextPath}/assets/css/returns--warehouse-returns.css"/>
 
 <style>
     /* ─── Stats Grid ─── */

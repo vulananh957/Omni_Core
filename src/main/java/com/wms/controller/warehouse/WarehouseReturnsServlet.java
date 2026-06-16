@@ -1,7 +1,5 @@
 package com.wms.controller.warehouse;
 
-import com.fasterxml.jackson.core.type.TypeReference;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.wms.controller.BaseController;
 import com.wms.model.Channel;
 import com.wms.model.ReturnItem;
@@ -25,7 +23,6 @@ public class WarehouseReturnsServlet extends BaseController {
     private static final String CONTEXT_PATH = "/warehouse/returns";
     private final ReturnService returnService = new ReturnService();
     private final ChannelService channelService = new ChannelService();
-    private final ObjectMapper objectMapper = new ObjectMapper();
 
     @Override
     protected void doGet(HttpServletRequest req, HttpServletResponse resp)
@@ -86,7 +83,8 @@ public class WarehouseReturnsServlet extends BaseController {
 
                     List<ReturnItem> items = null;
                     if (itemsJson != null && !itemsJson.trim().isEmpty()) {
-                        items = objectMapper.readValue(itemsJson, new TypeReference<List<ReturnItem>>() {});
+                        items = parseJson(itemsJson,
+                            new com.fasterxml.jackson.core.type.TypeReference<List<ReturnItem>>() {});
                     }
 
                     ReturnService.ValidationResult validation =
@@ -115,7 +113,8 @@ public class WarehouseReturnsServlet extends BaseController {
                     }
 
                     int returnId = Integer.parseInt(returnIdStr.trim());
-                    List<ReturnItem> items = objectMapper.readValue(itemsJson, new TypeReference<List<ReturnItem>>() {});
+                    List<ReturnItem> items = parseJson(itemsJson,
+                        new com.fasterxml.jackson.core.type.TypeReference<List<ReturnItem>>() {});
                     boolean success = returnService.saveQC(returnId, items, userId);
                     if (success) {
                         setFlashSuccess(req, "Cập nhật kết quả QC cho phiếu #" + returnId + " thành công.");

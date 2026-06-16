@@ -353,7 +353,41 @@ public class ReturnDAO {
      * Applies restock for resalable items and scrap for defective items.
      * Updates return order status to RESTOCKED or SCRAPPED.
      */
+    /**
+     * Submits restock/scrap results for Manager approval.
+     * This method only updates the status to PENDING_APPROVAL.
+     * The actual UPSERT inventory + INSERT ledger is delegated to
+     * LedgerDAO.approveDocument() when Manager clicks "Approve" in /business/ledger.
+     *
+     * Previously applyRestock() did both, which caused double-count when Manager
+     * also clicked approve afterwards.
+     */
+    public boolean submitRestockForApproval(int returnId) {
+        String sql = "UPDATE return_orders SET status = 'PENDING_APPROVAL', updated_at = CURRENT_TIMESTAMP "
+                   + "WHERE return_id = ?";
+        try (Connection conn = DBConnection.getConnection();
+             PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setInt(1, returnId);
+            int rows = ps.executeUpdate();
+            LOGGER.info("ReturnDAO.submitRestockForApproval: returnId=" + returnId + " rows=" + rows);
+            return rows > 0;
+        } catch (SQLException e) {
+            LOGGER.log(Level.SEVERE, "ReturnDAO.submitRestockForApproval failed", e);
+            return false;
+        }
+    }
+
+    /** Backward-compat alias: gọi tới submitRestockForApproval. */
     public boolean applyRestock(int returnId, int userId) {
+        return submitRestockForApproval(returnId);
+    }
+
+    /**
+     * Manager approves a restock. Performs the actual UPSERT inventory +
+     * INSERT ledger. Called from LedgerServlet when user clicks "Approve"
+     * on a return voucher. Body kept identical to the original applyRestock().
+     */
+    public boolean approveRestock(int returnId, int userId) {
         Connection conn = null;
         PreparedStatement psInventory = null;
         PreparedStatement psLedger = null;
@@ -402,7 +436,6 @@ public class ReturnDAO {
             }
 
             boolean allDefective = true;
-            boolean hasResalable = false;
 
             // 2. Loop through items to apply restock/scrap
             String sqlUpsertInventory = "INSERT INTO inventory (product_id, warehouse_id, qty_on_hand, holding, qty_available, updated_at) "
@@ -422,8 +455,6 @@ public class ReturnDAO {
             for (ReturnItem item : qcItems) {
                 String decision = item.getQcDecision();
                 if ("PASS".equalsIgnoreCase(decision)) {
-                    hasResalable = true;
-
                     // A. Increment inventory (Auto Restock on Pass)
                     psInventory.setInt(1, item.getProductId());
                     psInventory.setInt(2, warehouseId);
@@ -466,8 +497,7 @@ public class ReturnDAO {
                     psScrap.executeUpdate();
 
                 } else {
-                    // PENDING or unknown — skip (do NOT auto-scrpa or restock)
-                    continue;
+                    continue;  // PENDING — skip
                 }
             }
 
@@ -479,8 +509,7 @@ public class ReturnDAO {
             psStatus.setInt(2, returnId);
             psStatus.executeUpdate();
 
-            // 4. Update original order status in orders table to RETURNED if orderId is
-            // valid
+            // 4. Update original order status in orders table to RETURNED if orderId is valid
             if (orderId > 0) {
                 String sqlOrderUpdate = "UPDATE orders SET status = 'RETURNED', updated_at = CURRENT_TIMESTAMP WHERE order_id = ?";
                 psOrderUpdate = conn.prepareStatement(sqlOrderUpdate);
@@ -489,27 +518,19 @@ public class ReturnDAO {
             }
 
             conn.commit();
-            LOGGER.info("ReturnDAO: Applied restock/scrap successfully for return ID " + returnId + ", nextStatus="
-                    + nextStatus);
+            LOGGER.info("ReturnDAO.approveRestock: returnId=" + returnId + " nextStatus=" + nextStatus);
             return true;
 
         } catch (SQLException e) {
-            LOGGER.log(Level.SEVERE, "ReturnDAO: Error applying restock/scrap", e);
+            LOGGER.log(Level.SEVERE, "ReturnDAO.approveRestock failed", e);
             if (conn != null) {
-                try {
-                    conn.rollback();
-                } catch (SQLException ex) {
-                    LOGGER.log(Level.SEVERE, "Rollback failed", ex);
-                }
+                try { conn.rollback(); } catch (SQLException ex) { /* ignore */ }
             }
             return false;
         } finally {
             DBConnection.closeQuietly(psInventory, psLedger, psScrap, psStatus, psOrderUpdate);
             if (conn != null) {
-                try {
-                    conn.setAutoCommit(true);
-                    conn.close();
-                } catch (SQLException ignored) { /* ignore close errors */ }
+                try { conn.setAutoCommit(true); conn.close(); } catch (SQLException ignored) {}
             }
         }
     }

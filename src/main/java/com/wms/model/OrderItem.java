@@ -1,10 +1,13 @@
 package com.wms.model;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
+
 /**
  * OrderItem — Represents an item in an order, mapped from the order_items and skus tables.
  */
 public class OrderItem {
 
+    @JsonProperty("id")
     private int productId;
     private String skuCode;
     private String productName;

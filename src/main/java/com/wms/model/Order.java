@@ -1,5 +1,6 @@
 package com.wms.model;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
@@ -9,6 +10,7 @@ import java.util.List;
  */
 public class Order {
 
+    @JsonProperty("id")
     private int orderId;
     private String orderCode;
     private Integer customerId;
@@ -21,7 +23,7 @@ public class Order {
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
     private List<OrderItem> items = new ArrayList<>();
-    
+
     // Custom WMS fields
     private String trackingNo;
     private String reviewNote;
@@ -35,6 +37,9 @@ public class Order {
     private String customerName;
     private String customerPhone;
     private String customerAddress;
+
+    @JsonProperty("warehouse")
+    private String warehouseName;
 
     // Constructors
     public Order() {}
@@ -143,8 +148,6 @@ public class Order {
     public void setUpdatedAt(LocalDateTime updatedAt) {
         this.updatedAt = updatedAt;
     }
-
-    private String warehouseName;
 
     public String getWarehouseName() {
         return warehouseName;

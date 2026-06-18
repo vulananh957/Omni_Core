@@ -1,4 +1,4 @@
-# omnicore
+# OmniCore — Warehouse Management System
 
 
 

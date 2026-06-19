@@ -1,7 +1,7 @@
 package com.wms.controller.warehouse;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.wms.service.product.SkuGeneratorService;
+import com.wms.util.JsonUtil;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
@@ -12,7 +12,7 @@ import java.util.logging.Logger;
 
 /**
  * GenerateSKUServlet — API endpoint for auto-generating next SKU.
- * 
+ *
  * GET /warehouse/sku/generate?categoryId={id}
  * Returns JSON: { "sku": "EYE-20250611-001" } or { "error": "..." }
  */
@@ -20,7 +20,6 @@ public class GenerateSKUServlet extends jakarta.servlet.http.HttpServlet {
 
     private static final long serialVersionUID = 1L;
     private static final Logger LOGGER = Logger.getLogger(GenerateSKUServlet.class.getName());
-    private static final ObjectMapper mapper = new ObjectMapper();
 
     private final SkuGeneratorService skuService = new SkuGeneratorService();
 
@@ -37,7 +36,7 @@ public class GenerateSKUServlet extends jakarta.servlet.http.HttpServlet {
 
         if (catIdStr == null || catIdStr.isEmpty()) {
             result.put("error", "Thieu tham so categoryId.");
-            mapper.writeValue(resp.getWriter(), result);
+            JsonUtil.getMapper().writeValue(resp.getWriter(), result);
             return;
         }
 
@@ -56,6 +55,6 @@ public class GenerateSKUServlet extends jakarta.servlet.http.HttpServlet {
             result.put("error", "Loi he thong khi tao SKU.");
         }
 
-        mapper.writeValue(resp.getWriter(), result);
+        JsonUtil.getMapper().writeValue(resp.getWriter(), result);
     }
 }

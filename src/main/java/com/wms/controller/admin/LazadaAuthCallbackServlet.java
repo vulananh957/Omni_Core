@@ -92,8 +92,12 @@ public class LazadaAuthCallbackServlet extends HttpServlet {
                 return;
             }
 
-            String accessToken = rootNode.path("access_token").asText();
+            String accessToken  = rootNode.path("access_token").asText();
             String refreshToken = rootNode.path("refresh_token").asText();
+            int    expiresIn    = rootNode.path("expires_in").asInt(86400);
+
+            java.time.LocalDateTime tokenExpiresAt =
+                    java.time.LocalDateTime.now(java.time.ZoneOffset.UTC).plusSeconds(expiresIn);
 
             if (accessToken == null || accessToken.isEmpty() || refreshToken == null || refreshToken.isEmpty()) {
                 LOGGER.severe("Parsed access_token or refresh_token is empty. Response: " + jsonResponse);
@@ -101,7 +105,7 @@ public class LazadaAuthCallbackServlet extends HttpServlet {
                 return;
             }
 
-            boolean dbUpdated = channelService.updateLazadaTokens(channelId, accessToken, refreshToken);
+            boolean dbUpdated = channelService.updateLazadaTokens(channelId, accessToken, refreshToken, tokenExpiresAt);
 
             if (dbUpdated) {
                 LOGGER.info("Tokens successfully saved for channel '" + channel.getChannelName() + "' (ID: " + channelId

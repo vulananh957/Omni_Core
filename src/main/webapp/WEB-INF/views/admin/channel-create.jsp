@@ -3,12 +3,6 @@
 
 <div class="channel-create" style="max-width: 48rem; margin: 0 auto; padding-bottom: 2rem;">
 
-    <!-- Toast Alert -->
-    <div id="connectionToast" style="position: fixed; top: 1.5rem; right: 1.5rem; display: none; align-items: center; gap: 0.75rem; padding: 1rem 1.25rem; background: white; border-radius: var(--radius-btn); box-shadow: 0 10px 25px rgba(16,55,92,0.15); z-index: 1000; transition: all 0.3s ease; opacity: 0; transform: translateY(-10px);">
-        <span id="toastIcon" style="font-weight: bold; width: 1.5rem; height: 1.5rem; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: white;"></span>
-        <span id="toastMsg" style="color: var(--navy); font-size: 13px; font-weight: 600;"></span>
-    </div>
-
     <!-- Back Arrow + Breadcrumb -->
     <div style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 1rem;">
         <a href="${pageContext.request.contextPath}/admin/channels"
@@ -50,8 +44,7 @@
                         <select id="platform" name="platform" required
                                 style="width: 100%; padding: 0.625rem 1rem; background: var(--alice); border: 1px solid #E5EAF3; color: var(--navy); font-size: 13px; outline: none; border-radius: calc(var(--radius-btn) - 2px); cursor: pointer;">
                             <option value="Lazada" ${channel.platform == 'Lazada' ? 'selected' : ''}>Lazada</option>
-                            <option value="Shopee" ${channel.platform == 'Shopee' ? 'selected' : ''}>Shopee</option>
-                            <option value="TikTok" ${channel.platform == 'TikTok' ? 'selected' : ''}>TikTok Shop</option>
+                            <option value="Website" ${channel.platform == 'Website' ? 'selected' : ''}>Website (Online Shop)</option>
                         </select>
                     </div>
                     <div>
@@ -116,27 +109,7 @@
                     </div>
                 </div>
 
-                <div id="authCodeContainer" <c:if test="${channel.platform != 'Lazada' && isEditMode}">style="display:none"</c:if>>
-                    <label style="display: block; color: rgba(16,55,92,0.70); font-size: 12px; font-weight: 600; margin-bottom: 0.375rem;">Authorization Code</label>
-                    <input type="text" id="authCode" name="authCode" placeholder="Dán mã Authorization Code nhận được từ Lazada Console"
-                           style="width: 100%; padding: 0.625rem 1rem; background: var(--alice); border: 1px solid #E5EAF3; color: var(--navy); font-size: 13px; outline: none; border-radius: calc(var(--radius-btn) - 2px);" />
-                    <p style="color: rgba(16,55,92,0.4); font-size: 11px; margin-top: 0.25rem;">Authorization Code có hạn dùng ngắn; hệ thống sẽ tự động trao đổi lấy Access Token và Refresh Token.</p>
-                </div>
-
-                <div style="display: flex; justify-content: flex-end;">
-                    <button type="button" id="btnTestConn"
-                            style="display: flex; align-items: center; gap: 0.5rem; padding: 0.625rem 1.25rem; background: var(--navy); color: white; border: none; font-size: 13px; font-weight: 600; border-radius: calc(var(--radius-btn) - 2px); cursor: pointer; box-shadow: 0 4px 12px rgba(16,55,92,0.15);">
-                        <svg style="width: 14px; height: 14px;" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-                            <line x1="22" y1="2" x2="11" y2="13"></line>
-                            <polyline points="22 2 15 22 11 13 2 9 22 2"></polyline>
-                        </svg>
-                        Test Connection &amp; Get Token
-                    </button>
-                </div>
-            </div>
-        </div>
-
-        <!-- SECTION 3: WEBHOOK & SYNC -->
+                <!-- SUBMIT FOOTER -->
         <div style="background: white; border: 1px solid #E5EAF3; border-radius: var(--radius-card); padding: 1.5rem; margin-bottom: 1.25rem;">
             <div style="display: flex; align-items: center; gap: 0.75rem; margin-bottom: 1.25rem;">
                 <div style="width: 2.5rem; height: 2.5rem; background: var(--alice); display: flex; align-items: center; justify-content: center; border-radius: var(--radius-btn);">
@@ -152,16 +125,18 @@
             </div>
 
             <div style="display: flex; flex-direction: column; gap: 1rem;">
-                <div>
-                    <label style="display: block; color: rgba(16,55,92,0.70); font-size: 12px; font-weight: 600; margin-bottom: 0.375rem;">Webhook Receiver URL</label>
-                    <div style="display: flex; gap: 0.5rem; width: 100%;">
-                        <input type="text" id="webhookUrl" readonly
-                               value="${pageContext.request.scheme}://${pageContext.request.serverName}${pageContext.request.contextPath}/webhook/lazada"
-                               style="flex: 1; padding: 0.625rem 1rem; background: #f3f5f8; border: 1px solid #D1D9E6; color: rgba(16,55,92,0.60); font-size: 13px; outline: none; border-radius: calc(var(--radius-btn) - 2px); cursor: not-allowed;" />
-                        <button type="button" id="btnCopyWebhook"
-                                style="padding: 0 1rem; background: var(--alice); border: 1px solid #E5EAF3; color: var(--navy); font-size: 13px; font-weight: 600; border-radius: calc(var(--radius-btn) - 2px); cursor: pointer;">Copy</button>
+                    <div>
+                        <label style="display: block; color: rgba(16,55,92,0.70); font-size: 12px; font-weight: 600; margin-bottom: 0.375rem;">Webhook Receiver URL</label>
+                        <div style="display: flex; gap: 0.5rem; width: 100%;">
+                            <input type="text" id="webhookUrl" readonly
+                                   value="${pageContext.request.scheme}://${pageContext.request.serverName}${pageContext.request.contextPath}/webhook/lazada"
+                                   style="flex: 1; padding: 0.625rem 1rem; background: #f3f5f8; border: 1px solid #D1D9E6; color: rgba(16,55,92,0.60); font-size: 13px; outline: none; border-radius: calc(var(--radius-btn) - 2px); cursor: not-allowed;" />
+                            <button type="button" id="btnCopyWebhook"
+                                    style="padding: 0 1rem; background: var(--alice); border: 1px solid #E5EAF3; color: var(--navy); font-size: 13px; font-weight: 600; border-radius: calc(var(--radius-btn) - 2px); cursor: pointer;">Copy</button>
+                        </div>
+                        <input type="hidden" name="webhookCallbackUrl"
+                               value="${pageContext.request.scheme}://${pageContext.request.serverName}${pageContext.request.contextPath}/webhook/lazada" />
                     </div>
-                </div>
 
                 <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1rem;">
                     <div>
@@ -195,15 +170,13 @@
 (function() {
     // Platform config — defaults for empty form
     var configMap = {
-        'Lazada':  { endpoint: 'https://api.lazada.vn/rest',  webhook: 'https://wmshub.vn/webhook/lazada',   requireAuthCode: true  },
-        'Shopee':  { endpoint: 'https://api.shopee.vn/api/v2', webhook: 'https://wmshub.vn/webhook/shopee',  requireAuthCode: false },
-        'TikTok':  { endpoint: 'https://open-api.tiktok.com/rest/v2', webhook: 'https://wmshub.vn/webhook/tiktok', requireAuthCode: false }
+        'Lazada':  { endpoint: 'https://api.lazada.vn/rest',  webhook: 'https://wmshub.vn/webhook/lazada' },
+        'Website': { endpoint: '', webhook: '' }
     };
 
-    var platformSelect  = document.getElementById('platform');
-    var apiUrlInput     = document.getElementById('apiUrl');
-    var webhookUrlInput = document.getElementById('webhookUrl');
-    var authCodeContainer = document.getElementById('authCodeContainer');
+    var platformSelect   = document.getElementById('platform');
+    var apiUrlInput      = document.getElementById('apiUrl');
+    var webhookUrlInput  = document.getElementById('webhookUrl');
 
     function handlePlatformChange() {
         var platform = platformSelect.value;
@@ -213,9 +186,6 @@
             apiUrlInput.value = config.endpoint;
         }
         webhookUrlInput.value = config.webhook;
-        if (authCodeContainer) {
-            authCodeContainer.style.display = config.requireAuthCode ? '' : 'none';
-        }
     }
 
     platformSelect.addEventListener('change', handlePlatformChange);
@@ -223,78 +193,6 @@
     // Pre-fill endpoint if field is blank (create mode)
     if (!apiUrlInput.value.trim()) {
         handlePlatformChange();
-    }
-
-    // AJAX — Test Connection
-    var btnTestConn = document.getElementById('btnTestConn');
-    if (btnTestConn) {
-        btnTestConn.addEventListener('click', function() {
-            var apiKey     = document.getElementById('apiKey').value;
-            var appSecret = document.getElementById('appSecret').value;
-
-            if (!apiKey || !appSecret) {
-                showToast(false, 'Vui lòng nhập App Key và App Secret!');
-                return;
-            }
-
-            btnTestConn.disabled = true;
-            btnTestConn.textContent = 'Connecting...';
-
-            var params = new URLSearchParams();
-            params.append('action', 'testConnection');
-            params.append('platform', platformSelect.value);
-            params.append('apiKey', apiKey);
-            params.append('appSecret', appSecret);
-            params.append('authCode', document.getElementById('authCode').value);
-
-            fetch('${pageContext.request.contextPath}/admin/channels/create', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-                body: params.toString()
-            })
-            .then(function(r) { return r.json(); })
-            .then(function(data) {
-                btnTestConn.disabled = false;
-                btnTestConn.innerHTML = '<svg style="width:14px;height:14px;" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"></line><polyline points="22 2 15 22 11 13 2 9 22 2"></polyline></svg> Test Connection &amp; Get Token';
-                if (data.success) {
-                    if (data.accessToken) {
-                        document.getElementById('accessToken').value = data.accessToken;
-                    }
-                    if (data.refreshToken) {
-                        document.getElementById('refreshToken').value = data.refreshToken;
-                    }
-                }
-                showToast(data.success, data.message);
-            })
-            .catch(function() {
-                btnTestConn.disabled = false;
-                btnTestConn.innerHTML = '<svg style="width:14px;height:14px;" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"></line><polyline points="22 2 15 22 11 13 2 9 22 2"></polyline></svg> Test Connection &amp; Get Token';
-                showToast(false, 'Không thể kết nối tới server. Vui lòng thử lại!');
-            });
-        });
-    }
-
-    function showToast(isSuccess, message) {
-        var toast = document.getElementById('connectionToast');
-        var icon  = document.getElementById('toastIcon');
-        var msg   = document.getElementById('toastMsg');
-
-        msg.textContent = message;
-        var color = isSuccess ? '#10b981' : '#ef4444';
-        toast.style.borderLeft = '4px solid ' + color;
-        icon.textContent = isSuccess ? '\u2713' : '\u2717';
-        icon.style.background = color;
-
-        toast.style.display = 'flex';
-        toast.offsetHeight;
-        toast.style.opacity = '1';
-        toast.style.transform = 'translateY(0)';
-
-        setTimeout(function() {
-            toast.style.opacity = '0';
-            toast.style.transform = 'translateY(-10px)';
-            setTimeout(function() { toast.style.display = 'none'; }, 300);
-        }, 4500);
     }
 
     // Copy Webhook URL to clipboard

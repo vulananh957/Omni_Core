@@ -146,6 +146,7 @@ public class ChannelConfigServlet extends BaseController {
         }
 
         channel.setWebhookSecret(req.getParameter("webhookSecret"));
+        channel.setWebhookCallbackUrl(req.getParameter("webhookCallbackUrl"));
 
         String accessTokenParam = req.getParameter("accessToken");
         if (accessTokenParam != null && !accessTokenParam.trim().isEmpty()) {

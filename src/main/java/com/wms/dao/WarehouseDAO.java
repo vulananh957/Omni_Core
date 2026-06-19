@@ -1,8 +1,10 @@
 package com.wms.dao;
 
+import com.fasterxml.jackson.core.type.TypeReference;
 import com.wms.model.Warehouse;
 import com.wms.model.Zone;
 import com.wms.util.DBConnection;
+import com.wms.util.JsonUtil;
 
 import java.sql.*;
 import java.util.ArrayList;
@@ -14,112 +16,58 @@ import java.util.logging.Logger;
 
 /**
  * WarehouseDAO — Data Access Object for warehouses and their storage zones.
+ *
+ * <p>Now extends {@link BaseDAO} so the simple SELECT/INSERT/UPDATE
+ * methods use the shared boilerplate helpers. The complex transactional
+ * methods (insert with zones, update with zone reconciliation, inventory
+ * check apply) keep their own try/rollback logic because they juggle
+ * multiple statements on a single connection.</p>
  */
-public class WarehouseDAO {
+public class WarehouseDAO extends BaseDAO {
 
     private static final Logger LOGGER = Logger.getLogger(WarehouseDAO.class.getName());
 
-    /**
-     * Find all warehouses with their zones populated.
-     */
+    private static final String SELECT_WH =
+        "SELECT warehouse_id, warehouse_code, warehouse_name, address, phone, capacity, active, created_at "
+      + "FROM warehouses";
+
+    private static final String SELECT_ZONE =
+        "SELECT zone_id, warehouse_id, zone_code, zone_name, zone_type, description, active, is_default "
+      + "FROM zones";
+
     public List<Warehouse> findAll() {
         List<Warehouse> list = new ArrayList<>();
-        String sql = "SELECT warehouse_id, warehouse_code, warehouse_name, address, phone, capacity, active, created_at "
-                   + "FROM warehouses ORDER BY warehouse_id ASC";
-
-        try (Connection conn = DBConnection.getConnection();
-             PreparedStatement ps = conn.prepareStatement(sql);
-             ResultSet rs = ps.executeQuery()) {
-
-            while (rs.next()) {
-                Warehouse w = new Warehouse();
-                w.setWarehouseId(rs.getInt("warehouse_id"));
-                w.setWarehouseCode(rs.getString("warehouse_code"));
-                w.setWarehouseName(rs.getString("warehouse_name"));
-                w.setAddress(rs.getString("address"));
-                w.setPhone(rs.getString("phone"));
-                w.setCapacity(rs.getInt("capacity"));
-                w.setActive(rs.getBoolean("active"));
-                Timestamp ts = rs.getTimestamp("created_at");
-                if (ts != null) {
-                    w.setCreatedAt(ts.toLocalDateTime());
-                }
-                w.setZones(findZonesByWarehouseId(conn, w.getWarehouseId()));
-                list.add(w);
-            }
-
-        } catch (SQLException e) {
-            LOGGER.log(Level.WARNING, "WarehouseDAO.findAll: failed", e);
+        for (Warehouse w : queryList(LOGGER,
+                SELECT_WH + " ORDER BY warehouse_id ASC",
+                this::mapWarehouse)) {
+            w.setZones(findZonesByWarehouseId(w.getWarehouseId()));
+            list.add(w);
         }
         return list;
     }
 
-    /**
-     * Find a warehouse by its ID.
-     */
     public Warehouse findById(int id) {
-        String sql = "SELECT warehouse_id, warehouse_code, warehouse_name, address, phone, capacity, active, created_at "
-                   + "FROM warehouses WHERE warehouse_id = ?";
-
-        try (Connection conn = DBConnection.getConnection();
-             PreparedStatement ps = conn.prepareStatement(sql)) {
-
-            ps.setInt(1, id);
-            try (ResultSet rs = ps.executeQuery()) {
-                if (rs.next()) {
-                    Warehouse w = new Warehouse();
-                    w.setWarehouseId(rs.getInt("warehouse_id"));
-                    w.setWarehouseCode(rs.getString("warehouse_code"));
-                    w.setWarehouseName(rs.getString("warehouse_name"));
-                    w.setAddress(rs.getString("address"));
-                    w.setPhone(rs.getString("phone"));
-                    w.setCapacity(rs.getInt("capacity"));
-                    w.setActive(rs.getBoolean("active"));
-                    Timestamp ts = rs.getTimestamp("created_at");
-                    if (ts != null) {
-                        w.setCreatedAt(ts.toLocalDateTime());
-                    }
-                    w.setZones(findZonesByWarehouseId(conn, id));
-                    return w;
-                }
-            }
-
-        } catch (SQLException e) {
-            LOGGER.log(Level.WARNING, "WarehouseDAO.findById: failed for id " + id, e);
+        Warehouse w = queryOne(LOGGER,
+            SELECT_WH + " WHERE warehouse_id = ?",
+            this::mapWarehouse, id);
+        if (w != null) {
+            w.setZones(findZonesByWarehouseId(id));
         }
-        return null;
+        return w;
     }
 
     /**
-     * Helper to retrieve zones of a warehouse using an existing connection.
+     * Helper to retrieve zones of a warehouse.
      */
-    private List<Zone> findZonesByWarehouseId(Connection conn, int warehouseId) throws SQLException {
-        List<Zone> zones = new ArrayList<>();
-        String sql = "SELECT zone_id, warehouse_id, zone_code, zone_name, zone_type, description, active, is_default "
-                   + "FROM zones WHERE warehouse_id = ? ORDER BY zone_id ASC";
-
-        try (PreparedStatement ps = conn.prepareStatement(sql)) {
-            ps.setInt(1, warehouseId);
-            try (ResultSet rs = ps.executeQuery()) {
-                while (rs.next()) {
-                    Zone z = new Zone();
-                    z.setZoneId(rs.getInt("zone_id"));
-                    z.setWarehouseId(rs.getInt("warehouse_id"));
-                    z.setZoneCode(rs.getString("zone_code"));
-                    z.setZoneName(rs.getString("zone_name"));
-                    z.setZoneType(rs.getString("zone_type"));
-                    z.setDescription(rs.getString("description"));
-                    z.setActive(rs.getBoolean("active"));
-                    z.setDefault(rs.getBoolean("is_default"));
-                    zones.add(z);
-                }
-            }
-        }
-        return zones;
+    public List<Zone> findZonesByWarehouseId(int warehouseId) {
+        return queryList(LOGGER,
+            SELECT_ZONE + " WHERE warehouse_id = ? ORDER BY zone_id ASC",
+            this::mapZone, warehouseId);
     }
 
     /**
      * Insert a new warehouse and its zones within a transaction.
+     * Kept inline because it juggles two generated-key statements.
      */
     public boolean insert(Warehouse w, List<Zone> zones) {
         Connection conn = null;
@@ -217,8 +165,16 @@ public class WarehouseDAO {
             psWH.setInt(7, w.getWarehouseId());
             psWH.executeUpdate();
 
-            // 2. Retrieve current zones
-            List<Zone> currentZones = findZonesByWarehouseId(conn, w.getWarehouseId());
+            // 2. Retrieve current zones (uses the existing connection)
+            List<Zone> currentZones;
+            try (PreparedStatement psZ = conn.prepareStatement(
+                    SELECT_ZONE + " WHERE warehouse_id = ? ORDER BY zone_id ASC")) {
+                psZ.setInt(1, w.getWarehouseId());
+                try (ResultSet rs = psZ.executeQuery()) {
+                    currentZones = new ArrayList<>();
+                    while (rs.next()) currentZones.add(mapZone(rs));
+                }
+            }
             Set<String> newZoneCodes = new HashSet<>();
             for (Zone z : newZones) {
                 newZoneCodes.add(z.getZoneCode());
@@ -305,22 +261,53 @@ public class WarehouseDAO {
         }
     }
 
-    /**
-     * Toggle the active status of a warehouse.
-     */
     public boolean toggleStatus(int id, boolean active) {
-        String sql = "UPDATE warehouses SET active = ? WHERE warehouse_id = ?";
-        try (Connection conn = DBConnection.getConnection();
-             PreparedStatement ps = conn.prepareStatement(sql)) {
+        return update(LOGGER,
+            "UPDATE warehouses SET active = ? WHERE warehouse_id = ?",
+            active, id) > 0;
+    }
 
-            ps.setBoolean(1, active);
-            ps.setInt(2, id);
-            return ps.executeUpdate() > 0;
+    // ── Single-zone CRUD (Warehouse Information screen) ──────────
 
-        } catch (SQLException e) {
-            LOGGER.log(Level.WARNING, "WarehouseDAO.toggleStatus: failed for id " + id, e);
-            return false;
-        }
+    public boolean insertZone(int warehouseId, String code, String name, String type, String description) {
+        return update(LOGGER,
+            "INSERT INTO zones (warehouse_id, zone_code, zone_name, zone_type, description, active, is_default) "
+          + "VALUES (?, ?, ?, ?, ?, 1, 0)",
+            warehouseId, code, name, type, description) > 0;
+    }
+
+    public boolean updateZone(int zoneId, int warehouseId, String name, String type, String description) {
+        return update(LOGGER,
+            "UPDATE zones SET zone_name = ?, zone_type = ?, description = ? "
+          + "WHERE zone_id = ? AND warehouse_id = ?",
+            name, type, description, zoneId, warehouseId) > 0;
+    }
+
+    /** Deletes a non-default zone; falls back to deactivation if the delete is blocked. */
+    public boolean deleteZone(int zoneId, int warehouseId) {
+        int affected = update(LOGGER,
+            "DELETE FROM zones WHERE zone_id = ? AND warehouse_id = ? AND is_default = 0",
+            zoneId, warehouseId);
+        if (affected > 0) return true;
+        // delete was blocked — try soft-deactivate
+        LOGGER.log(Level.INFO, "WarehouseDAO.deleteZone: delete blocked, deactivating zone " + zoneId);
+        return update(LOGGER,
+            "UPDATE zones SET active = 0 WHERE zone_id = ? AND warehouse_id = ? AND is_default = 0",
+            zoneId, warehouseId) > 0;
+    }
+
+    public boolean isDefaultZone(int zoneId, int warehouseId) {
+        Boolean isDefault = queryOne(LOGGER,
+            "SELECT is_default FROM zones WHERE zone_id = ? AND warehouse_id = ?",
+            rs -> rs.getBoolean("is_default"), zoneId, warehouseId);
+        return Boolean.TRUE.equals(isDefault);
+    }
+
+    public boolean isZoneCodeExists(int warehouseId, String code) {
+        Integer found = queryOne(LOGGER,
+            "SELECT 1 FROM zones WHERE warehouse_id = ? AND zone_code = ?",
+            rs -> 1, warehouseId, code);
+        return found != null;
     }
 
     private void closeConnectionQuietly(Connection conn) {
@@ -334,27 +321,50 @@ public class WarehouseDAO {
         }
     }
 
-    /**
-     * Inserts a new physical inventory check record.
-     */
+    // ── Row mappers ──────────────────────────────────────────────────────
+
+    private Warehouse mapWarehouse(ResultSet rs) throws SQLException {
+        Warehouse w = new Warehouse();
+        w.setWarehouseId(rs.getInt("warehouse_id"));
+        w.setWarehouseCode(rs.getString("warehouse_code"));
+        w.setWarehouseName(rs.getString("warehouse_name"));
+        w.setAddress(rs.getString("address"));
+        w.setPhone(rs.getString("phone"));
+        w.setCapacity(rs.getInt("capacity"));
+        w.setActive(rs.getBoolean("active"));
+        Timestamp ts = rs.getTimestamp("created_at");
+        if (ts != null) {
+            w.setCreatedAt(ts.toLocalDateTime());
+        }
+        return w;
+    }
+
+    private Zone mapZone(ResultSet rs) throws SQLException {
+        Zone z = new Zone();
+        z.setZoneId(rs.getInt("zone_id"));
+        z.setWarehouseId(rs.getInt("warehouse_id"));
+        z.setZoneCode(rs.getString("zone_code"));
+        z.setZoneName(rs.getString("zone_name"));
+        z.setZoneType(rs.getString("zone_type"));
+        z.setDescription(rs.getString("description"));
+        z.setActive(rs.getBoolean("active"));
+        z.setDefault(rs.getBoolean("is_default"));
+        return z;
+    }
+
+    // ── Physical inventory check methods (kept inline — transactional) ──
+
     public void insertInventoryCheck(String checkCode, int warehouseId, int userId, String note) {
-        String sql = "INSERT INTO physical_inventories (check_code, warehouse_id, created_by, status) VALUES (?, ?, ?, 'DRAFT')";
-        try (Connection conn = DBConnection.getConnection();
-             PreparedStatement ps = conn.prepareStatement(sql)) {
-            ps.setString(1, checkCode);
-            ps.setInt(2, warehouseId);
-            ps.setInt(3, userId);
-            ps.executeUpdate();
-        } catch (SQLException e) {
+        try {
+            update(LOGGER,
+                "INSERT INTO physical_inventories (check_code, warehouse_id, created_by, status) VALUES (?, ?, ?, 'DRAFT')",
+                checkCode, warehouseId, userId);
+        } catch (Exception e) {
             LOGGER.log(Level.SEVERE, "insertInventoryCheck failed", e);
             throw new RuntimeException("insertInventoryCheck failed", e);
         }
     }
 
-    /**
-     * Parses items JSON and inserts physical inventory check line items.
-     * Expected JSON format: [{productId: int, systemQty: double}, ...]
-     */
     public void insertInventoryCheckItems(String checkCode, String itemsJson) {
         if (itemsJson == null || itemsJson.trim().isEmpty()) return;
         Connection conn = null;
@@ -364,28 +374,20 @@ public class WarehouseDAO {
             conn = DBConnection.getConnection();
             conn.setAutoCommit(false);
 
-            // Get the checkId from checkCode
-            String sqlSel = "SELECT inventory_check_id FROM physical_inventories WHERE check_code = ?";
-            psSel = conn.prepareStatement(sqlSel);
-            psSel.setString(1, checkCode);
-            int checkId = -1;
-            try (ResultSet rs = psSel.executeQuery()) {
-                if (rs.next()) checkId = rs.getInt("inventory_check_id");
-            }
-
-            if (checkId == -1) {
+            Integer checkId = queryOne(LOGGER,
+                "SELECT inventory_check_id FROM physical_inventories WHERE check_code = ?",
+                rs -> rs.getInt("inventory_check_id"), checkCode);
+            if (checkId == null) {
                 conn.rollback();
                 return;
             }
 
-            // Parse JSON items and insert
-            com.fasterxml.jackson.databind.ObjectMapper mapper = new com.fasterxml.jackson.databind.ObjectMapper();
-            List<?> items = mapper.readValue(itemsJson, List.class);
-
+            List<?> items = JsonUtil.getMapper().readValue(itemsJson, new TypeReference<List<?>>() {});
             String sqlIns = "INSERT INTO physical_inventory_details (inventory_check_id, product_id, system_qty) VALUES (?, ?, ?)";
             psIns = conn.prepareStatement(sqlIns);
             for (Object item : items) {
-                java.util.Map<?, ?> m = (java.util.Map<?, ?>) item;
+                @SuppressWarnings("unchecked")
+                java.util.Map<String, Object> m = (java.util.Map<String, Object>) item;
                 int productId = ((Number) m.get("productId")).intValue();
                 double systemQty = m.get("systemQty") != null ? ((Number) m.get("systemQty")).doubleValue() : 0;
                 psIns.setInt(1, checkId);
@@ -405,140 +407,193 @@ public class WarehouseDAO {
         }
     }
 
-    /**
-     * Updates inventory check detail rows with actual count results.
-     * Expected JSON format: [{checkDetailId: int, actualQty: double, countedBy: int}, ...]
-     */
+    public List<com.wms.model.PhysicalInventory> findAllInventoryChecks() {
+        String sql = "SELECT pi.inventory_check_id AS checkId, "
+                   + "       pi.check_code AS checkCode, "
+                   + "       pi.warehouse_id AS warehouseId, "
+                   + "       w.warehouse_name AS warehouseName, "
+                   + "       pi.status AS status, "
+                   + "       pi.note AS note, "
+                   + "       u.full_name AS creatorName, "
+                   + "       pi.created_at AS createdAt, "
+                   + "       (SELECT COUNT(*) FROM physical_inventory_details pid WHERE pid.inventory_check_id = pi.inventory_check_id) AS totalItems, "
+                   + "       (SELECT COUNT(*) FROM physical_inventory_details pid WHERE pid.inventory_check_id = pi.inventory_check_id AND pid.actual_qty IS NOT NULL) AS countedItems, "
+                   + "       COALESCE((SELECT SUM(COALESCE(pid.delta_qty, pid.actual_qty - pid.system_qty, 0)) FROM physical_inventory_details pid WHERE pid.inventory_check_id = pi.inventory_check_id AND pid.actual_qty IS NOT NULL), 0) AS totalDelta "
+                   + "FROM physical_inventories pi "
+                   + "LEFT JOIN warehouses w ON pi.warehouse_id = w.warehouse_id "
+                   + "LEFT JOIN users u ON pi.created_by = u.user_id "
+                   + "ORDER BY pi.created_at DESC";
+        
+        return queryList(LOGGER, sql, rs -> {
+            com.wms.model.PhysicalInventory pi = new com.wms.model.PhysicalInventory();
+            pi.setCheckId(rs.getInt("checkId"));
+            pi.setCheckCode(rs.getString("checkCode"));
+            pi.setWarehouseId(rs.getInt("warehouseId"));
+            pi.setWarehouseName(rs.getString("warehouseName"));
+            pi.setStatus(rs.getString("status"));
+            pi.setNote(rs.getString("note"));
+            pi.setCreatorName(rs.getString("creatorName"));
+            Timestamp ts = rs.getTimestamp("createdAt");
+            if (ts != null) {
+                pi.setCreatedAt(ts.toLocalDateTime());
+            }
+            pi.setTotalItems(rs.getInt("totalItems"));
+            pi.setCountedItems(rs.getInt("countedItems"));
+            pi.setTotalDelta(rs.getDouble("totalDelta"));
+            return pi;
+        });
+    }
+
+    public List<com.wms.model.PhysicalInventoryDetail> findPhysicalInventoryDetails(int checkId) {
+        String sql = "SELECT pid.check_detail_id AS checkDetailId, "
+                   + "       p.sku_code AS skuCode, "
+                   + "       p.product_name AS productName, "
+                   + "       pid.system_qty AS systemQty, "
+                   + "       pid.actual_qty AS actualQty, "
+                   + "       pid.delta_qty AS deltaQty "
+                   + "FROM physical_inventory_details pid "
+                   + "LEFT JOIN products p ON pid.product_id = p.product_id "
+                   + "WHERE pid.inventory_check_id = ? "
+                   + "ORDER BY p.sku_code ASC";
+        
+        return queryList(LOGGER, sql, rs -> {
+            com.wms.model.PhysicalInventoryDetail pid = new com.wms.model.PhysicalInventoryDetail();
+            pid.setCheckDetailId(rs.getInt("checkDetailId"));
+            pid.setSkuCode(rs.getString("skuCode"));
+            pid.setProductName(rs.getString("productName"));
+            pid.setSystemQty(rs.getDouble("systemQty"));
+            double actual = rs.getDouble("actualQty");
+            if (rs.wasNull()) {
+                pid.setActualQty(null);
+            } else {
+                pid.setActualQty(actual);
+            }
+            double delta = rs.getDouble("deltaQty");
+            if (rs.wasNull()) {
+                pid.setDeltaQty(null);
+            } else {
+                pid.setDeltaQty(delta);
+            }
+            return pid;
+        }, checkId);
+    }
+
     public void updateInventoryCheckResults(int checkId, String resultsJson) {
         if (resultsJson == null || resultsJson.trim().isEmpty()) return;
         Connection conn = null;
-        PreparedStatement psSel = null;
-        PreparedStatement psUpd = null;
         try {
             conn = DBConnection.getConnection();
             conn.setAutoCommit(false);
 
-            // Update status to IN_PROGRESS
-            String sqlStatus = "UPDATE physical_inventories SET status = 'IN_PROGRESS' WHERE inventory_check_id = ?";
-            try (PreparedStatement ps = conn.prepareStatement(sqlStatus)) {
+            try (PreparedStatement ps = conn.prepareStatement(
+                    "UPDATE physical_inventories SET status = 'IN_PROGRESS' WHERE inventory_check_id = ?")) {
                 ps.setInt(1, checkId);
                 ps.executeUpdate();
             }
 
-            // Get the check's warehouse_id
-            String sqlWh = "SELECT warehouse_id FROM physical_inventories WHERE inventory_check_id = ?";
-            psSel = conn.prepareStatement(sqlWh);
-            psSel.setInt(1, checkId);
-            int warehouseId = -1;
-            try (ResultSet rs = psSel.executeQuery()) {
-                if (rs.next()) warehouseId = rs.getInt("warehouse_id");
+            List<?> items = JsonUtil.getMapper().readValue(resultsJson, new TypeReference<List<?>>() {});
+
+            try (PreparedStatement psUpd = conn.prepareStatement(
+                    "UPDATE physical_inventory_details SET actual_qty = ?, delta_qty = ? - system_qty, "
+                  + "counted_by = ?, counted_at = CURRENT_TIMESTAMP WHERE check_detail_id = ?")) {
+                for (Object item : items) {
+                    @SuppressWarnings("unchecked")
+                    java.util.Map<String, Object> m = (java.util.Map<String, Object>) item;
+                    int detailId = ((Number) m.get("checkDetailId")).intValue();
+                    double actualQty = m.get("actualQty") != null ? ((Number) m.get("actualQty")).doubleValue() : 0;
+                    int countedBy = m.get("countedBy") != null ? ((Number) m.get("countedBy")).intValue() : 1;
+                    psUpd.setDouble(1, actualQty);
+                    psUpd.setDouble(2, actualQty);
+                    psUpd.setInt(3, countedBy);
+                    psUpd.setInt(4, detailId);
+                    psUpd.addBatch();
+                }
+                psUpd.executeBatch();
             }
 
-            // Update detail items
-            String sqlUpd = "UPDATE physical_inventory_details SET actual_qty = ?, delta_qty = ?, "
-                + "counted_by = ?, counted_at = CURRENT_TIMESTAMP WHERE check_detail_id = ?";
-            psUpd = conn.prepareStatement(sqlUpd);
-
-            com.fasterxml.jackson.databind.ObjectMapper mapper = new com.fasterxml.jackson.databind.ObjectMapper();
-            List<?> items = mapper.readValue(resultsJson, List.class);
-
-            for (Object item : items) {
-                java.util.Map<?, ?> m = (java.util.Map<?, ?>) item;
-                int detailId = ((Number) m.get("checkDetailId")).intValue();
-                double actualQty = m.get("actualQty") != null ? ((Number) m.get("actualQty")).doubleValue() : 0;
-                double delta = actualQty; // delta = actual - system (system is already in DB)
-                int countedBy = m.get("countedBy") != null ? ((Number) m.get("countedBy")).intValue() : 1;
-
-                psUpd.setDouble(1, actualQty);
-                psUpd.setDouble(2, delta);
-                psUpd.setInt(3, countedBy);
-                psUpd.setInt(4, detailId);
-                psUpd.addBatch();
-            }
-            psUpd.executeBatch();
             conn.commit();
         } catch (Exception e) {
             LOGGER.log(Level.SEVERE, "updateInventoryCheckResults failed", e);
             if (conn != null) try { conn.rollback(); } catch (SQLException ex) {}
             throw new RuntimeException("updateInventoryCheckResults failed", e);
         } finally {
-            DBConnection.closeQuietly(psSel, psUpd);
             closeConnectionQuietly(conn);
         }
     }
 
-    /**
-     * Applies inventory adjustments by updating the inventory table and ledger.
-     * Called after manager approves the inventory check.
-     * Expected JSON format: [{productId: int, delta: double}, ...]
-     */
     public void applyInventoryAdjustments(int checkId, String adjustmentsJson, int userId) {
         if (adjustmentsJson == null || adjustmentsJson.trim().isEmpty()) return;
         Connection conn = null;
-        PreparedStatement psWh = null;
-        PreparedStatement psUpd = null;
-        PreparedStatement psLedger = null;
         try {
             conn = DBConnection.getConnection();
             conn.setAutoCommit(false);
 
-            // Get the check's warehouse_id
-            String sqlWh = "SELECT warehouse_id FROM physical_inventories WHERE inventory_check_id = ?";
-            psWh = conn.prepareStatement(sqlWh);
-            psWh.setInt(1, checkId);
-            int warehouseId = -1;
-            try (ResultSet rs = psWh.executeQuery()) {
-                if (rs.next()) warehouseId = rs.getInt("warehouse_id");
+            Integer warehouseId = queryOne(LOGGER,
+                "SELECT warehouse_id FROM physical_inventories WHERE inventory_check_id = ?",
+                rs -> rs.getInt("warehouse_id"), checkId);
+            if (warehouseId == null) {
+                throw new RuntimeException("Inventory check not found");
             }
-            if (warehouseId == -1) throw new RuntimeException("Inventory check not found");
 
-            // Parse adjustments
-            com.fasterxml.jackson.databind.ObjectMapper mapper = new com.fasterxml.jackson.databind.ObjectMapper();
-            List<?> items = mapper.readValue(adjustmentsJson, List.class);
+            List<?> items = JsonUtil.getMapper().readValue(adjustmentsJson, new TypeReference<List<?>>() {});
 
             for (Object item : items) {
-                java.util.Map<?, ?> m = (java.util.Map<?, ?>) item;
-                int productId = ((Number) m.get("productId")).intValue();
-                double delta = m.get("delta") != null ? ((Number) m.get("delta")).doubleValue() : 0;
+                @SuppressWarnings("unchecked")
+                java.util.Map<String, Object> m = (java.util.Map<String, Object>) item;
+                
+                Number checkDetailIdNum = (Number) m.get("checkDetailId");
+                Number deltaQtyNum = (Number) m.get("deltaQty");
+                
+                if (checkDetailIdNum == null) continue;
+                int checkDetailId = checkDetailIdNum.intValue();
+                double delta = deltaQtyNum != null ? deltaQtyNum.doubleValue() : 0;
                 if (delta == 0) continue;
 
-                // Upsert inventory
-                String sqlUpsert = "INSERT INTO inventory (product_id, warehouse_id, qty_on_hand, holding, qty_available) "
-                    + "VALUES (?, ?, ?, 0, ?) ON DUPLICATE KEY UPDATE qty_on_hand = qty_on_hand + ?, qty_available = qty_available + ?";
-                psUpd = conn.prepareStatement(sqlUpsert);
-                psUpd.setInt(1, productId);
-                psUpd.setInt(2, warehouseId);
-                psUpd.setDouble(3, delta);
-                psUpd.setDouble(4, delta);
-                psUpd.setDouble(5, delta);
-                psUpd.setDouble(6, delta);
-                psUpd.executeUpdate();
-                psUpd.close();
+                // Lookup product_id from physical_inventory_details
+                Integer productId = queryOne(LOGGER,
+                    "SELECT product_id FROM physical_inventory_details WHERE check_detail_id = ?",
+                    rs -> rs.getInt("product_id"), checkDetailId);
+                if (productId == null) continue;
 
-                // Get inventory_id
-                int invId = 0;
-                String sqlGetId = "SELECT inventory_id FROM inventory WHERE product_id = ? AND warehouse_id = ?";
-                try (PreparedStatement psG = conn.prepareStatement(sqlGetId)) {
-                    psG.setInt(1, productId);
-                    psG.setInt(2, warehouseId);
-                    try (ResultSet rs = psG.executeQuery()) {
-                        if (rs.next()) invId = rs.getInt("inventory_id");
-                    }
+                // Upsert inventory
+                try (PreparedStatement psUpd = conn.prepareStatement(
+                        "INSERT INTO inventory (product_id, warehouse_id, qty_on_hand, holding, qty_available) "
+                      + "VALUES (?, ?, ?, 0, ?) ON DUPLICATE KEY UPDATE qty_on_hand = qty_on_hand + ?, qty_available = qty_available + ?")) {
+                    psUpd.setInt(1, productId);
+                    psUpd.setInt(2, warehouseId);
+                    psUpd.setDouble(3, delta);
+                    psUpd.setDouble(4, delta);
+                    psUpd.setDouble(5, delta);
+                    psUpd.setDouble(6, delta);
+                    psUpd.executeUpdate();
                 }
 
+                // Get inventory_id
+                Integer invId = queryOne(LOGGER,
+                    "SELECT inventory_id FROM inventory WHERE product_id = ? AND warehouse_id = ?",
+                    rs -> rs.getInt("inventory_id"), productId, warehouseId);
+                if (invId == null) continue;
+
                 // Insert ledger entry
-                String sqlLedger = "INSERT INTO inventory_ledger (inventory_id, product_id, warehouse_id, transaction_type, "
-                    + "ref_document_id, qty_change, avail_change, created_by, note) VALUES (?, ?, ?, 'ADJUSTMENT', ?, ?, ?, ?, 'Kiểm kê cân đối tồn kho')";
-                psLedger = conn.prepareStatement(sqlLedger);
-                psLedger.setInt(1, invId);
-                psLedger.setInt(2, productId);
-                psLedger.setInt(3, warehouseId);
-                psLedger.setInt(4, checkId);
-                psLedger.setDouble(5, delta);
-                psLedger.setDouble(6, delta);
-                psLedger.setInt(7, userId);
-                psLedger.executeUpdate();
-                psLedger.close();
+                try (PreparedStatement psLedger = conn.prepareStatement(
+                        "INSERT INTO inventory_ledger (inventory_id, product_id, warehouse_id, transaction_type, "
+                      + "ref_document_id, qty_change, avail_change, created_by, note) VALUES (?, ?, ?, 'ADJUSTMENT', ?, ?, ?, ?, 'Kiểm kê cân đối tồn kho')")) {
+                    psLedger.setInt(1, invId);
+                    psLedger.setInt(2, productId);
+                    psLedger.setInt(3, warehouseId);
+                    psLedger.setInt(4, checkId);
+                    psLedger.setDouble(5, delta);
+                    psLedger.setDouble(6, delta);
+                    psLedger.setInt(7, userId);
+                    psLedger.executeUpdate();
+                }
+            }
+
+            // Update status of check to APPROVED
+            try (PreparedStatement psStatus = conn.prepareStatement(
+                    "UPDATE physical_inventories SET status = 'APPROVED' WHERE inventory_check_id = ?")) {
+                psStatus.setInt(1, checkId);
+                psStatus.executeUpdate();
             }
 
             conn.commit();
@@ -547,8 +602,25 @@ public class WarehouseDAO {
             if (conn != null) try { conn.rollback(); } catch (SQLException ex) {}
             throw new RuntimeException("applyInventoryAdjustments failed", e);
         } finally {
-            DBConnection.closeQuietly(psWh, psUpd, psLedger);
             closeConnectionQuietly(conn);
+        }
+    }
+
+    /**
+     * Updates the status of an inventory check.
+     * Used by Warehouse staff (submit) and Manager (approve/reject).
+     * Does NOT touch inventory / inventory_ledger. LedgerDAO.approveDocument()
+     * is the single place that does UPSERT + INSERT ledger when Manager approves.
+     */
+    public void updateInventoryCheckStatus(int checkId, String newStatus) {
+        String sql = "UPDATE physical_inventories SET status = ? WHERE inventory_check_id = ?";
+        try (Connection conn = DBConnection.getConnection();
+             PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setString(1, newStatus);
+            ps.setInt(2, checkId);
+            ps.executeUpdate();
+        } catch (SQLException e) {
+            LOGGER.log(Level.SEVERE, "updateInventoryCheckStatus failed for checkId=" + checkId, e);
         }
     }
 }

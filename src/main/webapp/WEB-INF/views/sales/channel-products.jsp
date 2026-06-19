@@ -1,0 +1,2089 @@
+<%@ page language="java" contentType="text/html; charset=UTF-8" pageEncoding="UTF-8" isELIgnored="false" %>
+<%@ taglib prefix="c" uri="jakarta.tags.core" %>
+
+<%-- ══════════════════════════════════════════════════════════════════
+     Sales Staff — Quản Lý Sản Phẩm Theo Kênh & Cấu Hình Giá Bán
+     JSP port of React: ChannelProducts.tsx & PricingConfiguration.tsx
+     All logic is pure vanilla JS — no hardcoded data, no seed data.
+
+     CSS (sales--channel-products.css) loaded in <head> via sales-layout.jsp
+     based on currentPage='sales-channel-products'.
+     ══════════════════════════════════════════════════════════════════ --%>
+
+<%-- ── SUB-TABS NAVIGATION BAR ── --%>
+<div class="cp-tab-bar">
+    <button class="cp-tab-btn active" id="tabProductsBtn" onclick="switchMainTab('products')">Sản phẩm theo kênh</button>
+    <button class="cp-tab-btn" id="tabPricingBtn" onclick="switchMainTab('pricing')">Cấu hình giá bán</button>
+    <button class="cp-tab-btn" id="tabChannelsBtn" onclick="switchMainTab('channels')">Cấu hình SL tồn đệm</button>
+</div>
+
+<%-- ══════════════════════════════════════════════════════════════════
+     TAB 1: SẢN PHẨM THEO KÊNH
+     ══════════════════════════════════════════════════════════════════ --%>
+<div id="tabProductsContent">
+
+
+    <%-- Filters Toolbar --%>
+    <div class="cp-filter-bar">
+        <div class="cp-filter-left">
+            <div class="cp-select-wrapper">
+                <select class="cp-select" id="filterChannelSelect" onchange="onChannelFilterChange(this.value)">
+                    <option value="all">Tat ca kenh</option>
+                    <c:forEach var="ch" items="${channelsList}">
+                        <option value="${ch.channelName}">${ch.channelName}</option>
+                    </c:forEach>
+                </select>
+                <svg class="cp-select-arrow" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M19 9l-7 7-7-7" /></svg>
+            </div>
+
+            <div class="cp-search">
+                <svg class="cp-search-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+                <input type="text" class="cp-search-input" placeholder="Tìm theo tên, SKU, SKU kênh..." id="cpSearchInp" oninput="onProductSearch(this.value)" />
+            </div>
+        </div>
+
+        <button class="cp-btn-push" onclick="openPublishWizard()">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+            Đẩy sản phẩm lên sàn
+        </button>
+    </div>
+
+    <%-- Data table list --%>
+    <div class="cp-table-card">
+        <div class="cp-table-scroll">
+            <table class="cp-table">
+                <thead>
+                    <tr>
+                        <th style="width: 12%;">Mã SKU</th>
+                        <th style="width: 15%;">SKU kênh</th>
+                        <th style="width: 32%;">Tên sản phẩm</th>
+                        <th style="width: 8%;">Kênh</th>
+                        <th style="width: 9%; text-align: right;">Giá sàn</th>
+                        <th style="width: 8%; text-align: right;">Tồn vật lý</th>
+                        <th style="width: 10%; text-align: center;">Hàng đệm</th>
+                        <th style="width: 8%; text-align: right;">Tồn trên sàn</th>
+                        <th style="width: 10%;">Đồng bộ</th>
+                        <th style="width: 8%;">Trạng thái</th>
+                        <th style="width: 5%; text-align: center;">Thao tác</th>
+                    </tr>
+                </thead>
+                <tbody id="cpProductsTableBody">
+                    <%-- Populated by JS --%>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<%-- ══════════════════════════════════════════════════════════════════
+     TAB 2: CẤU HÌNH GIÁ BÁN
+     ══════════════════════════════════════════════════════════════════ --%>
+<div id="tabPricingContent" style="display:none">
+
+
+
+
+    <%-- Channel Selector Panel --%>
+    <div class="pr-channel-panel">
+        <div>
+            <div style="font-size: 12px; font-weight: 600; color: rgba(16, 55, 92, 0.7); margin-bottom: 0.5rem">Chọn kênh bán</div>
+            <div class="pr-channel-pills">
+                <button class="pr-channel-pill active" id="prChannelLazada" onclick="setPricingChannel('lazada')">
+                    <span class="pr-dot" style="background: #0F146D"></span>
+                    Lazada
+                </button>
+                <button class="pr-channel-pill" id="prChannelWebsite" onclick="setPricingChannel('website')">
+                    <span class="pr-dot" style="background: #EB8317"></span>
+                    Website
+                </button>
+            </div>
+        </div>
+        <div class="pr-active-indicator">
+            <div class="pr-active-ind-label">Đang chỉnh</div>
+            <div class="pr-active-ind-val" id="prActiveChannelLabel">Lazada</div>
+        </div>
+    </div>
+
+    <%-- Pricing Data Table --%>
+    <div class="cp-table-card">
+        <div class="cp-table-scroll">
+            <table class="cp-table">
+                <thead>
+                    <tr>
+                        <th style="width: 15%;">Master SKU</th>
+                        <th style="width: 25%;">Sản phẩm</th>
+                        <th style="width: 10%; text-align: center;">Trạng thái</th>
+                        <th style="width: 10%; text-align: right;">Giá nhập</th>
+                        <th style="width: 12%; text-align: right;">Retail Price</th>
+                        <th style="width: 12%; text-align: right;">Promo Price</th>
+                        <th style="width: 10%; text-align: right;">Biên lợi nhuận</th>
+                        <th style="width: 6%; text-align: right;">Hành động</th>
+                    </tr>
+                </thead>
+                <tbody id="prPricingTableBody">
+                    <%-- Populated by JS --%>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    </div>
+
+<%-- ══════════════════════════════════════════════════════════════════
+     TAB 3: QUẢN LÝ KÊNH BÁN
+     ══════════════════════════════════════════════════════════════════ --%>
+<div id="tabChannelsContent" style="display:none">
+
+
+    <!-- Channels List Card Grid -->
+    <div id="channelsGrid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(22rem, 1fr)); gap: 1.25rem;">
+        <!-- Rendered dynamically by JavaScript -->
+    </div>
+</div>
+
+<%-- ══════════════════════════════════════════════════════════════════
+     MODAL: ĐẨY SẢN PHẨM LÊN SÀN (3-STEP PUBLISHING WIZARD)
+     ══════════════════════════════════════════════════════════════════ --%>
+<div class="cp-modal-overlay" id="publishWizardOverlay" onclick="closePublishWizard()">
+    <div class="cp-modal" onclick="event.stopPropagation()">
+        <%-- API Sandbox integration overlay --%>
+        <div class="cp-sandbox-overlay" id="sandboxOverlay">
+            <div class="cp-sandbox-spinner-container">
+                <div class="cp-sandbox-spinner"></div>
+                <div class="cp-sandbox-spinner-lbl">API</div>
+            </div>
+
+            <h3 style="font-weight: 800; font-size: 18px; color: var(--navy);">Đồng bộ Sandbox đa kênh bán hàng</h3>
+            <p style="font-size: 12px; color: rgba(16,55,92,.5); text-align: center; max-width: 400px; margin-top: 0.25rem">
+                Đang đẩy sản phẩm <strong id="sandboxProductTitle">-</strong> sang môi trường sandbox của các sàn TMĐT đã chọn...
+            </p>
+
+            <div class="cp-sandbox-steps-card">
+                <div class="cp-sandbox-step-row" id="sStep1">
+                    <div class="cp-sandbox-step-check">
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" /></svg>
+                        <div class="cp-sandbox-step-check-spinner"></div>
+                    </div>
+                    <div>
+                        <div class="cp-sandbox-step-title">Đóng gói Payload sản phẩm gốc...</div>
+                        <div class="cp-sandbox-step-desc">Tổng hợp dữ liệu tên, cân nặng, kích thước từ Master SKU</div>
+                    </div>
+                </div>
+
+                <div class="cp-sandbox-step-row" id="sStep2">
+                    <div class="cp-sandbox-step-check">
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" /></svg>
+                        <div class="cp-sandbox-step-check-spinner"></div>
+                    </div>
+                    <div>
+                        <div class="cp-sandbox-step-title">Xác thực API Gateway Sandbox...</div>
+                        <div class="cp-sandbox-step-desc">Chứng thực tài khoản của Sales Staff trên môi trường thử nghiệm</div>
+                    </div>
+                </div>
+
+                <div class="cp-sandbox-step-row" id="sStep3">
+                    <div class="cp-sandbox-step-check">
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" /></svg>
+                        <div class="cp-sandbox-step-check-spinner"></div>
+                    </div>
+                    <div>
+                        <div class="cp-sandbox-step-title">Đồng bộ hóa hình ảnh lên máy chủ sàn...</div>
+                        <div class="cp-sandbox-step-desc">Truyền tải và tối ưu hóa tài nguyên ảnh mô tả</div>
+                    </div>
+                </div>
+
+                <div class="cp-sandbox-step-row" id="sStep4">
+                    <div class="cp-sandbox-step-check">
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" /></svg>
+                        <div class="cp-sandbox-step-check-spinner"></div>
+                    </div>
+                    <div>
+                        <div class="cp-sandbox-step-title">Truyền tải cấu hình đặc thù sàn...</div>
+                        <div class="cp-sandbox-step-desc">Bắn dữ liệu phân loại danh mục và biểu phí giá sàn vừa cấu hình</div>
+                    </div>
+                </div>
+
+                <div class="cp-sandbox-step-row" id="sStep5">
+                    <div class="cp-sandbox-step-check">
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" /></svg>
+                        <div class="cp-sandbox-step-check-spinner"></div>
+                    </div>
+                    <div>
+                        <div class="cp-sandbox-step-title">Sandbox API trả về mã thành công (200 OK)...</div>
+                        <div class="cp-sandbox-step-desc">Xác thực sàn TMĐT đã duyệt và khởi tạo sản phẩm thành công</div>
+                    </div>
+                </div>
+
+                <div class="cp-sandbox-step-row" id="sStep6">
+                    <div class="cp-sandbox-step-check">
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" /></svg>
+                        <div class="cp-sandbox-step-check-spinner"></div>
+                    </div>
+                    <div>
+                        <div class="cp-sandbox-step-title">Nhận ID và ghi nhận Ánh xạ Nhiều-Nhiều...</div>
+                        <div class="cp-sandbox-step-desc">Tự động ghi nhận ánh xạ SKU và ID của sàn vào cơ sở dữ liệu</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="cp-modal-header">
+            <div class="cp-modal-title">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" /></svg>
+                Đồng bộ sản phẩm lên kênh bán (Publish to Channel)
+            </div>
+            <button class="cp-modal-close" onclick="closePublishWizard()">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
+            </button>
+        </div>
+
+        <div class="cp-modal-body">
+            <%-- Steps indicator --%>
+            <div class="cp-wiz-steps">
+                <div class="cp-wiz-step active" id="wizInd1">
+                    <span class="cp-wiz-step-num" id="wizIndNum1">1</span>
+                    <span>Chọn SKU gốc</span>
+                </div>
+                <svg class="cp-wiz-step-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"></polyline></svg>
+
+                <div class="cp-wiz-step" id="wizInd2">
+                    <span class="cp-wiz-step-num" id="wizIndNum2">2</span>
+                    <span>Chọn Sàn bán</span>
+                </div>
+                <svg class="cp-wiz-step-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"></polyline></svg>
+
+                <div class="cp-wiz-step" id="wizInd3">
+                    <span class="cp-wiz-step-num" id="wizIndNum3">3</span>
+                    <span>Cấu hình sàn</span>
+                </div>
+            </div>
+
+            <%-- STEP 1: Chọn SKU gốc --%>
+            <div id="wizStep1Content" class="cp-form-group">
+                <div class="cp-form-group" style="position: relative">
+                    <label class="cp-form-label">Tìm kiếm Master SKU đã duyệt (Active)</label>
+                    <div style="position: relative">
+                        <svg class="cp-search-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+                        <input type="text" class="cp-search-input" style="width: 100%" placeholder="Nhập tên sản phẩm hoặc mã SKU..." id="wizStep1SearchInp" oninput="onWizMasterSearch(this.value)" />
+                    </div>
+                </div>
+
+                <div class="cp-wiz-list" id="wizMasterSKUList">
+                    <%-- Loaded by JS --%>
+                </div>
+
+                <div class="cp-spec-card" id="wizMasterSpecCard" style="display:none">
+                    <div class="cp-spec-title">Thông tin trích xuất sản phẩm gốc (Chỉ xem)</div>
+                    <div class="cp-spec-grid">
+                        <div>
+                            <div class="cp-spec-label">Tên SKU gốc</div>
+                            <div class="cp-spec-val" id="wizSpecName">-</div>
+                        </div>
+                        <div>
+                            <div class="cp-spec-label">Mã SKU gốc</div>
+                            <div class="cp-spec-val cp-font-mono" id="wizSpecCode">-</div>
+                        </div>
+                        <div>
+                            <div class="cp-spec-label">Khối lượng</div>
+                            <div class="cp-spec-val" id="wizSpecWeight">-</div>
+                        </div>
+                        <div>
+                            <div class="cp-spec-label">Kích thước (D×R×C)</div>
+                            <div class="cp-spec-val" id="wizSpecDimensions">-</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <%-- STEP 2: Chọn Sàn bán --%>
+            <div id="wizStep2Content" style="display:none" class="cp-form-group">
+                <div style="background: rgba(240, 245, 255, 0.4); border: 1px solid #E5EAF3; padding: 0.75rem; border-radius: 8px; margin-bottom: 1rem; display: flex; align-items: center; gap: 0.5rem">
+                    <svg style="width:18px;height:18px;color:var(--navy)" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path><polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline><line x1="12" y1="22.08" x2="12" y2="12"></line></svg>
+                    <div>
+                        <div style="font-size:12px;font-weight:700">Sản phẩm chọn đồng bộ</div>
+                        <div style="font-size:11px;color:rgba(16,55,92,.6)" id="wizStep2ProductLabel">-</div>
+                    </div>
+                </div>
+
+                <label class="cp-form-label" style="font-weight:700;margin-bottom:0.75rem">Chọn sàn thương mại điện tử đích *</label>
+                <div class="cp-platforms-grid">
+                    <div class="cp-platform-card lazada" onclick="toggleWizChannel('lazada')" id="pCardLazada">
+                        <div class="cp-platform-header">
+                            <span class="cp-platform-badge" style="background:#0F146D">Lazada</span>
+                            <div class="cp-platform-chk">
+                                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3.5"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" /></svg>
+                            </div>
+                        </div>
+                        <p class="cp-platform-desc">Kết nối cổng Lazada Sandbox Open Platform. Đồng bộ giá sàn bán lẻ tùy biến.</p>
+                    </div>
+                </div>
+            </div>
+
+            <%-- STEP 3: Cấu hình sàn --%>
+            <div id="wizStep3Content" style="display:none" class="cp-form-group">
+                <div style="background: rgba(240, 245, 255, 0.4); border: 1px solid #E5EAF3; padding: 0.5rem 0.75rem; border-radius: 8px; margin-bottom: 1.25rem; font-size: 12px">
+                    <span style="color:rgba(16,55,92,.6)">Sản phẩm đồng bộ: </span><strong id="wizStep3ProductLabel">-</strong>
+                </div>
+
+                <div id="wizStep3ChannelsContainer">
+                    <%-- Populated by JS depending on selected platforms --%>
+                </div>
+            </div>
+        </div>
+
+        <div class="cp-modal-footer">
+            <button class="cp-btn-edit" style="width:auto;padding:0.5rem 1rem;border:1px solid #E5EAF3" onclick="closePublishWizard()">HỦY BỎ</button>
+            <div style="display:flex;gap:0.5rem">
+                <button class="cp-btn-edit" style="width:auto;padding:0.5rem 1rem;border:1px solid #E5EAF3;display:none" id="btnWizPrev" onclick="wizNavigate(-1)">Quay lại</button>
+                <button class="cp-btn-push" id="btnWizNext" onclick="wizNavigate(1)">Tiếp tục</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<%-- ══════════════════════════════════════════════════════════════════
+     MODAL: CẤU HÌNH LẠI SẢN PHẨM KÊNH (EDIT PRODUCT MODAL)
+     ══════════════════════════════════════════════════════════════════ --%>
+<div class="cp-modal-overlay" id="editProductOverlay" onclick="closeEditModal()">
+    <div class="cp-modal" onclick="event.stopPropagation()" style="max-width: 600px">
+        <div class="cp-modal-header">
+            <div class="cp-modal-title">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>
+                Cấu hình lại sản phẩm kênh
+            </div>
+            <button class="cp-modal-close" onclick="closeEditModal()">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
+            </button>
+        </div>
+
+        <div class="cp-modal-body" style="display:flex; flex-direction:column; gap:1rem">
+            <div style="background: var(--alice); border: 1px solid #E5EAF3; padding: 0.75rem; border-radius: 6px; display:flex; justify-content:space-between; font-size:13px">
+                <div>
+                    <div style="color:rgba(16,55,92,.5);font-size:11px">Sản phẩm gốc</div>
+                    <strong id="editProductMasterName">-</strong>
+                </div>
+                <div style="text-align:right">
+                    <div style="color:rgba(16,55,92,.5);font-size:11px">Mã SKU gốc</div>
+                    <strong class="cp-font-mono" id="editProductMasterSKU">-</strong>
+                </div>
+            </div>
+
+            <%-- Image uploader --%>
+            <div style="border-bottom:1px solid #F0F3FA; padding-bottom:1rem">
+                <label class="cp-form-label" style="font-weight:700">Hình ảnh sản phẩm trên sàn *</label>
+                <div class="cp-upload-grid" id="editImagesGrid">
+                    <%-- Populated by JS --%>
+                </div>
+                <div style="font-size: 10px; color: rgba(16,55,92,.45); margin-top: 0.5rem">
+                    * Khuyên dùng ảnh vuông 800x800px. Hỗ trợ JPG/PNG. Ảnh đầu tiên được dùng làm ảnh bìa khi đẩy lên kênh.
+                </div>
+            </div>
+
+            <div class="cp-form-group">
+                <label class="cp-form-label" style="font-weight:700">Giá bán trên sàn (VNĐ) *</label>
+                <input type="number" class="cp-input-text" id="editProductPrice" min="0" required />
+            </div>
+
+            <div class="cp-form-group">
+                <label class="cp-form-label" style="font-weight:700">Mô tả sản phẩm trên sàn</label>
+                <textarea class="cp-input-text" style="height: 100px; resize: none" id="editProductDesc" required></textarea>
+            </div>
+        </div>
+
+        <div class="cp-modal-footer">
+            <span style="font-size:11px;color:rgba(16,55,92,.4)">* Bắt buộc</span>
+            <div style="display:flex;gap:0.5rem">
+                <button class="cp-btn-edit" style="width:auto;padding:0.5rem 1rem;border:1px solid #E5EAF3" onclick="closeEditModal()">Hủy</button>
+                <button class="cp-btn-push" onclick="submitEditProduct()">Cập nhật</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<%-- ── NOTIFICATION TOAST POPUP ── --%>
+<div class="op-toast" id="opToast" style="position: fixed; top: 2rem; right: 2rem; background: var(--navy); color: #fff; padding: 1rem 1.5rem; border-radius: var(--radius-btn); box-shadow: 0 10px 25px rgba(0,0,0,.15); z-index: 150; font-size: 13px; font-weight: 700; display: flex; align-items: center; gap: 0.75rem; transform: translateY(-20px); opacity: 0; pointer-events: none; transition: all .25s ease-out;">
+    <svg id="opToastIcon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="width:16px;height:16px"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
+    <span id="opToastMsg">Thông báo hệ thống</span>
+</div>
+
+<%-- Channel list is serialised to JSON by SalesChannelProductsServlet.
+     Reading ${channelsJson} avoids a scriptlet loop in the JSP (MVC rule). --%>
+<div id="channelsDataContainer" style="display: none;">${channelsJson}</div>
+<div id="productsDataContainer" style="display: none;">${productsJson}</div>
+<div id="categoriesDataContainer" style="display: none;">${categoriesJson}</div>
+
+<script>
+// ── GLOBALS & STORE ──────────────────────────────────────────────────
+let channelsList = [];
+const channelsDataElem = document.getElementById("channelsDataContainer");
+if (channelsDataElem) {
+    try {
+        channelsList = JSON.parse(channelsDataElem.textContent.trim());
+    } catch (e) {
+        console.error("Failed to parse channels data:", e);
+    }
+}
+let DB_CATEGORIES = [];
+const categoriesDataElem = document.getElementById("categoriesDataContainer");
+if (categoriesDataElem && categoriesDataElem.textContent.trim()) {
+    try {
+        DB_CATEGORIES = JSON.parse(categoriesDataElem.textContent.trim()).map(function(c) {
+            return { categoryId: c.id, categoryName: c.name, parentId: c.parentId };
+        });
+    } catch (e) {
+        console.error("Failed to parse categories data:", e);
+    }
+}
+let mainTab = "products"; // products | pricing | channels
+let filterChannel = "all";
+let productSearchVal = "";
+
+let channelProducts = [];
+let pricingRecords = [];
+let wmsSKUs = [];
+
+// Wizard states
+let wizStep = 1; // 1 | 2 | 3
+let wizSelectedMasterSKU = null;
+/** Array of Channel objects from DB — must use .platform/.channelId, NOT string comparisons. */
+let wizSelectedChannels = [];
+let wizMasterSearchQuery = "";
+let wizChannelConfigs = {
+    lazada: { category: "Văn phòng phẩm > Phụ kiện học sinh", lazadaCategoryId: null, lazadaCategoryName: "", price: 150000, brand: "" }
+};
+let wizChannelImages = { lazada: [] };
+// Lazada leaf categories loaded from /sales/lazada-categories/sync on demand
+let LAZADA_LEAVES = [];
+
+// Edit states
+let editTargetProductId = null;
+let editImagesList = [];
+
+// Pricing states
+let pricingSelectedChannel = "lazada";
+let pricingSaveStatusText = "Chưa lưu";
+
+// High-quality default covers to prevent placeholder look
+const DYNAMIC_PRODUCT_COVERS = {
+    "Vở": "https://images.unsplash.com/photo-1531346878377-a5be20888e57?auto=format&fit=crop&q=80&w=400",
+    "Gương": "https://images.unsplash.com/photo-1595959183075-c1d09e7a9cf1?auto=format&fit=crop&q=80&w=400",
+    "Lược": "https://images.unsplash.com/photo-1590156546746-c58d08593010?auto=format&fit=crop&q=80&w=400",
+    "Bút": "https://images.unsplash.com/photo-1583485088034-697b5bc54ccd?auto=format&fit=crop&q=80&w=400",
+    "Thước": "https://images.unsplash.com/photo-1513542789411-b6a5d4f31634?auto=format&fit=crop&q=80&w=400",
+    "Kéo": "https://images.unsplash.com/photo-1543002588-bfa74002ed7e?auto=format&fit=crop&q=80&w=400"
+};
+
+function getDynamicCover(name) {
+    for (let key in DYNAMIC_PRODUCT_COVERS) {
+        if (name.toLowerCase().includes(key.toLowerCase())) {
+            return DYNAMIC_PRODUCT_COVERS[key];
+        }
+    }
+    return "https://images.unsplash.com/photo-1543002588-bfa74002ed7e?auto=format&fit=crop&q=80&w=400";
+}
+
+// ── INIT DOMContentLoaded ──────────────────────────────────────────
+document.addEventListener("DOMContentLoaded", function() {
+    loadData();
+    renderAll();
+});
+
+function loadData() {
+    // 1. Approved Master SKUs from database productsDataContainer (fallback to local storage)
+    const prodElem = document.getElementById("productsDataContainer");
+    if (prodElem && prodElem.textContent.trim()) {
+        try {
+            const parsed = JSON.parse(prodElem.textContent.trim());
+            wmsSKUs = parsed.map(p => {
+                return {
+                    id: p.productId,
+                    sku: p.sku || p.skuCode || '',
+                    name: p.name || p.productName || '',
+                    category: p.categoryName || '',
+                    categoryId: p.categoryId || null,
+                    qtyOnHand: p.qtyOnHand || 0,
+                    weight: p.weight,
+                    dimensions: p.dimensions
+                };
+            });
+        } catch(e) {
+            console.error("Failed to parse database products data:", e);
+            wmsSKUs = [];
+        }
+    } else {
+        const storedWMS = localStorage.getItem("wms_skus");
+        if (storedWMS) {
+            try {
+                wmsSKUs = JSON.parse(storedWMS).map(p => ({
+                    productId: p.productId || p.id,
+                    id: p.id || p.productId,
+                    sku: p.sku || p.skuCode || '',
+                    name: p.name || p.productName || '',
+                    category: p.categoryName || p.category || '',
+                    categoryId: p.categoryId || null,
+                    qtyOnHand: p.qtyOnHand || 0,
+                    weight: p.weight, dimensions: p.dimensions
+                }));
+            } catch(e) { wmsSKUs = []; }
+        } else {
+            wmsSKUs = [];
+        }
+    }
+
+    // 2. Channel Products
+    const storedCP = localStorage.getItem("channel_products_v2");
+    if (storedCP) {
+        try { channelProducts = JSON.parse(storedCP); } catch(e) { channelProducts = []; }
+    } else {
+        // Zero hardcoded seed data fallback
+        channelProducts = [];
+        localStorage.setItem("channel_products_v2", JSON.stringify([]));
+    }
+
+    // 3. Pricing Configuration (sales pricing)
+    const storedPricing = localStorage.getItem("wh_pricing_sales");
+    if (storedPricing) {
+        try { pricingRecords = JSON.parse(storedPricing); } catch(e) { pricingRecords = []; }
+    } else {
+        // Initialize pricingRecords dynamically based on approved WMS SKUs (no hardcoded templates)
+        pricingRecords = wmsSKUs.map(sku => {
+            const importP = sku.importPrice || 50000;
+            const retailP = sku.price || (importP * 1.5);
+            const promoP = Math.round(retailP * 0.9);
+            const today = new Date().toISOString().slice(0,10);
+            return {
+                id: sku.id || "pr_" + sku.sku,
+                sku: sku.sku,
+                name: sku.name,
+                category: sku.category || "General",
+                status: "active",
+                qtyOnHand: sku.qtyOnHand || 0,
+                importPrice: importP,
+                costOfGoodsSold: importP,
+                importUpdatedAt: today + " 12:00",
+                channelPrices: {
+                    shopee: { retailPrice: retailP, promoPrice: promoP, effectiveDate: today },
+                    tiktok: { retailPrice: retailP, promoPrice: promoP, effectiveDate: today },
+                    lazada: { retailPrice: retailP, promoPrice: promoP, effectiveDate: today },
+                    website: { retailPrice: retailP, promoPrice: promoP, effectiveDate: today }
+                }
+            };
+        });
+        localStorage.setItem("wh_pricing_sales", JSON.stringify(pricingRecords));
+    }
+
+    // Load last saved pricing timestamp
+    const timestamp = localStorage.getItem("wh_pricing_sales_timestamp");
+    pricingSaveStatusText = timestamp ? "Đã lưu lúc " + timestamp : "Chưa lưu";
+}
+
+function saveData() {
+    localStorage.setItem("channel_products_v2", JSON.stringify(channelProducts));
+    localStorage.setItem("wh_pricing_sales", JSON.stringify(pricingRecords));
+    window.dispatchEvent(new CustomEvent("ORDER_STORE_UPDATED"));
+}
+
+// ── TOAST NOTIFICATIONS ──
+function showToast(msg, type = "success") {
+    const toast = document.getElementById("opToast");
+    const label = document.getElementById("opToastMsg");
+    const icon = document.getElementById("opToastIcon");
+    
+    if (type === "success") {
+        toast.style.background = "#059669";
+        icon.innerHTML = `<path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline>`;
+    } else {
+        toast.style.background = "#dc2626";
+        icon.innerHTML = `<circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line>`;
+    }
+    label.textContent = msg;
+    
+    toast.style.opacity = 1;
+    toast.style.transform = "translateY(0)";
+    setTimeout(() => {
+        toast.style.opacity = 0;
+        toast.style.transform = "translateY(-20px)";
+    }, 4000);
+}
+
+// ── RENDER ROOT CONTROL ──────────────────────────────────────────────
+function renderAll() {
+    if (mainTab === "products") {
+        renderProductsTab();
+    } else if (mainTab === "pricing") {
+        renderPricingTab();
+    } else if (mainTab === "channels") {
+        renderChannelsTab();
+    }
+}
+
+function switchMainTab(tab) {
+    mainTab = tab;
+    document.getElementById("tabProductsBtn").classList.remove("active");
+    document.getElementById("tabPricingBtn").classList.remove("active");
+    document.getElementById("tabChannelsBtn").classList.remove("active");
+    
+    document.getElementById("tabProductsContent").style.display = "none";
+    document.getElementById("tabPricingContent").style.display = "none";
+    document.getElementById("tabChannelsContent").style.display = "none";
+    
+    if (tab === "products") {
+        document.getElementById("tabProductsBtn").classList.add("active");
+        document.getElementById("tabProductsContent").style.display = "block";
+    } else if (tab === "pricing") {
+        document.getElementById("tabPricingBtn").classList.add("active");
+        document.getElementById("tabPricingContent").style.display = "block";
+    } else {
+        document.getElementById("tabChannelsBtn").classList.add("active");
+        document.getElementById("tabChannelsContent").style.display = "block";
+    }
+    renderAll();
+}
+
+function escapeHtml(str) {
+    if (!str) return "";
+    return str.replace(/&/g, "&amp;")
+              .replace(/</g, "&lt;")
+              .replace(/>/g, "&gt;")
+              .replace(/"/g, "&quot;")
+              .replace(/'/g, "&#039;");
+}
+
+function buildCategorySelectOptions(categories, selectedValue) {
+    let html = "";
+    function recurse(parentId, prefix) {
+        categories.filter(function(c) {
+            const p = c.parentId;
+            return (parentId === null) ? (p === null || p === 0 || p === 'null') : (p == parentId);
+        }).forEach(function(node) {
+            const isSel = (node.categoryName === selectedValue) ? "selected" : "";
+            html += '<option value="' + escapeHtml(node.categoryName) + '" ' + isSel + '>' + prefix + escapeHtml(node.categoryName) + '</option>';
+            recurse(node.categoryId, prefix + '    ');
+        });
+    }
+    recurse(null, '');
+    return html;
+}
+
+function renderChannelsTab() {
+    const grid = document.getElementById("channelsGrid");
+    if (!grid) return;
+    
+    if (!channelsList || channelsList.length === 0) {
+        grid.innerHTML = `
+            <div style="grid-column: 1 / -1; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 4rem 2rem; background: white; border: 1px solid #E5EAF3; border-radius: var(--radius-card); text-align: center;">
+                <h4 style="color: var(--navy); font-size: 15px; font-weight: 700; margin: 0 0 0.5rem 0;">Chưa cấu hình kênh bán hàng nào</h4>
+                <p style="color: rgba(16,55,92,0.45); font-size: 13px; margin: 0;">Vui lòng liên hệ Administrator để cấu hình kết nối kênh bán hàng.</p>
+            </div>
+        `;
+        return;
+    }
+    
+    grid.innerHTML = channelsList.map(chan => {
+        const platformBadge = chan.platform === 'Lazada' 
+            ? `<span style="background: rgba(16,115,230,0.1); color: #1073e6; padding: 0.25rem 0.5rem; font-size: 10px; font-weight: 800; border-radius: 4px; border: 1px solid rgba(16,115,230,0.2);">LAZADA</span>`
+            : chan.platform === 'Shopee'
+                ? `<span style="background: rgba(238,77,45,0.1); color: #ee4d2d; padding: 0.25rem 0.5rem; font-size: 10px; font-weight: 800; border-radius: 4px; border: 1px solid rgba(238,77,45,0.2);">SHOPEE</span>`
+                : `<span style="background: rgba(0,0,0,0.08); color: #000000; padding: 0.25rem 0.5rem; font-size: 10px; font-weight: 800; border-radius: 4px; border: 1px solid rgba(0,0,0,0.15);">TIKTOK SHOP</span>`;
+                
+        const statusBadge = chan.active
+            ? `<span style="display: inline-flex; align-items: center; gap: 0.25rem; padding: 0.125rem 0.5rem; background: #e6f7ed; color: #10b981; font-size: 11px; font-weight: 700; border-radius: 20px; border: 1px solid rgba(16,185,129,0.2);">Active</span>`
+            : `<span style="display: inline-flex; align-items: center; gap: 0.25rem; padding: 0.125rem 0.5rem; background: #f3f5f8; color: rgba(16,55,92,0.4); font-size: 11px; font-weight: 700; border-radius: 20px; border: 1px solid #E5EAF3;">Inactive</span>`;
+
+        return `
+            <div style="background: white; border: 1px solid #E5EAF3; border-radius: var(--radius-card); padding: 1.5rem; display: flex; flex-direction: column; justify-content: space-between; transition: box-shadow 0.2s, transform 0.2s;">
+                <div>
+                    <!-- Header -->
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+                        <div style="display: flex; align-items: center; gap: 0.75rem;">
+                            \${platformBadge}
+                            <h4 style="color: var(--navy); font-size: 15px; font-weight: 700; margin: 0;">\${escapeHtml(chan.channelName)}</h4>
+                        </div>
+                        \${statusBadge}
+                    </div>
+
+                    <!-- Config Details -->
+                    <div style="font-size: 12px; color: rgba(16,55,92,0.70); margin-bottom: 1.25rem; display: flex; flex-direction: column; gap: 0.5rem;">
+                        <div style="display: flex; justify-content: space-between;">
+                            <span>API Endpoint:</span>
+                            <span style="font-family: monospace; font-weight: 600; color: var(--navy); text-overflow: ellipsis; overflow: hidden; white-space: nowrap; max-width: 14rem;">\${escapeHtml(chan.apiUrl)}</span>
+                        </div>
+                        <div style="display: flex; justify-content: space-between; align-items: center;">
+                            <span>Webhook Status:</span>
+                            <span style="color: #10b981; font-weight: 700; display: inline-flex; align-items: center; gap: 0.25rem;">
+                                <span style="display: inline-block; width: 6px; height: 6px; border-radius: 50%; background: #10b981;"></span>Live
+                            </span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Buffer Stock Edit Form -->
+                <div style="border-top: 1px dashed #E5EAF3; padding-top: 0.75rem; display: flex; flex-direction: column; gap: 0.5rem;">
+                    <label style="font-size: 12px; font-weight: 600; color: rgba(16,55,92,0.7);">Số lượng tồn đệm (Buffer Stock):</label>
+                    <div style="display: flex; gap: 0.5rem; align-items: center;">
+                        <input type="number" id="bufferStock_\${chan.channelId}" value="\${chan.bufferStock}" min="0" step="0.5"
+                               style="flex: 1; padding: 0.5rem; background: var(--alice); border: 1px solid #E5EAF3; color: var(--navy); font-size: 13px; outline: none; border-radius: 4px;" />
+                        <button type="button" onclick="updateChannelBufferStock('\${chan.channelId}')"
+                                style="padding: 0.5rem 1rem; background: var(--orange); color: white; border: none; font-size: 12px; font-weight: 700; border-radius: 4px; cursor: pointer; box-shadow: 0 4px 10px rgba(235,131,23,0.15);">
+                            Cập nhật
+                        </button>
+                    </div>
+                </div>
+            </div>
+        `;
+    }).join("");
+}
+
+function updateChannelBufferStock(channelId) {
+    const bufferStockInput = document.getElementById("bufferStock_" + channelId);
+    if (!bufferStockInput) return;
+    const value = parseFloat(bufferStockInput.value);
+    if (isNaN(value) || value < 0) {
+        showToast("Vui lòng nhập số lượng tồn đệm hợp lệ!", "error");
+        return;
+    }
+
+    const params = new URLSearchParams();
+    params.append("action", "updateBufferStock");
+    params.append("channelId", channelId);
+    params.append("bufferStock", value);
+
+    fetch('${pageContext.request.contextPath}/sales/channel-products', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: params.toString()
+    })
+    .then(r => r.json())
+    .then(data => {
+        if (data.success) {
+            showToast("Đã cập nhật tồn đệm của kênh thành công!");
+            const chan = channelsList.find(c => c.channelId == channelId);
+            if (chan) {
+                chan.bufferStock = value;
+            }
+            renderChannelsTab();
+        } else {
+            showToast("Cập nhật thất bại: " + data.message, "error");
+        }
+    })
+    .catch(err => {
+        console.error(err);
+        showToast("Không thể kết nối đến server. Thử lại sau!", "error");
+    });
+}
+
+// ── TAB 1: PRODUCTS LISTING & HANDLERS ────────────────────────────────
+function renderProductsTab() {
+    // 1. Filter products
+    const filtered = channelProducts.filter(p => {
+        const matchChannel = filterChannel === "all" || p.channel.toLowerCase() === filterChannel.toLowerCase();
+        const matchSearch = !productSearchVal ||
+            p.productName.toLowerCase().includes(productSearchVal.toLowerCase()) ||
+            p.masterSKU.toLowerCase().includes(productSearchVal.toLowerCase()) ||
+            p.channelSKU.toLowerCase().includes(productSearchVal.toLowerCase());
+        return matchChannel && matchSearch;
+    });
+
+    // 2. Calculate Stats
+    const statsTotal = filtered.length;
+    const statsActive = filtered.filter(p => p.status === "active").length;
+    const statsOOS = filtered.filter(p => p.stock - (p.bufferStock || 0) <= 0).length;
+    const totalValVal = filtered.reduce((sum, p) => sum + (p.price * p.stock), 0);
+
+
+
+    // 3. Render Table
+    const tbody = document.getElementById("cpProductsTableBody");
+    tbody.innerHTML = "";
+
+    if (filtered.length === 0) {
+        tbody.innerHTML = `
+            <tr>
+                <td colspan="11" class="op-empty">
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" /></svg>
+                    Chưa có sản phẩm nào được đồng bộ lên sàn. Bấm 'Đẩy sản phẩm lên sàn' để bắt đầu.
+                </td>
+            </tr>
+        `;
+        return;
+    }
+
+    filtered.forEach(p => {
+        const tr = document.createElement("tr");
+
+        // Sync connection state UI
+        let syncHtml = "";
+        if (p.syncStatus === "syncing") {
+            syncHtml = `<span class="cp-sync-status syncing">Đang đồng bộ...</span>`;
+        } else if (p.syncStatus === "failed") {
+            syncHtml = `<span class="cp-sync-status failed" onclick="alert('LỖI ĐỒNG BỘ: Mất kết nối API Gateway đến sàn TMĐT hoặc Token của Shop đã hết hạn. Vui lòng kiểm tra lại cấu hình kết nối sàn ở cài đặt hệ thống.')">Lỗi kết nối</span>`;
+        } else {
+            syncHtml = `<span class="cp-sync-status success">Thành công</span>`;
+        }
+
+        // Status badge config
+        let statusClass = "active";
+        let statusLabel = "Đang bán";
+        if (p.status === "out_of_stock" || p.stock === 0) {
+            statusClass = "out_of_stock";
+            statusLabel = "Hết hàng";
+        } else if (p.status === "inactive") {
+            statusClass = "inactive";
+            statusLabel = "Ngừng bán";
+        }
+
+        // Channel styling color map
+        const chColors = { shopee: "#EE4D2D", tiktok: "#69C9D0", lazada: "#0F146D", website: "#EB8317" };
+        const chNames = { shopee: "Shopee", tiktok: "TikTok", lazada: "Lazada", website: "Website" };
+        const chCol = chColors[p.channel] || "#64748b";
+        const chName = chNames[p.channel] || p.channel;
+
+        tr.innerHTML = `
+            <td><span class="cp-font-mono" style="color:rgba(16, 55, 92, 0.7)">\${p.masterSKU}</span></td>
+            <td><span class="cp-font-mono" style="color:var(--navy);font-weight:700">\${p.channelSKU}</span></td>
+            <td>
+                <div style="min-width: 220px; max-width: 320px;">
+                    <div style="font-weight: 700; color: var(--navy); font-size: 13px">\${p.productName}</div>
+                    <div class="cp-p-desc">\${p.description || ""}</div>
+                    \${p.channelItemId ? '<div class="cp-p-id">ID Sàn: ' + p.channelItemId + '</div>' : ""}
+                </div>
+            </td>
+            <td>
+                <span class="cp-badge-channel" style="background:\${chCol}">\${chName}</span>
+            </td>
+            <td style="text-align: right; font-weight: 700; font-size: 13px; white-space:nowrap">\${Number(p.price).toLocaleString()}đ</td>
+            <td style="text-align: right; font-weight: 600; color: \${p.stock === 0 ? "#ef4444" : "#059669"}">\${p.stock}</td>
+            <td style="text-align: center;">
+                <input type="number" class="cp-input-text cp-input-buffer" min="0" value="\${p.bufferStock || 0}" onchange="onBufferStockInput('\${p.id}', this.value)" title="Cài đặt hàng đệm an toàn để tránh bán lố (Overselling)" />
+            </td>
+            <td style="text-align: right; font-weight: 700; font-family: monospace; font-size: 13px">
+                \${Math.max(0, p.stock - (p.bufferStock || 0))}
+            </td>
+            <td>\${syncHtml}</td>
+            <td>
+                <span class="cp-status-pill \${statusClass}">\${statusLabel}</span>
+            </td>
+            <td>
+                <div style="display:flex; justify-content:center; gap:0.25rem">
+                    <button class="cp-btn-edit" onclick="openEditModal('\${p.id}')" title="Sửa sản phẩm">
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>
+                    </button>
+                    <button class="cp-btn-delete" onclick="deleteChannelProduct('\${p.id}', '\${p.masterSKU}')" title="Xóa sản phẩm khỏi kênh">
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                    </button>
+                </div>
+            </td>
+        `;
+        tbody.appendChild(tr);
+    });
+}
+
+function onChannelFilterChange(val) {
+    filterChannel = val;
+    renderProductsTab();
+}
+
+function onProductSearch(val) {
+    productSearchVal = val;
+    renderProductsTab();
+}
+
+// ── BUFFER STOCK CHANGE ────────────────────────────────────────────────
+function onBufferStockInput(productId, value) {
+    const nextVal = Math.max(0, parseInt(value) || 0);
+
+    channelProducts = channelProducts.map(p => {
+        if (p.id === productId) {
+            return { ...p, bufferStock: nextVal };
+        }
+        return p;
+    });
+    saveData();
+    renderProductsTab();
+    showToast("Đã cập nhật hàng đệm an toàn. Tính năng đồng bộ tự động đang chờ tích hợp API.", "info");
+}
+
+// ── DELETE CHANNEL PRODUCT ────────────────────────────────────────────
+function deleteChannelProduct(productId, masterSKU) {
+    if (!confirm('Bạn có chắc muốn xóa sản phẩm "' + masterSKU + '" khỏi kênh bán hàng?\nThao tác này không thể hoàn tác.')) return;
+    channelProducts = channelProducts.filter(p => p.id !== productId);
+    saveData();
+    renderProductsTab();
+    showToast('Đã xóa sản phẩm ' + masterSKU + ' khỏi kênh bán hàng.');
+}
+
+// ── MANUAL INVENTORY SYNC ──────────────────────────────────────────────
+function syncInventoryToChannel() {
+    showToast("Tính năng đồng bộ tồn kho tự động đang chờ tích hợp Lazada Inventory API.", "info");
+}
+
+// ── PRODUCT PUBLISH ────────────────────────────────────────────────────
+function executePublishProduct() {
+    // Lazada channels selected in the wizard — extract real channelId from DB data
+    const lazadaChan = wizSelectedChannels.find(c => c.platform && c.platform.toLowerCase() === "lazada");
+    const channelId = lazadaChan ? lazadaChan.channelId : null;
+
+    // Disable the wizard's Next/Publish button so double-clicks don't
+    // create duplicate items on Lazada. Use id, not a non-existent class.
+    const pushBtn = document.getElementById("btnWizNext");
+
+    if (!channelId) {
+        showToast("Vui lòng chọn kênh Lazada trước khi đẩy sản phẩm.", "error");
+        if (pushBtn) pushBtn.disabled = false;
+        return;
+    }
+
+    const productId = wizSelectedMasterSKU
+        ? (wizSelectedMasterSKU.productId || wizSelectedMasterSKU.id)
+        : null;
+    if (productId === null || productId === undefined || productId === "" || Number.isNaN(Number(productId))) {
+        console.error("[executePublishProduct] bad productId. wizSelectedMasterSKU:", JSON.stringify(wizSelectedMasterSKU),
+            " wizStep:", wizStep, "wmsSKUs count:", wmsSKUs.length);
+        showToast("Không xác định được sản phẩm cần đẩy. Hãy F5 trang rồi chọn lại SKU.", "error");
+        if (pushBtn) pushBtn.disabled = false;
+        return;
+    }
+
+    if (pushBtn) {
+        pushBtn.disabled = true;
+        pushBtn.textContent = "Đang đẩy lên Lazada...";
+    }
+
+    // Validate images: server URLs must be ready (no data:image URIs pending upload).
+    // wizChannelImages entries are now {url, base64} objects.
+    const imgs = wizChannelImages.lazada || [];
+    const pending = imgs.filter(function(img) {
+        const url = (img && typeof img === "object") ? img.url : img;
+        return url && typeof url === "string" && url.startsWith("data:");
+    });
+    if (pending.length > 0) {
+        showToast("Vui lòng chờ ảnh upload xong rồi thử lại.", "error");
+        if (pushBtn) { pushBtn.disabled = false; renderWizProgress(); }
+        return;
+    }
+
+    pushToLazada(channelId, productId).then(result => {
+        console.log("[executePublishProduct] server result:", JSON.stringify(result));
+        if (result.success) {
+            showToast(`Đẩy lên Lazada thành công! item_id=\${result.itemId}`, "success");
+            finalizePublishData(result.itemId, result.skuId);
+        } else if (result.validationErrors && result.validationErrors.length) {
+            showValidationErrors(result.validationErrors);
+            wizStep = 2;
+            renderWizStep2();
+            renderWizProgress();
+        } else if (result.fieldErrors && result.fieldErrors.length) {
+            showFieldErrors(result.fieldErrors);
+        } else {
+            const reason = (result.message || result.code)
+                ? `\${result.message || result.code}`
+                : "Không rõ lý do (server không trả message). Xem Console log.";
+            showToast(`Lỗi Lazada: \${reason}`, "error", 8000);
+        }
+    }).catch(err => {
+        console.error("[executePublishProduct] fetch error:", err);
+        if (/HTML|hết hạn/i.test(err.message)) showSessionExpired();
+        else showToast("Lỗi kết nối: " + err.message, "error");
+    }).finally(() => {
+        if (pushBtn) {
+            pushBtn.disabled = false;
+            // Reset label based on current step (renderWizProgress will keep it consistent)
+            renderWizProgress();
+        }
+    });
+}
+
+function pushToLazada(channelId, productId) {
+    const cfg = wizChannelConfigs.lazada || {};
+    const imgs = wizChannelImages.lazada || [];
+    const params = new URLSearchParams();
+    params.set("action", "push");
+    params.set("channelId", String(channelId));
+    params.set("productId", String(productId));
+    params.set("lazadaCategoryId", cfg.lazadaCategoryId || "");
+    params.set("price", String(cfg.price || 0));
+    params.set("quantity", String(cfg.quantity || 0));
+    params.set("description", cfg.description || "");
+    params.set("shortDescription", cfg.shortDescription || "");
+    params.set("brand", cfg.brand || "No brand");
+    params.set("weight", String(cfg.weight || 0.2));
+    params.set("dimensions", cfg.dimensions || "10x10x10");
+    params.set("sellerSku", cfg.sellerSku || "");
+    if (imgs.length > 0) {
+        // Extract server URLs (prefer url field, fall back to raw string for legacy)
+        const urls = imgs.map(function(img) {
+            return (img && typeof img === "object") ? img.url : img;
+        }).join("|");
+        params.set("imageUrls", urls);
+        // Also send base64 originals — used as fallback when migration fails.
+        const base64s = imgs.map(function(img) {
+            return (img && typeof img === "object") ? img.base64 : img;
+        }).join("|");
+        params.set("imageBase64s", base64s);
+    }
+    return fetchJson(window.location.pathname, {
+        method: "POST",
+        headers: { "Content-Type": "application/x-www-form-urlencoded" },
+        body: params.toString()
+    });
+}
+
+// Lazada leaf category handlers
+function onLazadaLeafChange(sel) {
+    const id = sel.value;
+    const opt = sel.options[sel.selectedIndex];
+    wizChannelConfigs.lazada.lazadaCategoryId = id || null;
+    wizChannelConfigs.lazada.lazadaCategoryName = opt && id ? opt.text : "";
+    wizChannelConfigs.lazada.category = wizChannelConfigs.lazada.lazadaCategoryName;
+}
+
+function loadLazadaLeaves(channelId) {
+    return fetchJson(window.location.pathname, {
+        method: "POST",
+        headers: { "Content-Type": "application/x-www-form-urlencoded" },
+        body: `action=loadLazadaLeaves&channelId=\${channelId}`
+    }).then(data => {
+        if (data.success) {
+            LAZADA_LEAVES = data.leaves || [];
+        }
+        return data;
+    });
+}
+
+function syncLazadaLeaves(channelId) {
+    fetchJson(window.location.pathname, {
+        method: "POST",
+        headers: { "Content-Type": "application/x-www-form-urlencoded" },
+        body: `action=syncLazadaCategories&channelId=\${channelId}`
+    }).then(data => {
+        return loadLazadaLeaves(channelId);
+    }).then(() => {
+        renderWizStep3(); // re-render with fresh leaves — tryAutoFillLazadaLeaf runs again
+    }).catch(function(err) {
+        console.warn("[syncLeaves] failed:", err.message);
+    });
+}
+
+/**
+ * fetchJson — POST a request and parse the response as JSON safely.
+ *
+ * The server-side AuthFilter redirects unauthenticated requests to /login
+ * (302) which the browser then follows, returning the login HTML page. The
+ * old `r.json()` would throw "Unexpected token '<'" on that HTML. This
+ * helper detects the HTML case and surfaces a friendly error so the caller
+ * can show "Phiên đăng nhập hết hạn" instead of crashing.
+ */
+async function fetchJson(url, options) {
+    options = options || {};
+    options.headers = Object.assign(
+        { "Accept": "application/json", "X-Requested-With": "XMLHttpRequest" },
+        options.headers || {}
+    );
+    let r;
+    try {
+        r = await fetch(url, options);
+    } catch (e) {
+        throw new Error("Lỗi mạng: " + e.message);
+    }
+    // 401 from AuthFilter means session expired — server already returned JSON.
+    if (r.status === 401) {
+        showSessionExpired();
+        throw new Error("Phiên đăng nhập đã hết hạn (401).");
+    }
+    // After fetch follows redirects, a 200 with text/html means the server
+    // bounced us to the login page. Surface that explicitly.
+    const ct = (r.headers.get("content-type") || "").toLowerCase();
+    if (ct.indexOf("application/json") === -1) {
+        let snippet = "";
+        try { snippet = (await r.text()).slice(0, 120); } catch (e) {}
+        throw new Error("Server trả về HTML (phiên đăng nhập có thể đã hết hạn). Status " + r.status + ". " + snippet);
+    }
+    try {
+        return await r.json();
+    } catch (e) {
+        throw new Error("Response không phải JSON hợp lệ: " + e.message);
+    }
+}
+
+/** Convenience: show a "session expired" toast and offer re-login. */
+function showSessionExpired() {
+    showToast("Phiên đăng nhập đã hết hạn. Đang chuyển về trang đăng nhập...", "warning", 4000);
+    setTimeout(() => { window.location.href = (window.ctx || "") + "/login"; }, 1500);
+}
+
+function showValidationErrors(errs) {
+    const lines = errs.map(e => `• \${e.message}`).join("\n");
+    showToast(`Vui lòng sửa các lỗi sau:\n\${lines}`, "error", 6000);
+}
+
+function showFieldErrors(errs) {
+    const lines = errs.map(e => `• [\${e.field}] \${e.message}`).join("\n");
+    showToast(`Lazada từ chối:\n\${lines}`, "error", 6000);
+}
+
+// ── TAB 2: PRICING CONFIGURATION & HANDLERS ──────────────────────────
+function renderPricingTab() {
+    const activeCount = pricingRecords.filter(r => r.status === "active").length;
+    const inactiveCount = pricingRecords.filter(r => r.status === "inactive").length;
+
+
+
+    // Highlight active Channel Pill
+    document.querySelectorAll(".pr-channel-pill").forEach(p => p.classList.remove("active"));
+    const selectedBtnId = "prChannel" + pricingSelectedChannel.charAt(0).toUpperCase() + pricingSelectedChannel.slice(1);
+    const activeBtn = document.getElementById(selectedBtnId);
+    if (activeBtn) activeBtn.classList.add("active");
+
+    const channelLabels = { shopee: "Shopee", tiktok: "TikTok", lazada: "Lazada", website: "Website" };
+    document.getElementById("prActiveChannelLabel").textContent = channelLabels[pricingSelectedChannel] || pricingSelectedChannel;
+    document.getElementById("prSaveStatus").textContent = pricingSaveStatusText;
+
+    const tbody = document.getElementById("prPricingTableBody");
+    tbody.innerHTML = "";
+
+    if (pricingRecords.length === 0) {
+        tbody.innerHTML = `
+            <tr>
+                <td colspan="8" class="op-empty">
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>
+                    Không tìm thấy Master SKU nào đã duyệt để cấu hình giá bán.
+                </td>
+            </tr>
+        `;
+        return;
+    }
+
+    pricingRecords.forEach(r => {
+        const editable = r.status === "active";
+        const channelPrice = r.channelPrices[pricingSelectedChannel] || { retailPrice: 0, promoPrice: 0 };
+        const retailMargin = channelPrice.retailPrice - r.importPrice;
+        const promoMargin = channelPrice.promoPrice - r.importPrice;
+
+        // Badge config
+        let badgeHtml = "";
+        if (r.status === "active") {
+            badgeHtml = `<span class="cp-status-pill active">Active</span>`;
+        } else if (r.status === "low_stock") {
+            badgeHtml = `<span class="cp-status-pill out_of_stock" style="background:rgba(245,158,11,.15);color:#d97706">Sắp hết</span>`;
+        } else {
+            badgeHtml = `<span class="cp-status-pill inactive">Inactive</span>`;
+        }
+
+        const tr = document.createElement("tr");
+        tr.innerHTML = `
+            <td>
+                <div class="cp-font-mono" style="color:var(--navy);font-weight:700">\${r.sku}</div>
+                <div style="font-size:11px;color:rgba(16,55,92,.45);margin-top:2px">\${r.category || ""}</div>
+            </td>
+            <td>
+                <div style="font-weight: 600; color: var(--navy)">\${r.name}</div>
+                <div style="font-size:11px;color:rgba(16,55,92,.45);margin-top:2px">Chỉ áp dụng cho kênh \${channelLabels[pricingSelectedChannel]}</div>
+            </td>
+            <td style="text-align: center">\${badgeHtml}</td>
+            <td style="text-align: right; font-weight: 700">\${Number(r.importPrice).toLocaleString()}đ</td>
+            <td style="text-align: right">
+                <input type="number" class="pr-price-input" min="0" value="\${channelPrice.retailPrice}" oninput="onPricingPriceChange('\${r.id}', 'retailPrice', this.value)" \${editable ? "" : "disabled"} />
+            </td>
+            <td style="text-align: right">
+                <input type="number" class="pr-price-input" min="0" value="\${channelPrice.promoPrice}" oninput="onPricingPriceChange('\${r.id}', 'promoPrice', this.value)" \${editable ? "" : "disabled"} />
+            </td>
+            <td style="text-align: right">
+                <div style="font-weight: 700; color: var(--navy)">\${Math.max(retailMargin, promoMargin).toLocaleString()}đ</div>
+                <div style="font-size:11px;color:rgba(16,55,92,.45);margin-top:1px">Promo: \${promoMargin.toLocaleString()}đ</div>
+            </td>
+            <td style="text-align: right">
+                <button class="pr-save-btn" onclick="savePricingRecord('\${r.id}')" \${editable ? "" : "disabled"}>
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4" /></svg>
+                    Lưu
+                </button>
+            </td>
+        `;
+        tbody.appendChild(tr);
+    });
+}
+
+function setPricingChannel(channel) {
+    pricingSelectedChannel = channel;
+    renderPricingTab();
+}
+
+function onPricingPriceChange(recordId, field, value) {
+    const nextVal = Math.max(0, Number(value) || 0);
+    pricingRecords = pricingRecords.map(r => {
+        if (r.id === recordId) {
+            const updatedChannelPrices = { ...r.channelPrices };
+            updatedChannelPrices[pricingSelectedChannel] = {
+                ...updatedChannelPrices[pricingSelectedChannel],
+                [field]: nextVal
+            };
+            return { ...r, channelPrices: updatedChannelPrices };
+        }
+        return r;
+    });
+    pricingSaveStatusText = "Có thay đổi chưa lưu";
+    document.getElementById("prSaveStatus").textContent = pricingSaveStatusText;
+}
+
+function savePricingRecord(recordId) {
+    const today = new Date().toISOString().slice(0, 10);
+    pricingRecords = pricingRecords.map(r => {
+        if (r.id === recordId) {
+            const updatedChannelPrices = { ...r.channelPrices };
+            updatedChannelPrices[pricingSelectedChannel] = {
+                ...updatedChannelPrices[pricingSelectedChannel],
+                effectiveDate: today
+            };
+            return { ...r, channelPrices: updatedChannelPrices };
+        }
+        return r;
+    });
+
+    // Also update any matching product in channelProducts list
+    const record = pricingRecords.find(r => r.id === recordId);
+    if (record) {
+        channelProducts = channelProducts.map(p => {
+            if (p.masterSKU === record.sku && p.channel === pricingSelectedChannel) {
+                const specConfig = record.channelPrices[pricingSelectedChannel];
+                return { ...p, price: specConfig.retailPrice };
+            }
+            return p;
+        });
+    }
+
+    saveData();
+    const timeStr = new Date().toLocaleTimeString("vi-VN");
+    pricingSaveStatusText = "Đã lưu lúc " + timeStr;
+    localStorage.setItem("wh_pricing_sales_timestamp", timeStr);
+    renderPricingTab();
+    showToast("Cập nhật giá bán thành công cho SKU!");
+}
+
+function saveAllPricingRecords() {
+    const today = new Date().toISOString().slice(0, 10);
+    pricingRecords = pricingRecords.map(r => {
+        const updatedChannelPrices = { ...r.channelPrices };
+        for (let ch in updatedChannelPrices) {
+            updatedChannelPrices[ch] = {
+                ...updatedChannelPrices[ch],
+                effectiveDate: today
+            };
+        }
+        return { ...r, channelPrices: updatedChannelPrices };
+    });
+
+    // Sync all channel products prices
+    channelProducts = channelProducts.map(p => {
+        const record = pricingRecords.find(r => r.sku === p.masterSKU);
+        if (record && record.channelPrices[p.channel]) {
+            return { ...p, price: record.channelPrices[p.channel].retailPrice };
+        }
+        return p;
+    });
+
+    saveData();
+    const timeStr = new Date().toLocaleTimeString("vi-VN");
+    pricingSaveStatusText = "Đã lưu tất cả - " + timeStr;
+    localStorage.setItem("wh_pricing_sales_timestamp", timeStr);
+    renderPricingTab();
+    showToast("Đã lưu bảng cấu hình giá bán của tất cả sản phẩm!");
+}
+
+// ── TAB 1 MODAL: PUBLISH NEW WIZARD ──────────────────────────────────
+function openPublishWizard() {
+    console.log("[openPublishWizard] wmsSKUs count:", wmsSKUs.length, "productsDataContainer:",
+        document.getElementById("productsDataContainer")?.textContent?.trim().length || 0);
+    if (wmsSKUs.length === 0) {
+        // If we have data in the container but wmsSKUs is empty, reload
+        const prodElem = document.getElementById("productsDataContainer");
+        if (prodElem && prodElem.textContent.trim()) {
+            try {
+                const parsed = JSON.parse(prodElem.textContent.trim());
+                wmsSKUs = parsed.map(p => ({
+                    productId: p.productId,
+                    id: p.productId,
+                    sku: p.sku || p.skuCode || '',
+                    name: p.name || p.productName || '',
+                    category: p.categoryName || '',
+                    categoryId: p.categoryId || null,
+                    qtyOnHand: p.qtyOnHand || 0,
+                    weight: p.weight, dimensions: p.dimensions
+                }));
+                console.log("[openPublishWizard] reloaded wmsSKUs:", wmsSKUs.length);
+            } catch(e) { console.error("[openPublishWizard] parse error:", e); }
+        }
+    }
+    if (wmsSKUs.length === 0) {
+        showToast("Không tìm thấy Master SKU nào đang hoạt động. Hãy tạo + duyệt sản phẩm trước ở /products.", "error", 6000);
+        return;
+    }
+
+    wizStep = 1;
+    wizSelectedMasterSKU = null;
+    wizSelectedChannels = []; // will hold Channel objects: { channelId, platform, channelName, ... }
+    wizMasterSearchQuery = "";
+    const defaultCat = (DB_CATEGORIES.length > 0) ? DB_CATEGORIES[0].categoryName : "General";
+    wizChannelConfigs = {
+        lazada: { category: defaultCat, lazadaCategoryId: null, lazadaCategoryName: "", price: 150000, brand: "" }
+    };
+
+    // Clear wizard image states
+    wizChannelImages = { lazada: [] };
+
+    document.getElementById("publishWizardOverlay").classList.add("open");
+    document.getElementById("wizStep1SearchInp").value = "";
+
+    renderWizStep1();
+    renderWizProgress();
+
+    // Eagerly load Lazada leaves from the first Lazada channel so step 3 has data
+    const firstLazada = (channelsList || []).find(c => c.platform && c.platform.toLowerCase() === 'lazada');
+    if (firstLazada) {
+        loadLazadaLeaves(firstLazada.channelId);
+        // Pre-fetch all category mappings so SKU selection gets instant auto-fill
+        preFetchCategoryMappings(firstLazada.channelId);
+    }
+}
+
+function closePublishWizard() {
+    document.getElementById("publishWizardOverlay").classList.remove("open");
+    document.getElementById("sandboxOverlay").classList.remove("open");
+}
+
+function renderWizProgress() {
+    const list = [1, 2, 3];
+    list.forEach(s => {
+        const ind = document.getElementById("wizInd" + s);
+        const num = document.getElementById("wizIndNum" + s);
+
+        ind.classList.remove("active", "done");
+        if (s < wizStep) {
+            ind.classList.add("done");
+            num.textContent = "✓";
+        } else if (s === wizStep) {
+            ind.classList.add("active");
+            num.textContent = s;
+        } else {
+            num.textContent = s;
+        }
+    });
+
+    // Toggle navigation buttons
+    document.getElementById("btnWizPrev").style.display = (wizStep > 1) ? "inline-flex" : "none";
+    document.getElementById("btnWizNext").textContent = (wizStep < 3) ? "Tiếp tục" : "ĐỒNG BỘ LÊN SÀN (PUBLISH)";
+}
+
+function onWizMasterSearch(val) {
+    wizMasterSearchQuery = val;
+    renderWizMasterList();
+}
+
+function renderWizMasterList() {
+    const listDiv = document.getElementById("wizMasterSKUList");
+    listDiv.innerHTML = "";
+
+    const query = wizMasterSearchQuery.toLowerCase().trim();
+    const filtered = wmsSKUs.filter(s =>
+        s.name.toLowerCase().includes(query) ||
+        s.sku.toLowerCase().includes(query)
+    );
+
+    if (filtered.length === 0) {
+        listDiv.innerHTML = `<div style="padding: 1.5rem; text-align: center; color: rgba(16, 55, 92, 0.45); font-size:13px">Không tìm thấy Master SKU nào khớp với từ khóa</div>`;
+        return;
+    }
+
+    filtered.forEach(sku => {
+        const isSelected = wizSelectedMasterSKU && wizSelectedMasterSKU.sku === sku.sku;
+        const row = document.createElement("div");
+        row.className = "cp-wiz-row" + (isSelected ? " selected" : "");
+        row.onclick = () => {
+            selectWizMasterSKU(sku);
+        };
+        row.innerHTML = `
+            <div style="flex: 1">
+                <div style="font-weight:700;font-size:13px;color:var(--navy)">\${sku.name}</div>
+                <div style="font-size:11px;color:rgba(16, 55, 92, 0.45);margin-top:2px;font-family:monospace">
+                    SKU: \${sku.sku} | Phân loại: \${sku.category || "Chưa phân loại"}
+                </div>
+            </div>
+            <div style="display:flex;align-items:center;gap:0.75rem">
+                <span class="cp-status-pill active" style="font-size:10px">Đã duyệt</span>
+                <div class="cp-wiz-row-radio">
+                    <div class="cp-wiz-row-radio-inner"></div>
+                </div>
+            </div>
+        `;
+        listDiv.appendChild(row);
+    });
+}
+
+function selectWizMasterSKU(sku) {
+    wizSelectedMasterSKU = sku;
+    renderWizMasterList();
+
+    // Pre-fill wizard fields with SKU defaults so the user doesn't accidentally
+    // push a product at 150,000 VND (the old hardcoded default).
+    // basePrice = product's cost price in WMS — sales can override before pushing.
+    const basePrice = (sku.basePrice && sku.basePrice > 0) ? sku.basePrice : 100000;
+    const qty = (sku.qtyOnHand && sku.qtyOnHand > 0) ? Math.floor(sku.qtyOnHand) : 0;
+    wizChannelConfigs.lazada.price = basePrice;
+    wizChannelConfigs.lazada.quantity = qty;
+    wizChannelConfigs.lazada.weight = parseFloat(String(sku.weightKg || sku.weight || 0.2).replace(/[^0-9.]/g, '')) || 0.2;
+    wizChannelConfigs.lazada.dimensions = sku.dimensions || "10x10x10";
+    wizChannelConfigs.lazada.sellerSku = (sku.sku || "").trim();
+    wizChannelConfigs.lazada.description = sku.shortDescription || sku.description || "";
+    wizChannelConfigs.lazada.shortDescription = sku.shortDescription || "";
+
+    // Fill specifications details card
+    document.getElementById("wizSpecName").textContent = sku.name;
+    document.getElementById("wizSpecCode").textContent = sku.sku;
+    document.getElementById("wizSpecWeight").textContent = sku.weight || "0.1 kg";
+    document.getElementById("wizSpecDimensions").textContent = sku.dimensions || "10x10x10 cm";
+    document.getElementById("wizMasterSpecCard").style.display = "block";
+
+    // Set default covers in Step 3 based on name mapping
+    const defaultImg = getDynamicCover(sku.name);
+    wizChannelImages = {
+        lazada: [{ url: defaultImg, base64: defaultImg }]
+    };
+
+    // Auto-fill Lazada category from WMS → Lazada mapping (UC-B2C09).
+    // Use channelsList (available globally from page load) — NOT wizSelectedChannels,
+    // which is empty at Step 1 and only populated after Step 2 channel selection.
+    const lazadaChan = (channelsList || []).find(c => c.platform && c.platform.toLowerCase() === "lazada");
+    if (lazadaChan) {
+        tryAutoFillLazadaLeaf(lazadaChan.channelId);
+    }
+}
+
+function renderWizStep1() {
+    document.getElementById("wizStep1Content").style.display = "block";
+    document.getElementById("wizStep2Content").style.display = "none";
+    document.getElementById("wizStep3Content").style.display = "none";
+    
+    document.getElementById("wizMasterSpecCard").style.display = wizSelectedMasterSKU ? "block" : "none";
+    renderWizMasterList();
+}
+
+function renderWizStep2() {
+    document.getElementById("wizStep1Content").style.display = "none";
+    document.getElementById("wizStep2Content").style.display = "block";
+    document.getElementById("wizStep3Content").style.display = "none";
+
+    document.getElementById("wizStep2ProductLabel").innerHTML = `
+        <strong>\${wizSelectedMasterSKU.name}</strong> (SKU: \${wizSelectedMasterSKU.sku})
+    `;
+
+    // Highlight selected platform cards — check by platform name
+    const chs = ["lazada"];
+    chs.forEach(ch => {
+        const card = document.getElementById("pCard" + ch.charAt(0).toUpperCase() + ch.slice(1));
+        card.classList.remove("selected");
+        if (wizSelectedChannels.some(c => c.platform && c.platform.toLowerCase() === ch)) {
+            card.classList.add("selected");
+        }
+    });
+}
+
+function toggleWizChannel(channelName) {
+    // channelName is a string like 'lazada'; find the real Channel object from DB
+    const existingIdx = wizSelectedChannels.findIndex(c =>
+        c.platform && c.platform.toLowerCase() === channelName.toLowerCase());
+    if (existingIdx > -1) {
+        wizSelectedChannels.splice(existingIdx, 1);
+    } else {
+        // Find Channel from DB that matches this platform name
+        const dbChannel = channelsList.find(c =>
+            c.platform && c.platform.toLowerCase() === channelName.toLowerCase());
+        if (dbChannel) {
+            wizSelectedChannels.push(dbChannel);
+        }
+    }
+    renderWizStep2();
+}
+
+// ── AUTO-FILL LAZADA LEAF FROM CATEGORY MAPPING ───────────────────────
+const MAPPING_CACHE = new Map();
+const MAPPING_CACHE_KEY = "lazada_mapping_cache_v1";
+
+function getCachedMapping(channelId, wmsCategoryId) {
+    if (MAPPING_CACHE.has(channelId + ":" + wmsCategoryId)) return MAPPING_CACHE.get(channelId + ":" + wmsCategoryId);
+    try {
+        const stored = JSON.parse(localStorage.getItem(MAPPING_CACHE_KEY) || "{}");
+        const key = channelId + ":" + wmsCategoryId;
+        if (stored[key]) { MAPPING_CACHE.set(key, stored[key]); return stored[key]; }
+    } catch (e) {}
+    return null;
+}
+
+function setCachedMapping(channelId, wmsCategoryId, data) {
+    const key = channelId + ":" + wmsCategoryId;
+    MAPPING_CACHE.set(key, data);
+    try {
+        const stored = JSON.parse(localStorage.getItem(MAPPING_CACHE_KEY) || "{}");
+        stored[key] = data;
+        localStorage.setItem(MAPPING_CACHE_KEY, JSON.stringify(stored));
+    } catch (e) {}
+}
+
+// Pre-fetches category mappings for all WMS categories so mapping lookups are instant
+// when a SKU is selected — no dependency on LAZADA_LEAVES being loaded yet.
+function preFetchCategoryMappings(channelId) {
+    if (!wmsSKUs || wmsSKUs.length === 0) return;
+    wmsSKUs.forEach(sku => {
+        if (!sku.categoryId) return;
+        const key = channelId + ":" + sku.categoryId;
+        if (MAPPING_CACHE.has(key)) return;
+        fetchJson(window.location.pathname, {
+            method: "POST",
+            headers: { "Content-Type": "application/x-www-form-urlencoded" },
+            body: "action=getCategoryMapping&channelId=" + channelId + "&wmsCategoryId=" + sku.categoryId
+        }).then(data => { setCachedMapping(channelId, sku.categoryId, data); }).catch(() => {});
+    });
+}
+
+// Runs entirely in the background — loads Lazada leaves + mapping, then auto-fills the config.
+// Updates wizChannelConfigs directly so the value is ready even before Step 3 renders.
+function tryAutoFillLazadaLeaf(channelId) {
+    if (!wizSelectedMasterSKU || !wizSelectedMasterSKU.categoryId) return;
+    const wmsCategoryId = wizSelectedMasterSKU.categoryId;
+
+    // Always try to apply cached mapping immediately (no network needed)
+    applyMappingToConfig(channelId, wmsCategoryId);
+
+    // Always fetch mapping if not cached — parallel-safe, no-op if already cached
+    const cachedMapping = getCachedMapping(channelId, wmsCategoryId);
+    if (!cachedMapping) {
+        fetchJson(window.location.pathname, {
+            method: "POST",
+            headers: { "Content-Type": "application/x-www-form-urlencoded" },
+            body: "action=getCategoryMapping&channelId=" + channelId + "&wmsCategoryId=" + wmsCategoryId
+        }).then(data => {
+            setCachedMapping(channelId, wmsCategoryId, data);
+            applyMappingToConfig(channelId, wmsCategoryId);
+        }).catch(function(err) {
+            console.warn("[autoFill] getCategoryMapping failed:", err.message);
+        });
+    }
+
+    // Load LAZADA_LEAVES if not yet loaded (needed for applyMappingToConfig to pass its guard)
+    if (!LAZADA_LEAVES || LAZADA_LEAVES.length === 0) {
+        loadLazadaLeaves(channelId).then(() => {
+            applyMappingToConfig(channelId, wmsCategoryId);
+        });
+    }
+}
+
+// Updates wizChannelConfigs directly — no DOM required.
+function applyMappingToConfig(channelId, wmsCategoryId) {
+    if (!LAZADA_LEAVES || LAZADA_LEAVES.length === 0) return;
+    const mappingData = getCachedMapping(channelId, wmsCategoryId);
+    if (!mappingData || !mappingData.success || !mappingData.found || !mappingData.mappings || mappingData.mappings.length === 0) return;
+    const m = mappingData.mappings[0];
+    wizChannelConfigs.lazada.lazadaCategoryId = m.lazadaCategoryId;
+    wizChannelConfigs.lazada.lazadaCategoryName = m.name;
+    wizChannelConfigs.lazada.category = m.name;
+}
+
+function applyMappingNow(channelId, wmsCategoryId, select) {
+    if (!LAZADA_LEAVES || LAZADA_LEAVES.length === 0) return;
+
+    const mappingData = getCachedMapping(channelId, wmsCategoryId);
+    if (!mappingData || !mappingData.success || !mappingData.found || !mappingData.mappings || mappingData.mappings.length === 0) return;
+
+    const m = mappingData.mappings[0];
+    wizChannelConfigs.lazada.lazadaCategoryId = m.lazadaCategoryId;
+    wizChannelConfigs.lazada.lazadaCategoryName = m.name;
+    wizChannelConfigs.lazada.category = m.name;
+
+    if (!select) return;
+    const targetValue = String(m.lazadaCategoryId);
+    const opt = Array.from(select.options).find(function(o) { return String(o.value) === targetValue; });
+    if (opt) {
+        select.value = targetValue;
+    }
+}
+
+
+function renderWizStep3() {
+    document.getElementById("wizStep1Content").style.display = "none";
+    document.getElementById("wizStep2Content").style.display = "none";
+    document.getElementById("wizStep3Content").style.display = "block";
+
+    document.getElementById("wizStep3ProductLabel").innerHTML = `
+        <strong>\${wizSelectedMasterSKU.name}</strong> (SKU: \${wizSelectedMasterSKU.sku})
+    `;
+
+    const container = document.getElementById("wizStep3ChannelsContainer");
+    container.innerHTML = "";
+
+    // Lazada section — check by platform name in the object array
+    if (wizSelectedChannels.some(c => c.platform && c.platform.toLowerCase() === "lazada")) {
+        const lazadaChan = wizSelectedChannels.find(c => c.platform && c.platform.toLowerCase() === "lazada");
+
+        // ─── Dropdown: always show LAZADA_LEAVES that were pre-loaded when the wizard opened.
+        //    The placeholder is dynamic: shows "(Đã gợi ý)" when a mapping pre-filled the value,
+        //    otherwise the generic "-- Chọn danh mục Lazada --".
+        const selectedLazadaId = wizChannelConfigs.lazada.lazadaCategoryId;
+        const hasPreselected = selectedLazadaId && String(selectedLazadaId).length > 0;
+
+        const lazadaLeafOptions = LAZADA_LEAVES.map(c => {
+            const isSel = String(c.lazadaCategoryId) === String(selectedLazadaId) ? 'selected' : '';
+            return `<option value="\${c.lazadaCategoryId}" \${isSel}>\${escapeHtml(c.name)}</option>`;
+        }).join('');
+
+        const box = document.createElement("div");
+        box.className = "cp-platform-config-box lazada";
+        box.innerHTML = `
+            <div class="cp-platform-config-hdr lazada">
+                <span>CẤU HÌNH TRÊN KÊNH: LAZADA</span>
+                <span>Open Platform API</span>
+            </div>
+            <div class="cp-platform-config-body">
+                <div style="display:grid; grid-template-columns: repeat(2, 1fr); gap: 0.75rem">
+                    <div class="cp-form-group">
+                        <label class="cp-form-label">Danh mục Lazada (leaf) *</label>
+                        <select class="cp-input-text" style="padding:0.5rem" onchange="onLazadaLeafChange(this)">
+                            <option value="">\${hasPreselected ? '-- Thay đổi danh mục Lazada --' : '-- Chọn danh mục Lazada --'}</option>
+                            \${lazadaLeafOptions}
+                        </select>
+                        <div style="display:flex;gap:0.5rem;margin-top:0.35rem;align-items:center;min-height:22px">
+                            <button type="button" id="lazadaLeafSyncBtn" class="cp-btn-edit" style="font-size:11px;padding:0.25rem 0.5rem;display:none" onclick="syncLazadaLeaves(\${lazadaChan.channelId})">
+                                ⟳ Đồng bộ từ Lazada
+                            </button>
+                            <span id="lazadaLeafStatus" style="font-size:11px;color:rgba(16,55,92,.5)">\${hasPreselected ? '✓ Đã gợi ý từ ánh xạ WMS.' : 'Chưa chọn danh mục Lazada'}</span>
+                        </div>
+                    </div>
+                    <div class="cp-form-group">
+                        <label class="cp-form-label">Giá bán lẻ (Retail Price) *</label>
+                        <input type="number" class="cp-input-text" style="padding:0.5rem; text-align:right" value="\${wizChannelConfigs.lazada.price}" oninput="wizChannelConfigs.lazada.price = Math.max(0, Number(this.value) || 0)" />
+                    </div>
+                    <div class="cp-form-group">
+                        <label class="cp-form-label">Số lượng tồn (Quantity) *</label>
+                        <input type="number" class="cp-input-text" style="padding:0.5rem; text-align:right; background:#f0f0f0; color:#555" value="\${wizChannelConfigs.lazada.quantity || 0}" readonly />
+                    </div>
+                    <div class="cp-form-group" style="grid-column: 1 / -1">
+                        <label class="cp-form-label">Mô tả sàn (Description) *</label>
+                        <textarea class="cp-input-text" style="padding:0.5rem; min-height:80px" oninput="wizChannelConfigs.lazada.description = this.value; wizChannelConfigs.lazada.shortDescription = this.value">\${wizChannelConfigs.lazada.description || ""}</textarea>
+                    </div>
+                    <div class="cp-form-group">
+                        <label class="cp-form-label">Cân nặng (kg)</label>
+                        <input type="number" step="0.01" class="cp-input-text" style="padding:0.5rem" value="\${wizChannelConfigs.lazada.weight || 0.2}" oninput="wizChannelConfigs.lazada.weight = parseFloat(this.value.replace(/[^0-9.]/g,'')) || 0.2" />
+                    </div>
+                    <div class="cp-form-group">
+                        <label class="cp-form-label">Kích thước (DxRxC cm)</label>
+                        <input type="text" class="cp-input-text" style="padding:0.5rem" value="\${wizChannelConfigs.lazada.dimensions || '10x10x10'}" oninput="wizChannelConfigs.lazada.dimensions = this.value" />
+                    </div>
+                </div>
+                <div style="margin-top: 0.5rem" id="uploaderWizLazada">
+                    <%-- Render image uploader dynamically --%>
+                </div>
+            </div>
+        `;
+        container.appendChild(box);
+        renderWizUploader("lazada");
+        tryAutoFillLazadaLeaf(lazadaChan.channelId);
+    }
+}
+
+function renderWizUploader(channel) {
+    const parent = document.getElementById("uploaderWiz" + channel.charAt(0).toUpperCase() + channel.slice(1));
+    if (!parent) return;
+
+    const currentImgs = wizChannelImages[channel] || [];
+
+    let gridHtml = `<div class="cp-upload-grid">`;
+    currentImgs.forEach((img, idx) => {
+        const imgSrc = (img && typeof img === "object") ? img.url : img;
+        gridHtml += `
+            <div class="cp-upload-box">
+                <img src="\${imgSrc}" />
+                <div class="cp-upload-box-trash" onclick="removeWizImage('\${channel}', \${idx})">
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                </div>
+                \${idx === 0 ? '<span class="cp-upload-box-label">Ảnh bìa</span>' : ""}
+            </div>
+        `;
+    });
+
+    if (currentImgs.length < 5) {
+        gridHtml += `
+            <label class="cp-upload-btn-card">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" /></svg>
+                <span class="main">Thêm ảnh</span>
+                <span class="sub">(Tối đa 5)</span>
+                <input type="file" accept="image/*" multiple style="display:none" onchange="uploadWizImage('\${channel}', this.files)" />
+            </label>
+        `;
+    }
+    gridHtml += `</div>`;
+    parent.innerHTML = `<label class="cp-form-label">Hình ảnh sản phẩm trên sàn (\${channel.toUpperCase()}) *</label>` + gridHtml;
+}
+
+function convertToJpeg(file, callback) {
+    const reader = new FileReader();
+    reader.onload = function(e) {
+        const img = new Image();
+        img.onload = function() {
+            const canvas = document.createElement("canvas");
+            canvas.width = img.width;
+            canvas.height = img.height;
+            const ctx = canvas.getContext("2d");
+            // Fill background with white in case of transparency
+            ctx.fillStyle = "#FFFFFF";
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            ctx.drawImage(img, 0, 0);
+            const jpegDataUrl = canvas.toDataURL("image/jpeg", 0.9);
+            callback(jpegDataUrl);
+        };
+        img.onerror = function() {
+            callback(e.target.result);
+        };
+        img.src = e.target.result;
+    };
+    reader.readAsDataURL(file);
+}
+
+function uploadWizImage(channel, files) {
+    if (!files || files.length === 0) return;
+    Array.from(files).forEach(file => {
+        const currentList = wizChannelImages[channel] || [];
+        if (currentList.length >= 5) return;
+
+        convertToJpeg(file, function(jpegDataUrl) {
+            const item = { url: jpegDataUrl, base64: jpegDataUrl };
+            currentList.push(item);
+            wizChannelImages[channel] = currentList;
+            renderWizUploader(channel);
+
+            // Normalize filename extension to .jpg
+            let name = file.name || "image.jpg";
+            const dotIdx = name.lastIndexOf(".");
+            if (dotIdx >= 0) {
+                name = name.substring(0, dotIdx) + ".jpg";
+            } else {
+                name = name + ".jpg";
+            }
+
+            // Upload to server so /image/migrate gets a public URL.
+            // If migration fails, base64 is used as fallback.
+            fetch("/sales/channel-products", {
+                method: "POST",
+                headers: { "Content-Type": "application/x-www-form-urlencoded" },
+                body: "action=uploadImageBase64&filename=" + encodeURIComponent(name)
+                    + "&base64=" + encodeURIComponent(jpegDataUrl)
+            }).then(r => r.json()).then(data => {
+                if (data.success && data.url) {
+                    const idx = currentList.indexOf(item);
+                    if (idx >= 0) {
+                        // Store server URL + preserve original base64 for fallback
+                        currentList[idx] = { url: data.url, base64: jpegDataUrl };
+                        wizChannelImages[channel] = currentList;
+                        renderWizUploader(channel);
+                    }
+                } else {
+                    console.warn("[uploadWizImage] server upload failed:", data.message);
+                }
+            }).catch(function(err) {
+                console.warn("[uploadWizImage] fetch error:", err.message);
+            });
+        });
+    });
+}
+
+function removeWizImage(channel, idx) {
+    wizChannelImages[channel] = wizChannelImages[channel].filter((_, i) => i !== idx);
+    renderWizUploader(channel);
+}
+
+function wizNavigate(dir) {
+    if (dir === 1) {
+        if (wizStep === 1) {
+            if (!wizSelectedMasterSKU) {
+                alert("Vui lòng chọn một Master SKU gốc để tiếp tục!");
+                return;
+            }
+            wizStep = 2;
+            renderWizStep2();
+        } else if (wizStep === 2) {
+            if (wizSelectedChannels.length === 0) {
+                alert("Vui lòng chọn ít nhất một sàn thương mại điện tử để tiếp tục!");
+                return;
+            }
+            // Ensure LAZADA_LEAVES is loaded before rendering step 3 (async category lookup)
+            var lazadaChan = wizSelectedChannels.find(function(c){ return c.platform && c.platform.toLowerCase() === "lazada"; });
+            var loadDone = function() {
+                wizStep = 3;
+                renderWizStep3();
+                renderWizProgress();
+            };
+            if (lazadaChan && (!LAZADA_LEAVES || LAZADA_LEAVES.length === 0)) {
+                loadLazadaLeaves(lazadaChan.channelId).then(function() { loadDone(); }).catch(function() { loadDone(); });
+            } else {
+                loadDone();
+            }
+        } else {
+            // Clicked Publish trigger real Lazada API
+            executePublishProduct();
+        }
+    } else {
+        wizStep--;
+        if (wizStep === 1) renderWizStep1();
+        if (wizStep === 2) renderWizStep2();
+    }
+    renderWizProgress();
+}
+
+function finalizePublishData(realLazadaItemId, realLazadaSkuId) {
+    const today = new Date().toISOString().slice(0, 10);
+    const hasRealLazadaId = realLazadaItemId && realLazadaItemId.trim().length > 0;
+
+    // Many-to-many list update helper matching React's updateSKUMappings logic
+    let storedMapList = [];
+    const savedMapStr = localStorage.getItem("sku_mappings_v2");
+    if (savedMapStr) {
+        try { storedMapList = JSON.parse(savedMapStr); } catch(e) { storedMapList = []; }
+    }
+
+    let rawMappings = [];
+    const savedRawStr = localStorage.getItem("sku_raw_mappings_v2");
+    if (savedRawStr) {
+        try { rawMappings = JSON.parse(savedRawStr); } catch(e) { rawMappings = []; }
+    }
+
+    // Loop through selected platforms (ch is a Channel object from DB)
+    wizSelectedChannels.forEach(ch => {
+        const platform = ch.platform ? ch.platform.toLowerCase() : '';
+        const config = wizChannelConfigs[platform];
+        const uniqueSuffix = Math.floor(100 + Math.random() * 900);
+        const skuNoDash = wizSelectedMasterSKU.sku.replace(/-/g, "");
+        const chName = ch.channelName || platform;
+        const chSKU = chName.toUpperCase() + "-" + skuNoDash + "-" + uniqueSuffix;
+
+        // Use real itemId returned from Lazada API; fall back to placeholder only for non-Lazada channels
+        const isLazadaChannel = platform === 'lazada';
+        let itemId;
+        if (isLazadaChannel) {
+            itemId = hasRealLazadaId ? realLazadaItemId
+                : (chName.slice(0, 3) + "-ITEM-" + Math.floor(100000 + Math.random() * 900000));
+        } else {
+            itemId = chName.slice(0, 3).toUpperCase() + "-ITEM-" + Math.floor(100000 + Math.random() * 900000);
+        }
+
+        const defaultCover = getDynamicCover(wizSelectedMasterSKU.name);
+        const rawImgs = wizChannelImages[platform] && wizChannelImages[platform].length > 0
+            ? wizChannelImages[platform]
+            : [{ url: defaultCover, base64: defaultCover }];
+        // Store as URL strings for grid display (base64 → url for render)
+        const imagesList = rawImgs.map(function(img) {
+            return (img && typeof img === "object") ? img.url : img;
+        });
+
+        // Determine syncStatus based on whether we have a real ID from the platform
+        const syncStatus = isLazadaChannel
+            ? (hasRealLazadaId ? "success" : "pending")
+            : "success";
+
+        // 1. Add to Channel Products list
+        channelProducts.push({
+            id: "p_" + Date.now() + "_" + platform,
+            masterSKU: wizSelectedMasterSKU.sku,
+            channelSKU: chSKU,
+            channel: platform,
+            channelName: chName,
+            channelColor: platform === "shopee" ? "#EE4D2D" : platform === "lazada" ? "#0F146D" : "#69C9D0",
+            productName: wizSelectedMasterSKU.name,
+            description: wizSelectedMasterSKU.name + " - Dong bo ban tren san " + platform.toUpperCase() + ". Danh muc: " + config.category,
+            images: imagesList,
+            price: Number(config.price) || 150000,
+            status: "active",
+            stock: wizSelectedMasterSKU.qtyOnHand || 0,
+            channelItemId: itemId,
+            bufferStock: 0,
+            syncStatus: syncStatus,
+            lazadaItemId: isLazadaChannel ? realLazadaItemId : undefined,
+            lazadaSkuId: isLazadaChannel ? realLazadaSkuId : undefined
+        });
+
+        // 2. Add to raw mappings v2 table (unlinked items helper in sku-mapping)
+        rawMappings.push({
+            id: "raw_" + Date.now() + "_" + platform,
+            channelItemId: itemId,
+            channelSKU: chSKU,
+            channelItemName: wizSelectedMasterSKU.name,
+            channel: chName,
+            syncStatus: syncStatus
+        });
+
+        // 3. Update or append in sku_mappings_v2 (linked table)
+        const existingIdx = storedMapList.findIndex(m => m.masterSKU === wizSelectedMasterSKU.sku);
+        if (existingIdx > -1) {
+            const chanMappings = storedMapList[existingIdx].channelMappings || [];
+            const idx = chanMappings.findIndex(cm => cm.channel.toLowerCase() === platform);
+            if (idx > -1) {
+                chanMappings[idx].channelSKU = chSKU;
+                chanMappings[idx].status = "mapped";
+            } else {
+                const chColors = { Shopee: "#EE4D2D", TikTok: "#69C9D0", Lazada: "#0F146D", Website: "#EB8317" };
+                chanMappings.push({
+                    channel: chName,
+                    channelSKU: chSKU,
+                    status: "mapped",
+                    channelColor: chColors[chName] || "#64748b"
+                });
+            }
+            storedMapList[existingIdx].channelMappings = chanMappings;
+            storedMapList[existingIdx].stock = wizSelectedMasterSKU.qtyOnHand || 0;
+        } else {
+            const defaultChans = [
+                { channel: "Lazada", channelSKU: "", status: "unmapped", channelColor: "#0F146D" },
+                { channel: "Website", channelSKU: "", status: "unmapped", channelColor: "#EB8317" }
+            ];
+            const idx = defaultChans.findIndex(cm => cm.channel.toLowerCase() === platform);
+            if (idx > -1) {
+                defaultChans[idx].channelSKU = chSKU;
+                defaultChans[idx].status = "mapped";
+            }
+            storedMapList.push({
+                id: String(storedMapList.length + 1),
+                masterSKU: wizSelectedMasterSKU.sku,
+                masterName: wizSelectedMasterSKU.name,
+                channelMappings: defaultChans,
+                stock: wizSelectedMasterSKU.qtyOnHand || 0
+            });
+        }
+
+        // 4. Update pricing configuration retail/promo targets
+        const existPriceIdx = pricingRecords.findIndex(r => r.sku === wizSelectedMasterSKU.sku);
+        if (existPriceIdx > -1) {
+            const recordPrices = pricingRecords[existPriceIdx].channelPrices;
+            if (recordPrices[platform]) {
+                recordPrices[platform].retailPrice = Number(config.price) || 150000;
+                recordPrices[platform].promoPrice = Math.round((Number(config.price) || 150000) * 0.95);
+                recordPrices[platform].effectiveDate = today;
+            }
+        }
+    });
+
+    localStorage.setItem("sku_mappings_v2", JSON.stringify(storedMapList));
+    localStorage.setItem("sku_raw_mappings_v2", JSON.stringify(rawMappings));
+
+    saveData();
+    closePublishWizard();
+    renderProductsTab();
+    showToast(`Đã lưu mapping sản phẩm lên sàn. Lazada item_id=\${realLazadaItemId}`, "success");
+}
+
+// ── TAB 1 MODAL: EDIT PRODUCT DETAILS ───────────────────────────────
+function openEditModal(productId) {
+    const p = channelProducts.find(item => item.id === productId);
+    if (!p) return;
+
+    editTargetProductId = productId;
+    editImagesList = p.images ? [...p.images] : [];
+
+    document.getElementById("editProductMasterName").textContent = p.productName;
+    document.getElementById("editProductMasterSKU").textContent = p.masterSKU;
+    document.getElementById("editProductPrice").value = p.price;
+    document.getElementById("editProductDesc").value = p.description || "";
+
+    document.getElementById("editProductOverlay").classList.add("open");
+    renderEditUploader();
+}
+
+function closeEditModal() {
+    document.getElementById("editProductOverlay").classList.remove("open");
+    editTargetProductId = null;
+    editImagesList = [];
+}
+
+function renderEditUploader() {
+    const parent = document.getElementById("editImagesGrid");
+    if (!parent) return;
+
+    let gridHtml = "";
+    editImagesList.forEach((img, idx) => {
+        gridHtml += `
+            <div class="cp-upload-box">
+                <img src="\${img}" />
+                <div class="cp-upload-box-trash" onclick="removeEditImage(\${idx})">
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                </div>
+                \${idx === 0 ? '<span class="cp-upload-box-label">Ảnh bìa</span>' : ""}
+            </div>
+        `;
+    });
+
+    if (editImagesList.length < 5) {
+        gridHtml += `
+            <label class="cp-upload-btn-card">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" /></svg>
+                <span class="main">Thêm ảnh</span>
+                <span class="sub">(Tối đa 5)</span>
+                <input type="file" accept="image/*" multiple style="display:none" onchange="uploadEditImage(this.files)" />
+            </label>
+        `;
+    }
+    parent.innerHTML = gridHtml;
+}
+
+function uploadEditImage(files) {
+    if (!files || files.length === 0) return;
+    Array.from(files).forEach(file => {
+        if (editImagesList.length >= 5) return;
+        convertToJpeg(file, function(jpegDataUrl) {
+            editImagesList.push(jpegDataUrl);
+            renderEditUploader();
+        });
+    });
+}
+
+function removeEditImage(idx) {
+    editImagesList = editImagesList.filter((_, i) => i !== idx);
+    renderEditUploader();
+}
+
+function submitEditProduct() {
+    const price = Number(document.getElementById("editProductPrice").value) || 0;
+    const desc = document.getElementById("editProductDesc").value;
+
+    if (editImagesList.length === 0) {
+        alert("Vui lòng tải lên ít nhất 1 hình ảnh sản phẩm!");
+        return;
+    }
+
+    channelProducts = channelProducts.map(p => {
+        if (p.id === editTargetProductId) {
+            return {
+                ...p,
+                price: price,
+                description: desc,
+                images: editImagesList
+            };
+        }
+        return p;
+    });
+
+    // Also sync price to pricing configuration channel price
+    const prod = channelProducts.find(item => item.id === editTargetProductId);
+    if (prod) {
+        const today = new Date().toISOString().slice(0, 10);
+        pricingRecords = pricingRecords.map(r => {
+            if (r.sku === prod.masterSKU) {
+                const updatedChannelPrices = { ...r.channelPrices };
+                if (updatedChannelPrices[prod.channel]) {
+                    updatedChannelPrices[prod.channel].retailPrice = price;
+                    updatedChannelPrices[prod.channel].effectiveDate = today;
+                }
+                return { ...r, channelPrices: updatedChannelPrices };
+            }
+            return r;
+        });
+    }
+
+    saveData();
+    closeEditModal();
+    renderProductsTab();
+    showToast("Cập nhật thông tin sản phẩm kênh thành công!");
+}
+</script>

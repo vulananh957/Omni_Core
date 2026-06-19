@@ -33,6 +33,60 @@
         <param-name>lazada.sync.interval.minutes</param-name>
         <param-value>5</param-value>
     </context-param>
+    <context-param>
+        <param-name>lazada.sync.lookback.minutes</param-name>
+        <param-value>60</param-value>
+    </context-param>
+    <!-- Lazada Token Auto-Refresh Scheduler (UC-B2C07) -->
+    <context-param>
+        <param-name>lazada.tokenRefresh.enabled</param-name>
+        <!-- Set to "false" to disable auto token refresh -->
+        <param-value>true</param-value>
+    </context-param>
+    <context-param>
+        <param-name>lazada.tokenRefresh.interval.minutes</param-name>
+        <!-- How often the scheduler checks for tokens needing refresh -->
+        <param-value>60</param-value>
+    </context-param>
+    <context-param>
+        <param-name>lazada.tokenRefresh.bufferMinutes</param-name>
+        <!-- Refresh tokens expiring within this window (1440 = 24 hours) -->
+        <param-value>1440</param-value>
+    </context-param>
+
+    <!-- Lazada Product Sync (UC-B2C01) — disabled by default; enable when channel is set up -->
+    <context-param>
+        <param-name>lazada.product.sync.enabled</param-name>
+        <param-value>false</param-value>
+    </context-param>
+    <context-param>
+        <param-name>lazada.product.sync.interval.minutes</param-name>
+        <param-value>60</param-value>
+    </context-param>
+
+    <!-- Lazada Stock Push (BR-02) — disabled by default; enable when channel is set up -->
+    <context-param>
+        <param-name>lazada.stock.push.enabled</param-name>
+        <param-value>false</param-value>
+    </context-param>
+    <context-param>
+        <param-name>lazada.stock.push.interval.minutes</param-name>
+        <param-value>30</param-value>
+    </context-param>
+    <context-param>
+        <param-name>lazada.stock.push.batch.size</param-name>
+        <param-value>20</param-value>
+    </context-param>
+
+    <!-- Lazada Tracking Poll (UC-B2C07) — disabled by default; webhooks fire on real-time events -->
+    <context-param>
+        <param-name>lazada.tracking.poll.enabled</param-name>
+        <param-value>false</param-value>
+    </context-param>
+    <context-param>
+        <param-name>lazada.tracking.poll.interval.minutes</param-name>
+        <param-value>30</param-value>
+    </context-param>
 
     <!-- ======================================================
          FILTERS — run before every request
@@ -133,23 +187,8 @@
         <url-pattern>/business/dashboard</url-pattern>
     </servlet-mapping>
 
-    <servlet>
-        <servlet-name>MasterSKUServlet</servlet-name>
-        <servlet-class>com.wms.controller.sku.MasterSKUServlet</servlet-class>
-    </servlet>
-    <servlet-mapping>
-        <servlet-name>MasterSKUServlet</servlet-name>
-        <url-pattern>/business/master-sku</url-pattern>
-    </servlet-mapping>
 
-    <servlet>
-        <servlet-name>CategoryServlet</servlet-name>
-        <servlet-class>com.wms.controller.category.CategoryServlet</servlet-class>
-    </servlet>
-    <servlet-mapping>
-        <servlet-name>CategoryServlet</servlet-name>
-        <url-pattern>/business/categories</url-pattern>
-    </servlet-mapping>
+
 
     <servlet>
         <servlet-name>WarehouseServlet</servlet-name>
@@ -226,6 +265,10 @@
     <servlet-mapping>
         <servlet-name>GenerateSKUServlet</servlet-name>
         <url-pattern>/business/sku/generate</url-pattern>
+    </servlet-mapping>
+    <servlet-mapping>
+        <servlet-name>GenerateSKUServlet</servlet-name>
+        <url-pattern>/sales/sku/generate</url-pattern>
     </servlet-mapping>
 
     <servlet>
@@ -365,6 +408,35 @@
     </servlet-mapping>
 
     <servlet>
+        <servlet-name>SalesInventoryStockServlet</servlet-name>
+        <servlet-class>com.wms.controller.sales.SalesInventoryStockServlet</servlet-class>
+    </servlet>
+    <servlet-mapping>
+        <servlet-name>SalesInventoryStockServlet</servlet-name>
+        <url-pattern>/sales/inventory-stock</url-pattern>
+    </servlet-mapping>
+
+    <!-- Sales Master SKU -->
+    <servlet>
+        <servlet-name>SalesMasterSKUServlet</servlet-name>
+        <servlet-class>com.wms.controller.sales.SalesMasterSKUServlet</servlet-class>
+    </servlet>
+    <servlet-mapping>
+        <servlet-name>SalesMasterSKUServlet</servlet-name>
+        <url-pattern>/sales/master-sku</url-pattern>
+    </servlet-mapping>
+
+    <!-- Sales Categories -->
+    <servlet>
+        <servlet-name>SalesCategoryServlet</servlet-name>
+        <servlet-class>com.wms.controller.sales.SalesCategoryServlet</servlet-class>
+    </servlet>
+    <servlet-mapping>
+        <servlet-name>SalesCategoryServlet</servlet-name>
+        <url-pattern>/sales/categories</url-pattern>
+    </servlet-mapping>
+
+    <servlet>
         <servlet-name>SalesMappingExceptionServlet</servlet-name>
         <servlet-class>com.wms.controller.sales.SalesMappingExceptionServlet</servlet-class>
     </servlet>
@@ -440,6 +512,10 @@
         <servlet-name>LazadaAuthCallbackServlet</servlet-name>
         <url-pattern>/lazada/callback</url-pattern>
     </servlet-mapping>
+
+    <!-- Lazada webhook endpoint (UC-B2C07) — registered with Lazada as the push URL.
+         LazadaWebhookServlet is also @WebServlet-mapped, so this is redundant but
+         keeps web.xml self-documenting. -->
 
     <!-- ======================================================
          WELCOME & ERROR PAGES

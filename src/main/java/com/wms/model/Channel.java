@@ -14,12 +14,18 @@ public class Channel {
     private String apiKey;
     private String appSecret;
     private String webhookSecret;
+    private String webhookCallbackUrl;
+    /** Comma-separated IPs allowed to push webhooks. Null/empty = accept all. */
+    private String allowedWebhookIps;
     private double bufferStock;
     private boolean isActive;
     private String accessToken;
     private String refreshToken;
+    /** UTC timestamp when the current access token expires. Null = unknown (legacy token). */
+    private LocalDateTime tokenExpiresAt;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
+    private LocalDateTime lastOrderSyncAt;
 
     // ── Constructors ──────────────────────────────────────────
 
@@ -100,6 +106,22 @@ public class Channel {
         this.webhookSecret = webhookSecret;
     }
 
+    public String getWebhookCallbackUrl() {
+        return webhookCallbackUrl;
+    }
+
+    public void setWebhookCallbackUrl(String webhookCallbackUrl) {
+        this.webhookCallbackUrl = webhookCallbackUrl;
+    }
+
+    public String getAllowedWebhookIps() {
+        return allowedWebhookIps;
+    }
+
+    public void setAllowedWebhookIps(String allowedWebhookIps) {
+        this.allowedWebhookIps = allowedWebhookIps;
+    }
+
     public double getBufferStock() {
         return bufferStock;
     }
@@ -132,6 +154,14 @@ public class Channel {
         this.refreshToken = refreshToken;
     }
 
+    public LocalDateTime getTokenExpiresAt() {
+        return tokenExpiresAt;
+    }
+
+    public void setTokenExpiresAt(LocalDateTime tokenExpiresAt) {
+        this.tokenExpiresAt = tokenExpiresAt;
+    }
+
     public LocalDateTime getCreatedAt() {
         return createdAt;
     }
@@ -146,6 +176,14 @@ public class Channel {
 
     public void setUpdatedAt(LocalDateTime updatedAt) {
         this.updatedAt = updatedAt;
+    }
+
+    public LocalDateTime getLastOrderSyncAt() {
+        return lastOrderSyncAt;
+    }
+
+    public void setLastOrderSyncAt(LocalDateTime lastOrderSyncAt) {
+        this.lastOrderSyncAt = lastOrderSyncAt;
     }
 
     @Override

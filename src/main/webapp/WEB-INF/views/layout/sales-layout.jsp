@@ -7,6 +7,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
     <title>${pageTitle != null ? pageTitle : 'Sales Staff'} — OmniCore</title>
     <link rel="stylesheet" href="${pageContext.request.contextPath}/assets/css/dashboard.css"/>
+    <c:if test="${currentPage == 'sales-channel-products'}">
+        <link rel="stylesheet" href="${pageContext.request.contextPath}/assets/css/sales--channel-products.css"/>
+    </c:if>
 </head>
 <body>
 <div class="app-shell">
@@ -67,6 +70,26 @@
             <!-- KÊNH BÁN & SẢN PHẨM -->
             <div class="nav-group">
                 <div class="nav-group__label">Kênh Bán &amp; Sản Phẩm</div>
+                <a href="${pageContext.request.contextPath}/sales/categories"
+                   class="nav-item ${currentPage == 'sales-categories' ? 'active' : ''}">
+                    <svg class="nav-item__icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
+                         stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <rect x="3" y="3" width="7" height="9" rx="1"/>
+                        <rect x="14" y="3" width="7" height="5" rx="1"/>
+                        <rect x="14" y="12" width="7" height="9" rx="1"/>
+                        <rect x="3" y="16" width="7" height="5" rx="1"/>
+                    </svg>
+                    <span>Danh mục</span>
+                </a>
+                <a href="${pageContext.request.contextPath}/sales/master-sku"
+                   class="nav-item ${currentPage == 'sales-master-sku' ? 'active' : ''}">
+                    <svg class="nav-item__icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
+                         stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M11 21H4a2 2 0 0 1-2-2V5c0-1.1.9-2 2-2h5l2 3h9a2 2 0 0 1 2 2v2"/>
+                        <path d="m15 20 3 3 5-5"/><path d="M9 17H7"/><path d="M9 13H7"/>
+                    </svg>
+                    <span>Master SKU</span>
+                </a>
                 <a href="${pageContext.request.contextPath}/sales/sku-mapping"
                    class="nav-item ${currentPage == 'sales-sku-mapping' ? 'active' : ''}">
                     <svg class="nav-item__icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"

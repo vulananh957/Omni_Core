@@ -40,18 +40,14 @@ public class ProductService {
     }
 
     public boolean createProduct(Product product, Integer createdByUserId) {
-        return createProductWithZones(product, createdByUserId, List.of());
-    }
-
-    public boolean createProductWithZones(Product product, Integer createdByUserId, List<Product.LocationConfig> zones) {
         if (product.getUnit() == null || product.getUnit().trim().isEmpty()) {
             product.setUnit("Cái");
         }
         product.setCreatedBy(createdByUserId);
-        boolean success = productDAO.insertWithZones(product, createdByUserId, zones);
+        boolean success = productDAO.insert(product);
         if (success) {
-            log.info("Product created: name={} sku={} userId={} zones={}",
-                    product.getProductName(), product.getSkuCode(), createdByUserId, zones.size());
+            log.info("Product created: name={} sku={} userId={}",
+                    product.getProductName(), product.getSkuCode(), createdByUserId);
         } else {
             log.error("Product create failed: name={} sku={}", product.getProductName(), product.getSkuCode());
         }
@@ -59,10 +55,6 @@ public class ProductService {
     }
 
     public UpdateResult updateProduct(int productId, Product updates) {
-        return updateProduct(productId, updates, null);
-    }
-
-    public UpdateResult updateProduct(int productId, Product updates, List<Product.LocationConfig> zones) {
         Product existing = productDAO.findById(productId);
         if (existing == null) {
             log.warn("Update product failed: not found productId={}", productId);
@@ -81,27 +73,17 @@ public class ProductService {
         if (updates.getWeightKg() != null) {
             existing.setWeightKg(updates.getWeightKg());
         }
-        if (updates.getMinStock() != null) {
-            existing.setMinStock(updates.getMinStock());
-        }
-        if (updates.getMaxStock() != null) {
-            existing.setMaxStock(updates.getMaxStock());
-        }
         if (updates.getBarcode() != null) {
             existing.setBarcode(updates.getBarcode().trim());
         }
         if (updates.getUnit() != null) {
             existing.setUnit(updates.getUnit().trim());
         }
-
-        boolean success;
-        if (zones == null) {
-            // If zones list is null, retain the existing location configs
-            success = productDAO.update(existing);
-        } else {
-            success = productDAO.updateWithZones(existing, zones);
+        if (updates.getBasePrice() != null) {
+            existing.setBasePrice(updates.getBasePrice());
         }
 
+        boolean success = productDAO.update(existing);
         if (!success) {
             log.error("Product update DAO failed: productId={}", productId);
             return UpdateResult.failure("Không thể cập nhật sản phẩm.");

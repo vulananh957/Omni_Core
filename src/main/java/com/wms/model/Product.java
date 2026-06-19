@@ -30,7 +30,9 @@ public class Product {
     private String attributesText;
     private Double weightKg;
     private Double qtyOnHand = 0.0;
+    private Double basePrice = 0.0;
     private List<LocationConfig> locationConfigs = new ArrayList<>();
+    private String shortDescription;  // UC-B2C09: Lazada payload (max 255 chars)
 
     public static class LocationConfig {
         private String locationId;
@@ -245,6 +247,14 @@ public class Product {
         this.locationConfigs = locationConfigs;
     }
 
+    public String getShortDescription() {
+        return shortDescription;
+    }
+
+    public void setShortDescription(String shortDescription) {
+        this.shortDescription = shortDescription;
+    }
+
     // Helper Getters for Jackson to match JSP property expectations
     @JsonProperty("id")
     public String getIdAsString() {
@@ -264,6 +274,14 @@ public class Product {
     @JsonProperty("weight")
     public String getWeight() {
         return weightKg != null ? weightKg + " kg" : "N/A";
+    }
+
+    public Double getBasePrice() {
+        return basePrice;
+    }
+
+    public void setBasePrice(Double basePrice) {
+        this.basePrice = basePrice != null ? basePrice : 0.0;
     }
 
     // Manager-created SKUs are always approved; kept for backward compat with

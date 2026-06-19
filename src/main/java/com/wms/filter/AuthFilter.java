@@ -40,7 +40,11 @@ public class AuthFilter implements Filter {
             "/otp-verify",
             "/password-change-otp",
             "/forgot-password",
-            "/reset-password"
+            "/reset-password",
+            // Lazada end-to-end: webhooks fire from Lazada servers with no
+            // session. Auth is enforced via channel-level signature instead
+            // (verified in LazadaWebhookServlet once a secret is configured).
+            "/lazada/webhook"
     ));
 
     /** Map URL prefix → allowed roles. */
@@ -120,7 +124,21 @@ public class AuthFilter implements Filter {
                 chain.doFilter(request, response);
             }
         } else {
-            res.sendRedirect(contextPath + "/login");
+            // If the request is from JavaScript (XHR/fetch with Accept: JSON
+            // or X-Requested-With header), don't 302 to the login page — that
+            // returns HTML which the client can't parse as JSON. Instead return
+            // 401 with a JSON body so the frontend can show "session expired".
+            String accept = req.getHeader("Accept");
+            String xrw   = req.getHeader("X-Requested-With");
+            boolean wantsJson = (accept != null && accept.toLowerCase().contains("application/json"))
+                    || (xrw != null && !xrw.isBlank());
+            if (wantsJson) {
+                res.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+                res.setContentType("application/json;charset=UTF-8");
+                res.getWriter().write("{\"success\":false,\"code\":\"SESSION_EXPIRED\",\"message\":\"Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.\"}");
+            } else {
+                res.sendRedirect(contextPath + "/login");
+            }
         }
     }
 
@@ -143,6 +161,8 @@ public class AuthFilter implements Filter {
         if (path.startsWith("/assets/")) return true;
         // Allow favicon
         if (path.equals("/favicon.ico")) return true;
+        // Allow test-pt.jsp under /login
+        if (path.startsWith("/login/")) return true;
         // Allow declared public paths
         return PUBLIC_PATHS.contains(path);
     }

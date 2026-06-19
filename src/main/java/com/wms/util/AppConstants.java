@@ -55,10 +55,16 @@ public final class AppConstants {
 
     /**
      * Lazada App Key — loaded from db.properties or LAZADA_APP_KEY env var.
+     * Throws IllegalStateException if not configured to prevent silent misconfiguration.
      */
     public static String getLazadaAppKey() {
-        return com.wms.util.DatabaseConfig.getProperty("lazada.appKey",
-               System.getenv("LAZADA_APP_KEY"), "138771");
+        String key = com.wms.util.DatabaseConfig.getProperty("lazada.appKey",
+               System.getenv("LAZADA_APP_KEY"), "");
+        if (key == null || key.isBlank()) {
+            throw new IllegalStateException(
+                "Lazada App Key not configured: set lazada.appKey in config or LAZADA_APP_KEY env var");
+        }
+        return key;
     }
 
     /**

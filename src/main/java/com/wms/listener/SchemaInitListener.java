@@ -7,6 +7,7 @@ import jakarta.servlet.annotation.WebListener;
 
 import java.sql.Connection;
 import java.sql.DatabaseMetaData;
+import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
@@ -44,8 +45,11 @@ public class SchemaInitListener implements ServletContextListener {
             ensureChannelsTable();
             ensureShippingCarriersTable();
             ensureChannelProductsTable();
+            ensureProductImageMigrationsTable();
+            ensurePushErrorsTable();
             ensureWebhookLogsTable();
             ensureLazadaSyncLogTable();
+            ensureLazadaStockPushLogTable();
             ensureSkuMappingsTable();
             ensureInventoryTable();
             ensureInventoryLedgerTable();
@@ -61,9 +65,10 @@ public class SchemaInitListener implements ServletContextListener {
             ensureStockTransfers();
             ensureStocktakes();
             ensureFulfillmentRequestTables();
+            ensureLazadaCategoriesTable();
+            migrateChannelsColumns();
             ensureIndexes();
             seedDefaultData();
-            seedFulfillmentTestData();
             LOGGER.info("SchemaInitListener: Schema initialisation completed successfully.");
         } catch (Exception e) {
             LOGGER.log(Level.SEVERE, "SchemaInitListener: FAILED to initialise schema. "
@@ -105,6 +110,44 @@ public class SchemaInitListener implements ServletContextListener {
             }
         } catch (SQLException e) {
             LOGGER.log(Level.WARNING, "SchemaInitListener: Could not create index '" + indexName + "': " + e.getMessage());
+        }
+    }
+
+    /**
+     * Migrates channels table columns added for UC-B2C07 (auto token refresh).
+     * Runs idempotently using addColumnIfMissing.
+     */
+    private void migrateChannelsColumns() throws SQLException {
+        try (Connection conn = DBConnection.getConnection()) {
+            DatabaseMetaData md = conn.getMetaData();
+            addColumnIfMissing(conn, md, "channels", "token_expires_at",
+                    "DATETIME DEFAULT NULL COMMENT 'UTC timestamp when access_token expires. NULL = unknown/never.'");
+            addColumnIfMissing(conn, md, "channels", "last_order_sync_at",
+                    "DATETIME DEFAULT NULL COMMENT 'Last successful order sync via scheduler.'");
+        }
+    }
+
+    /**
+     * UC-B2C09: Lazada category tree (mirrored from /category/tree/get).
+     * Used to constrain product pushes to leaf categories Lazada accepts.
+     */
+    private void ensureLazadaCategoriesTable() throws SQLException {
+        try (Connection conn = DBConnection.getConnection()) {
+            createTableIfNotExists(conn, "lazada_categories",
+                "CREATE TABLE lazada_categories ("
+                + "id INT AUTO_INCREMENT PRIMARY KEY, "
+                + "channel_id INT NOT NULL, "
+                + "lazada_category_id BIGINT NOT NULL, "
+                + "parent_id BIGINT DEFAULT NULL, "
+                + "name VARCHAR(255) NOT NULL, "
+                + "is_leaf TINYINT(1) NOT NULL DEFAULT 0, "
+                + "has_variation TINYINT(1) NOT NULL DEFAULT 0, "
+                + "depth INT NOT NULL DEFAULT 0, "
+                + "synced_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP, "
+                + "UNIQUE KEY uq_lazada_cat_channel (channel_id, lazada_category_id), "
+                + "INDEX idx_lazada_cat_parent (parent_id), "
+                + "INDEX idx_lazada_cat_leaf (channel_id, is_leaf)"
+                + ") ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
         }
     }
 
@@ -152,10 +195,6 @@ public class SchemaInitListener implements ServletContextListener {
         try (Connection conn = DBConnection.getConnection()) {
             Statement st = conn.createStatement();
 
-            // Default warehouse
-            st.executeUpdate("INSERT IGNORE INTO warehouses (warehouse_code, warehouse_name, address) "
-                    + "VALUES ('WH-01','Kho Ha Noi','So 1 Duong ABC, Ha Noi')");
-
             // Default roles
             st.executeUpdate("INSERT IGNORE INTO roles (role_name, description) VALUES "
                     + "('ADMIN','Quan tri he thong'),"
@@ -163,23 +202,21 @@ public class SchemaInitListener implements ServletContextListener {
                     + "('SALES_STAFF','Nhan vien ban hang'),"
                     + "('WAREHOUSE_STAFF','Nhan vien kho')");
 
-            // Default zones for warehouse 1
-            st.executeUpdate("INSERT IGNORE INTO zones (warehouse_id, zone_code, zone_name, zone_type, description) VALUES "
-                    + "(1,'NORMAL','Khu Thuong','NORMAL','Khu vuc luu tru hang tot'),"
-                    + "(1,'RETURN','Khu Tra Hang','RETURN','Khu vuc tam giu hang tra'),"
-                    + "(1,'DAMAGED','Khu Hong','DAMAGED','Khu vuc hang hong'),"
-                    + "(1,'DESTROY','Khu Tieu Huy','DESTROY','Khu vuc tieu huy hang loi')");
-
-            // Default admin user
-            st.executeUpdate("INSERT IGNORE INTO users (username, password_hash, full_name, email, phone, role) VALUES "
-                    + "('quanpm','$2a$12$ezv1v4fjwnwMSYQ4DvPHN./NuNfVdwEzGbHuUvlbsabeCZqrLkzxe',"
-                    + "'Phạm Minh Quân','pmq07072005@gmail.com','0987654321','ADMIN')");
-            st.executeUpdate("UPDATE users SET full_name = 'Phạm Minh Quân', email = 'pmq07072005@gmail.com', phone = '0987654321', role = 'ADMIN' "
-                    + "WHERE username = 'quanpm'");
-
-            // Assign admin to warehouse 1
-            st.executeUpdate("INSERT IGNORE INTO user_warehouse_assignments (user_id, warehouse_id, is_primary) "
-                    + "SELECT user_id, 1, 1 FROM users WHERE username = 'quanpm'");
+            // Default admin user — password_hash loaded from env var to avoid committing secrets
+            String defaultAdminHash = System.getenv("WMS_ADMIN_DEFAULT_HASH");
+            if (defaultAdminHash != null && !defaultAdminHash.isBlank()) {
+                st.executeUpdate("INSERT IGNORE INTO users (username, password_hash, full_name, email, phone, role) "
+                        + "VALUES ('quanpm',?, 'Phạm Minh Quân','pmq07072005@gmail.com','0987654321','ADMIN')");
+                try (PreparedStatement ps = conn.prepareStatement(
+                        "UPDATE users SET password_hash=? WHERE username='quanpm'")) {
+                    ps.setString(1, defaultAdminHash);
+                    ps.executeUpdate();
+                }
+            } else {
+                LOGGER.warning("SchemaInitListener: WMS_ADMIN_DEFAULT_HASH env var not set — "
+                        + "default admin account 'quanpm' was NOT created or updated. "
+                        + "Set WMS_ADMIN_DEFAULT_HASH to a BCrypt hash to provision the admin.");
+            }
 
 
             LOGGER.info("SchemaInitListener: Seed data applied.");
@@ -269,10 +306,15 @@ public class SchemaInitListener implements ServletContextListener {
                 "CREATE TABLE products (product_id INT AUTO_INCREMENT PRIMARY KEY, category_id INT, sku_code VARCHAR(50) NOT NULL UNIQUE, product_name VARCHAR(255) NOT NULL, base_price DECIMAL(15,2) NOT NULL DEFAULT 0, attributes_text VARCHAR(255), weight_kg DECIMAL(8,3), is_new_arrival TINYINT(1) NOT NULL DEFAULT 0, active TINYINT(1) NOT NULL DEFAULT 1, created_by INT, created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP, updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP, barcode VARCHAR(50) DEFAULT NULL, unit VARCHAR(30) DEFAULT 'Cái', min_stock DECIMAL(12,3) DEFAULT 0, max_stock DECIMAL(12,3) DEFAULT 0) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
 
             DatabaseMetaData md = conn.getMetaData();
+            addColumnIfMissing(conn, md, "products", "attributes_text", "VARCHAR(255) DEFAULT NULL");
+            addColumnIfMissing(conn, md, "products", "weight_kg", "DECIMAL(8,3) DEFAULT NULL");
             addColumnIfMissing(conn, md, "products", "barcode", "VARCHAR(50) DEFAULT NULL");
             addColumnIfMissing(conn, md, "products", "unit", "VARCHAR(30) DEFAULT 'Cái'");
             addColumnIfMissing(conn, md, "products", "min_stock", "DECIMAL(12,3) DEFAULT 0");
             addColumnIfMissing(conn, md, "products", "max_stock", "DECIMAL(12,3) DEFAULT 0");
+            // UC-B2C09: Lazada short_description (max 255 chars per Lazada spec)
+            addColumnIfMissing(conn, md, "products", "short_description",
+                "VARCHAR(255) DEFAULT NULL COMMENT 'Lazada short_description (<=255 chars)'");
             // Status workflow is gone: drop the legacy columns if they still exist.
             dropProductApprovalColumnsIfExist(conn, md);
         }
@@ -366,6 +408,58 @@ public class SchemaInitListener implements ServletContextListener {
         try (Connection conn = DBConnection.getConnection()) {
             createTableIfNotExists(conn, "channel_products",
                 "CREATE TABLE channel_products (id INT AUTO_INCREMENT PRIMARY KEY, channel_id INT NOT NULL, product_id INT NOT NULL, channel_sku_code VARCHAR(100), channel_price DECIMAL(15,2) NOT NULL DEFAULT 0, channel_stock DECIMAL(12,3) NOT NULL DEFAULT 0, status ENUM('ACTIVE','INACTIVE','PENDING') DEFAULT 'ACTIVE', listed_at DATETIME, updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP, UNIQUE KEY uq_channel_product (channel_id, product_id)) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+            // UC-B2C09: Lazada push tracking columns (6 cols added idempotently)
+            DatabaseMetaData md = conn.getMetaData();
+            addColumnIfMissing(conn, md, "channel_products", "channel_item_id",
+                "VARCHAR(100) DEFAULT NULL COMMENT 'Lazada item_id returned by /product/create'");
+            addColumnIfMissing(conn, md, "channel_products", "lazada_sku_id",
+                "VARCHAR(100) DEFAULT NULL COMMENT 'Lazada sku_id returned by /product/create'");
+            addColumnIfMissing(conn, md, "channel_products", "last_push_qty",
+                "DECIMAL(12,3) DEFAULT NULL COMMENT 'Stock quantity at last successful push'");
+            addColumnIfMissing(conn, md, "channel_products", "last_push_at",
+                "DATETIME DEFAULT NULL COMMENT 'Timestamp of last successful push'");
+            addColumnIfMissing(conn, md, "channel_products", "last_error_code",
+                "VARCHAR(50) DEFAULT NULL COMMENT 'Last push error code from Lazada'");
+            addColumnIfMissing(conn, md, "channel_products", "last_error_message",
+                "VARCHAR(500) DEFAULT NULL COMMENT 'Last push error message (translated to VI)'");
+            // UC-B2C09: Lazada leaf category chosen for the product push
+            addColumnIfMissing(conn, md, "channel_products", "lazada_category_id",
+                "BIGINT DEFAULT NULL COMMENT 'Lazada leaf category id (mirrored from /category/tree/get)'");
+        }
+    }
+
+    private void ensureProductImageMigrationsTable() throws SQLException {
+        try (Connection conn = DBConnection.getConnection()) {
+            createTableIfNotExists(conn, "product_image_migrations",
+                "CREATE TABLE product_image_migrations ("
+                + "id INT AUTO_INCREMENT PRIMARY KEY, "
+                + "channel_id INT NOT NULL, "
+                + "source_url VARCHAR(500) NOT NULL, "
+                + "lazada_image_url VARCHAR(500) DEFAULT NULL, "
+                + "lazada_image_id VARCHAR(100) DEFAULT NULL, "
+                + "migrated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP, "
+                + "UNIQUE KEY uq_migration_channel_url (channel_id, source_url(255)), "
+                + "INDEX idx_migration_channel (channel_id)"
+                + ") ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+        }
+    }
+
+    private void ensurePushErrorsTable() throws SQLException {
+        try (Connection conn = DBConnection.getConnection()) {
+            createTableIfNotExists(conn, "push_errors",
+                "CREATE TABLE push_errors ("
+                + "id INT AUTO_INCREMENT PRIMARY KEY, "
+                + "channel_product_id INT DEFAULT NULL, "
+                + "channel_id INT NOT NULL, "
+                + "sku_code VARCHAR(100) DEFAULT NULL, "
+                + "error_code VARCHAR(50) DEFAULT NULL, "
+                + "error_message VARCHAR(500) DEFAULT NULL, "
+                + "field_errors_json TEXT, "
+                + "raw_response TEXT, "
+                + "occurred_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP, "
+                + "INDEX idx_pe_channel (channel_id), "
+                + "INDEX idx_pe_occurred (occurred_at)"
+                + ") ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
         }
     }
 
@@ -380,6 +474,20 @@ public class SchemaInitListener implements ServletContextListener {
         try (Connection conn = DBConnection.getConnection()) {
             createTableIfNotExists(conn, "lazada_sync_log",
                 "CREATE TABLE lazada_sync_log (log_id INT AUTO_INCREMENT PRIMARY KEY, channel_id INT, sync_type VARCHAR(50), status ENUM('SUCCESS','FAILED') NOT NULL, request_data TEXT, response_data TEXT, error_msg TEXT, created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+        }
+    }
+
+    private void ensureLazadaStockPushLogTable() throws SQLException {
+        try (Connection conn = DBConnection.getConnection()) {
+            createTableIfNotExists(conn, "lazada_stock_push_log",
+                "CREATE TABLE lazada_stock_push_log ("
+                + "log_id INT AUTO_INCREMENT PRIMARY KEY, "
+                + "channel_id INT, product_id INT, seller_sku VARCHAR(100), "
+                + "qty_on_hand DECIMAL(12,3), qty_available DECIMAL(12,3), "
+                + "holding DECIMAL(12,3), buffer_stock DECIMAL(12,3), push_qty DECIMAL(12,3), "
+                + "status VARCHAR(20), error_message TEXT, "
+                + "created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP"
+                + ") ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
         }
     }
 
@@ -618,71 +726,5 @@ public class SchemaInitListener implements ServletContextListener {
         }
     }
 
-    private void seedFulfillmentTestData() throws SQLException {
-        // Check if we should force re-seed (via system property or env var)
-        boolean forceReSeed = Boolean.parseBoolean(System.getProperty("wms.force.reseed", "false"))
-            || Boolean.parseBoolean(System.getenv("WMS_FORCE_RESEED") == null ? "false" : System.getenv("WMS_FORCE_RESEED"));
-
-        // Only seed if no products exist OR force re-seed is enabled
-        try (Connection conn = DBConnection.getConnection();
-             Statement st = conn.createStatement();
-             ResultSet rs = st.executeQuery("SELECT COUNT(*) FROM products")) {
-            if (rs.next() && rs.getInt(1) > 0 && !forceReSeed) {
-                LOGGER.info("SchemaInitListener: Products already exist, skipping mock_data.sql. "
-                    + "Set -Dwms.force.reseed=true or WMS_FORCE_RESEED=true to force re-seed.");
-                return;
-            }
-        }
-
-        if (forceReSeed) {
-            LOGGER.info("SchemaInitListener: Force re-seed enabled. Clearing existing data...");
-            try (Connection conn = DBConnection.getConnection()) {
-                clearAllData(conn);
-            }
-        }
-
-        executeSqlScript("mock_data.sql");
-        LOGGER.info("SchemaInitListener: Mock data seeded successfully");
-    }
-
-    private void clearAllData(Connection conn) throws SQLException {
-        // Disable foreign key checks to allow truncating in any order
-        Statement st = conn.createStatement();
-        st.executeUpdate("SET FOREIGN_KEY_CHECKS = 0");
-
-        // Tables in dependency order (children first, parents last)
-        String[] tables = {
-            "fulfillment_request_items", "fulfillment_requests",
-            "return_items", "qc_records", "scrap_records",
-            "outbound_items", "outbound_orders",
-            "physical_inventory_details", "physical_inventories",
-            "stocktake_items", "stocktakes",
-            "inventory_ledger", "inventory",
-            "stock_transfer_items", "stock_transfers",
-            "transfer_details", "issue_details", "warehouse_issues",
-            "receipt_details", "warehouse_receipts", "receipt_notes",
-            "inbound_items", "inbound_orders",
-            "shipping_labels", "order_shipping_details", "order_items", "orders",
-            "rma_items", "qc_inspections", "rma_requests",
-            "sku_mappings", "channel_products", "webhook_logs", "lazada_sync_log",
-            "product_images", "product_default_zones",
-            "return_orders", "skus", "products", "categories",
-            "zones", "user_warehouse_assignments",
-            "channels"
-        };
-
-        for (String table : tables) {
-            try {
-                st.executeUpdate("TRUNCATE TABLE " + table);
-                LOGGER.info("SchemaInitListener: Truncated table '" + table + "'");
-            } catch (SQLException e) {
-                // Table might not exist or already empty - that's OK
-                LOGGER.fine("SchemaInitListener: Could not truncate '" + table + "': " + e.getMessage());
-            }
-        }
-
-        // Re-enable foreign key checks
-        st.executeUpdate("SET FOREIGN_KEY_CHECKS = 1");
-        st.close();
-    }
+    // seedFulfillmentTestData() removed — production uses real data, no auto-seeding
 }

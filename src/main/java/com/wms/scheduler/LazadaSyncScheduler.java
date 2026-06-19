@@ -1,10 +1,11 @@
 package com.wms.scheduler;
 
+import com.fasterxml.jackson.databind.JsonNode;
 import com.wms.dao.ChannelDAO;
 import com.wms.model.Channel;
 import com.wms.service.lazada.LazadaOrderService;
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import com.wms.service.lazada.LazadaOrderSyncService;
+import com.wms.util.DBConnection;
 import jakarta.servlet.ServletContext;
 import jakarta.servlet.ServletContextEvent;
 import jakarta.servlet.ServletContextListener;
@@ -14,7 +15,6 @@ import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
-import java.sql.Statement;
 import java.sql.Timestamp;
 import java.util.List;
 import java.util.Timer;
@@ -23,12 +23,30 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 
 /**
- * LazadaSyncScheduler — Background timer that periodically syncs pending orders
- * from Lazada for every active Lazada channel configured in the system.
+ * LazadaSyncScheduler — Background timer that periodically syncs Lazada orders.
  *
- * Runs on application startup ({@code contextInitialized}) and shuts down cleanly
- * on application stop ({@code contextDestroyed}). Sync interval is read from
- * {@code db.properties} so it is configurable without a restart.
+ * Pipeline per cycle, per active Lazada channel:
+ *   1. Read {@code last_order_sync_at} from the channel record (incremental sync)
+ *   2. GET /orders/get?status=pending&updated_after=...
+ *   3. For each new order:
+ *      a. GET /order/get to fetch full detail (shipping, address, payment)
+ *      b. INSERT IGNORE orders (status = PENDING) with channel_id + channel_order_id
+ *      c. INSERT IGNORE order_shipping_details (recipient, address, courier)
+ *      d. INSERT IGNORE order_items (with SKU mapping resolution)
+ *      e. Soft-allocate inventory (holding +qty, qty_available -qty)
+ *   4. Persist last_order_sync_at back to the channel row
+ *   5. Log every cycle to lazada_sync_log
+ *
+ * <p>Per user decision (Lazada end-to-end plan):
+ * <ul>
+ *   <li>Newly-synced orders land in {@code status = 'PENDING'} so Sales can review
+ *       and pick a warehouse (UC-B2C05 manual review).</li>
+ *   <li>{@code warehouse_id = 0} on first sync — Sales staff assigns on approval.</li>
+ *   <li>Soft-allocate (BR-04) is deferred to {@code OrderService.handleAction("approve")},
+ *       because the order does not yet have a warehouse at sync time.</li>
+ * </ul>
+ *
+ * Interval and feature flag are read from web.xml context-params.
  */
 @WebListener
 public class LazadaSyncScheduler implements ServletContextListener {
@@ -38,21 +56,26 @@ public class LazadaSyncScheduler implements ServletContextListener {
     private Timer timer;
     private ServletContext servletContext;
 
+    /** Context-param key controlling the interval in minutes. */
+    public static final String CTX_PARAM_INTERVAL = "lazada.sync.interval.minutes";
+    /** Context-param key controlling the enabled flag. */
+    public static final String CTX_PARAM_ENABLED = "lazada.sync.enabled";
+    /** Context-param key for the sync lookback window (minutes). */
+    public static final String CTX_PARAM_LOOKBACK = "lazada.sync.lookback.minutes";
+
     @Override
     public void contextInitialized(ServletContextEvent sce) {
         servletContext = sce.getServletContext();
-        String intervalProp = servletContext.getInitParameter("lazada.sync.interval.minutes");
-        int intervalMinutes = parseInterval(intervalProp);
-
-        String enabled = servletContext.getInitParameter("lazada.sync.enabled");
+        String enabled = servletContext.getInitParameter(CTX_PARAM_ENABLED);
         if ("false".equalsIgnoreCase(enabled)) {
             LOGGER.info("LazadaSyncScheduler: Disabled by configuration. Skipping startup.");
             return;
         }
 
+        int intervalMinutes = parseInterval(servletContext.getInitParameter(CTX_PARAM_INTERVAL));
         LOGGER.info("LazadaSyncScheduler: Starting with interval=" + intervalMinutes + " minutes.");
         timer = new Timer("LazadaSyncTimer", true);
-        timer.scheduleAtFixedRate(new SyncTask(), 0L, intervalMinutes * 60 * 1000L);
+        timer.scheduleAtFixedRate(new SyncTask(servletContext), 0L, intervalMinutes * 60_000L);
     }
 
     @Override
@@ -73,22 +96,37 @@ public class LazadaSyncScheduler implements ServletContextListener {
         }
     }
 
-    /**
-     * One sync cycle: fetches all active Lazada channels, then syncs orders for each.
-     */
+    private int parseLookback(ServletContext ctx) {
+        try {
+            int val = Integer.parseInt(ctx.getInitParameter(CTX_PARAM_LOOKBACK));
+            return (val > 0) ? val : 60; // default: re-fetch last 60 minutes on first run
+        } catch (Exception e) {
+            return 60;
+        }
+    }
+
+    // ───────────────────────────────────────────────────────────
+    // Sync task
+    // ───────────────────────────────────────────────────────────
+
     private class SyncTask extends TimerTask {
+
         private final LazadaOrderService orderService = new LazadaOrderService();
         private final ChannelDAO channelDAO = new ChannelDAO();
-        private final ObjectMapper objectMapper = new ObjectMapper();
+        private final LazadaOrderSyncService syncService = new LazadaOrderSyncService();
+        private final int lookbackMinutes;
+        private final ServletContext ctx;
 
-        /** Carries channelId from syncChannel() down to saveOrdersToDb(). */
-        private int currentChannelId;
+        SyncTask(ServletContext servletContext) {
+            this.ctx = servletContext;
+            this.lookbackMinutes = parseLookback(servletContext);
+        }
 
         @Override
         public void run() {
             LOGGER.info("LazadaSyncScheduler: Sync cycle started.");
             int totalSynced = 0;
-
+            int totalUpdated = 0;
             try {
                 List<Channel> channels = channelDAO.findAll();
                 for (Channel channel : channels) {
@@ -100,10 +138,10 @@ public class LazadaSyncScheduler implements ServletContextListener {
                                 + "' has no access token, skipping.");
                         continue;
                     }
-
                     try {
-                        int synced = syncChannel(channel);
-                        totalSynced += synced;
+                        SyncOutcome outcome = syncChannel(channel);
+                        totalSynced += outcome.newOrders;
+                        totalUpdated += outcome.updatedOrders;
                     } catch (Exception e) {
                         LOGGER.log(Level.WARNING, "LazadaSyncScheduler: Failed to sync channel '"
                                 + channel.getChannelName() + "': " + e.getMessage(), e);
@@ -113,223 +151,91 @@ public class LazadaSyncScheduler implements ServletContextListener {
             } catch (Exception e) {
                 LOGGER.log(Level.SEVERE, "LazadaSyncScheduler: Sync cycle failed: " + e.getMessage(), e);
             }
-
-            LOGGER.info("LazadaSyncScheduler: Sync cycle completed. Total orders synced: " + totalSynced);
+            LOGGER.info("LazadaSyncScheduler: Sync cycle completed. new=" + totalSynced
+                    + " updated=" + totalUpdated);
         }
 
-        private int syncChannel(Channel channel) {
-            currentChannelId = channel.getChannelId();
-            String responseBody = orderService.getPendingOrders(channel);
-            logSync(channel.getChannelId(), "ORDER_SYNC", "SUCCESS", null, responseBody, null);
+        private SyncOutcome syncChannel(Channel channel) {
+            // Inject channel into the service (service holds state for the cycle)
+            syncService.setChannel(channel);
 
+            long lastSyncAtMs = readLastSyncAt(channel.getChannelId());
+            long sinceMs = lastSyncAtMs > 0
+                    ? lastSyncAtMs
+                    : System.currentTimeMillis() - (long) lookbackMinutes * 60_000L;
+            long sinceSeconds = sinceMs / 1000L;
+
+            // 1. List orders (status=pending, updated after our last sync)
+            String listJson = orderService.getOrders(channel, "pending", null, sinceSeconds);
+            logSync(channel.getChannelId(), "ORDER_LIST", "SUCCESS", null, listJson, null);
+
+            JsonNode root;
             try {
-                JsonNode rootNode = objectMapper.readTree(responseBody);
-                JsonNode ordersArray = rootNode.path("data").path("orders");
-
-                if (!ordersArray.isArray() || ordersArray.size() == 0) {
-                    LOGGER.fine("LazadaSyncScheduler: No pending orders for channel '"
-                            + channel.getChannelName() + "'.");
-                    return 0;
-                }
-
-                int savedCount = 0;
-                try (Connection conn = com.wms.util.DBConnection.getConnection()) {
-                    conn.setAutoCommit(false);
-                    savedCount = saveOrdersToDb(conn, ordersArray);
-                    conn.commit();
-                }
-
-                LOGGER.info("LazadaSyncScheduler: Synced " + savedCount
-                        + " orders for channel '" + channel.getChannelName() + "'.");
-                return savedCount;
-
+                root = com.wms.util.JsonUtil.getMapper().readTree(listJson);
             } catch (Exception e) {
-                LOGGER.log(Level.WARNING, "LazadaSyncScheduler: Error parsing orders for channel '"
-                        + channel.getChannelName() + "': " + e.getMessage(), e);
-                throw new RuntimeException("Order parsing failed", e);
+                throw new RuntimeException("Failed to parse Lazada /orders/get response", e);
             }
-        }
 
-        private int saveOrdersToDb(Connection conn, JsonNode ordersArray) throws SQLException {
-            // No more dummy product. Look up the SKU mapping; if not found, log
-            // the exception into mapping_exceptions for Sales staff to handle.
-            int dummyProductId = ensureDummyProduct(conn);
-            ensureDummyInventory(conn, dummyProductId);
+            JsonNode ordersArray = root.path("data").path("orders");
+            if (!ordersArray.isArray() || ordersArray.isEmpty()) {
+                updateLastSyncAt(channel.getChannelId());
+                return new SyncOutcome(0, 0);
+            }
 
-            String insertOrderSql = "INSERT IGNORE INTO orders "
-                    + "(order_code, warehouse_id, channel, status, total_amount, created_at) "
-                    + "VALUES (?, ?, ?, ?, ?, ?)";
-            String selectOrderSql = "SELECT order_id FROM orders WHERE order_code = ?";
-            String insertItemSql = "INSERT IGNORE INTO order_items (order_id, product_id, qty, unit_price) "
-                    + "VALUES (?, ?, ?, ?)";
-
-            com.wms.dao.SkuMappingDAO mappingDAO = new com.wms.dao.SkuMappingDAO();
-            int channelId = currentChannelId; // set in syncChannel()
-
-            try (PreparedStatement psOrder = conn.prepareStatement(insertOrderSql, Statement.RETURN_GENERATED_KEYS);
-                 PreparedStatement psOrderSel = conn.prepareStatement(selectOrderSql);
-                 PreparedStatement psItem = conn.prepareStatement(insertItemSql)) {
-
-                int savedCount = 0;
+            int newCount = 0;
+            int updatedCount = 0;
+            try (Connection conn = DBConnection.getConnection()) {
+                conn.setAutoCommit(false);
                 for (JsonNode orderNode : ordersArray) {
-                    long orderId = orderNode.path("order_id").asLong();
-                    double price = orderNode.path("price").asDouble(0);
-                    String createdAt = orderNode.path("created_at").asText();
-                    String status = resolveStatus(orderNode);
-                    String orderCode = String.valueOf(orderId);
-
-                    psOrder.setString(1, orderCode);
-                    psOrder.setInt(2, 1);
-                    psOrder.setString(3, "LAZADA");
-                    psOrder.setString(4, status);
-                    psOrder.setDouble(5, price);
-                    psOrder.setTimestamp(6, parseTimestamp(createdAt));
-                    int affected = psOrder.executeUpdate();
-                    boolean isNew = affected > 0;
-
-                    int generatedId = -1;
-                    if (isNew) {
-                        try (ResultSet rs = psOrder.getGeneratedKeys()) {
-                            if (rs.next()) generatedId = rs.getInt(1);
-                        }
-                    } else {
-                        psOrderSel.setString(1, orderCode);
-                        try (ResultSet rs = psOrderSel.executeQuery()) {
-                            if (rs.next()) generatedId = rs.getInt("order_id");
-                        }
+                    String orderCode = orderNode.path("order_id").asText("");
+                    String detailJson = null;
+                    try {
+                        detailJson = orderService.getOrderDetail(channel, orderCode);
+                    } catch (Exception e) {
+                        LOGGER.log(Level.FINE, "getOrderDetail failed for " + orderCode, e);
                     }
+                    var result = syncService.saveOneOrder(conn, orderNode, detailJson);
+                    if (result == LazadaOrderSyncService.SyncResult.NEW) newCount++;
+                    else if (result == LazadaOrderSyncService.SyncResult.UPDATED) updatedCount++;
+                }
+                conn.commit();
+            } catch (SQLException sqle) {
+                throw new RuntimeException("DB error during sync for channel " + channel.getChannelId(), sqle);
+            }
 
-                    if (generatedId != -1 && isNew) {
-                        // Look up the SKU mapping for each item in the order.
-                        // Lazada returns the order_items list under the "order_items" node.
-                        int itemCount = 0;
-                        JsonNode itemsNode = orderNode.path("order_items");
-                        if (itemsNode.isArray() && itemsNode.size() > 0) {
-                            for (JsonNode itemNode : itemsNode) {
-                                String externalSku = itemNode.path("sku").asText("");
-                                double qty = itemNode.path("quantity").asDouble(1);
-                                double unitPrice = itemNode.path("price").asDouble(price);
+            updateLastSyncAt(channel.getChannelId());
+            LOGGER.info("LazadaSyncScheduler: Channel '" + channel.getChannelName()
+                    + "' synced new=" + newCount + " updated=" + updatedCount);
+            return new SyncOutcome(newCount, updatedCount);
+        }
 
-                                com.wms.model.SkuMapping mapping =
-                                    mappingDAO.findActiveMapping(channelId, externalSku);
+        // ── Scheduler-only helpers (channel sync tracking & logging) ─
 
-                                int productId;
-                                if (mapping != null && mapping.getSkuId() > 0) {
-                                    // Real mapping → use actual product_id
-                                    productId = mapping.getSkuId();
-                                } else {
-                                    // No mapping → log exception and fall back to dummy
-                                    mappingDAO.logMappingException(channelId, externalSku,
-                                        orderCode, "No SKU mapping found for Lazada product");
-                                    LOGGER.warning("LazadaSyncScheduler: No mapping for externalSku="
-                                        + externalSku + " orderCode=" + orderCode);
-                                    productId = dummyProductId;
-                                }
-
-                                psItem.setInt(1, generatedId);
-                                psItem.setInt(2, productId);
-                                psItem.setDouble(3, qty);
-                                psItem.setDouble(4, unitPrice);
-                                psItem.executeUpdate();
-                                itemCount++;
-                            }
-                        }
-
-                        // Backward-compat: if the response has no order_items, create a dummy line
-                        if (itemCount == 0) {
-                            psItem.setInt(1, generatedId);
-                            psItem.setInt(2, dummyProductId);
-                            psItem.setDouble(3, 1);
-                            psItem.setDouble(4, price);
-                            psItem.executeUpdate();
-                        }
-                        allocateInventory(conn, generatedId);
-                        savedCount++;
+        private long readLastSyncAt(int channelId) {
+            String sql = "SELECT last_order_sync_at FROM channels WHERE channel_id = ?";
+            try (Connection conn = DBConnection.getConnection();
+                 PreparedStatement ps = conn.prepareStatement(sql)) {
+                ps.setInt(1, channelId);
+                try (ResultSet rs = ps.executeQuery()) {
+                    if (rs.next()) {
+                        Timestamp ts = rs.getTimestamp(1);
+                        return ts == null ? 0L : ts.getTime();
                     }
                 }
-                return savedCount;
+            } catch (SQLException e) {
+                LOGGER.log(Level.WARNING, "readLastSyncAt failed channelId=" + channelId, e);
             }
+            return 0L;
         }
 
-        private int ensureDummyProduct(Connection conn) throws SQLException {
-            String sql = "INSERT IGNORE INTO products "
-                    + "(sku_code, product_name, category, active, base_price) "
-                    + "VALUES ('DUMMY-LAZADA', 'Lazada Product Placeholder', 'Lazada', 1, 0)";
-            try (Statement st = conn.createStatement()) {
-                st.executeUpdate(sql);
-            }
-            int productId = 1;
-            try (Statement st = conn.createStatement();
-                 ResultSet rs = st.executeQuery(
-                         "SELECT product_id FROM products WHERE sku_code = 'DUMMY-LAZADA'")) {
-                if (rs.next()) productId = rs.getInt("product_id");
-            }
-            return productId;
-        }
-
-        private void ensureDummyInventory(Connection conn, int productId) throws SQLException {
-            String sql = "INSERT IGNORE INTO inventory "
-                    + "(product_id, warehouse_id, qty_on_hand, holding, qty_available) "
-                    + "VALUES (?, 1, 100000, 0, 100000)";
-            try (PreparedStatement ps = conn.prepareStatement(sql)) {
-                ps.setInt(1, productId);
+        private void updateLastSyncAt(int channelId) {
+            String sql = "UPDATE channels SET last_order_sync_at = CURRENT_TIMESTAMP WHERE channel_id = ?";
+            try (Connection conn = DBConnection.getConnection();
+                 PreparedStatement ps = conn.prepareStatement(sql)) {
+                ps.setInt(1, channelId);
                 ps.executeUpdate();
-            }
-        }
-
-        private void allocateInventory(Connection conn, int orderId) throws SQLException {
-            String selSql = "SELECT product_id, qty FROM order_items WHERE order_id = ?";
-            String updSql = "UPDATE inventory SET holding = holding + ?, qty_available = qty_available - ? "
-                    + "WHERE product_id = ? AND warehouse_id = 1";
-
-            try (PreparedStatement psSel = conn.prepareStatement(selSql);
-                 PreparedStatement psUpd = conn.prepareStatement(updSql)) {
-
-                psSel.setInt(1, orderId);
-                try (ResultSet rs = psSel.executeQuery()) {
-                    while (rs.next()) {
-                        int pid = rs.getInt("product_id");
-                        double qty = rs.getDouble("qty");
-                        psUpd.setDouble(1, qty);
-                        psUpd.setDouble(2, qty);
-                        psUpd.setInt(3, pid);
-                        psUpd.executeUpdate();
-                    }
-                }
-            }
-        }
-
-        private String resolveStatus(JsonNode orderNode) {
-            JsonNode statuses = orderNode.path("statuses");
-            if (statuses.isArray() && statuses.size() > 0) {
-                return mapLazadaStatus(statuses.get(0).asText());
-            }
-            return mapLazadaStatus(orderNode.path("status").asText("pending"));
-        }
-
-        private String mapLazadaStatus(String lazadaStatus) {
-            if (lazadaStatus == null) return "PENDING";
-            switch (lazadaStatus.toLowerCase()) {
-                case "pending": case "unpaid": return "PENDING";
-                case "ready_to_ship": case "confirmed": return "PACKED";
-                case "shipped": return "SHIPPED";
-                case "delivered": return "DELIVERED";
-                case "canceled": case "cancelled": return "CANCELLED";
-                default: return "PENDING";
-            }
-        }
-
-        private Timestamp parseTimestamp(String dateStr) {
-            try {
-                if (dateStr == null || dateStr.isEmpty()) {
-                    return new Timestamp(System.currentTimeMillis());
-                }
-                java.time.format.DateTimeFormatter fmt =
-                        java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss Z");
-                java.time.ZonedDateTime zdt = java.time.ZonedDateTime.parse(dateStr, fmt);
-                return Timestamp.from(zdt.toInstant());
-            } catch (Exception e) {
-                return new Timestamp(System.currentTimeMillis());
+            } catch (SQLException e) {
+                LOGGER.log(Level.WARNING, "updateLastSyncAt failed channelId=" + channelId, e);
             }
         }
 
@@ -338,18 +244,31 @@ public class LazadaSyncScheduler implements ServletContextListener {
             String sql = "INSERT INTO lazada_sync_log "
                     + "(channel_id, sync_type, status, request_data, response_data, error_msg) "
                     + "VALUES (?, ?, ?, ?, ?, ?)";
-            try (Connection conn = com.wms.util.DBConnection.getConnection();
+            try (Connection conn = DBConnection.getConnection();
                  PreparedStatement ps = conn.prepareStatement(sql)) {
                 ps.setInt(1, channelId);
                 ps.setString(2, syncType);
                 ps.setString(3, status);
-                ps.setString(4, requestData);
-                ps.setString(5, responseData);
+                ps.setString(4, trimForLog(requestData));
+                ps.setString(5, trimForLog(responseData));
                 ps.setString(6, errorMsg);
                 ps.executeUpdate();
             } catch (SQLException e) {
-                LOGGER.log(Level.WARNING, "LazadaSyncScheduler: Failed to log sync result", e);
+                LOGGER.log(Level.WARNING, "Failed to log sync", e);
             }
         }
+
+        private String trimForLog(String s) {
+            if (s == null) return null;
+            return s.length() > 4000 ? s.substring(0, 4000) + "...[truncated]" : s;
+        }
+    }
+
+    // ── Internal value types ────────────────────────────────────
+
+    private static class SyncOutcome {
+        final int newOrders;
+        final int updatedOrders;
+        SyncOutcome(int n, int u) { this.newOrders = n; this.updatedOrders = u; }
     }
 }

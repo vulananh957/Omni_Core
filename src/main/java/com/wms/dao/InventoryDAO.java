@@ -1,0 +1,536 @@
+package com.wms.dao;
+
+import com.wms.util.DBConnection;
+
+import java.math.BigDecimal;
+import java.sql.Connection;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
+import java.sql.SQLException;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.logging.Level;
+import java.util.logging.Logger;
+
+/**
+ * InventoryDAO — Data Access Object for database operations on inventory levels.
+ *
+ * Implements core inventory business rules (e.g., Soft-Allocation / Giữ chỗ tồn kho).
+ */
+public class InventoryDAO {
+
+    private static final Logger LOGGER = Logger.getLogger(InventoryDAO.class.getName());
+
+    private static final String SQL_UPDATE_SOFT_ALLOCATE =
+        "UPDATE inventory SET holding = holding + ?, qty_available = qty_available - ? "
+        + "WHERE product_id = ? AND warehouse_id = ? AND qty_available >= ?";
+
+    /**
+     * Executes soft-allocation to hold inventory for an order (Rule BR-04).
+     * Increases holding and decreases qty_available atomically:
+     * <ul>
+     *   <li>holding       += quantityToHold</li>
+     *   <li>qty_available -= quantityToHold</li>
+     * </ul>
+     * The check qty_available >= quantityToHold prevents overselling.
+     *
+     * @param productId      The ID of the product.
+     * @param warehouseId    The ID of the warehouse.
+     * @param quantityToHold The quantity to reserve.
+     * @return true if soft-allocation succeeded (sufficient stock was available), false otherwise.
+     */
+    public boolean softAllocateInventory(int productId, int warehouseId, int quantityToHold) {
+        if (quantityToHold <= 0) {
+            throw new IllegalArgumentException("Quantity to hold must be greater than zero.");
+        }
+        String sql = "UPDATE inventory SET holding = holding + ?, qty_available = qty_available - ? "
+                   + "WHERE product_id = ? AND warehouse_id = ? AND qty_available >= ?";
+        try (Connection conn = DBConnection.getConnection()) {
+            conn.setAutoCommit(false);
+            try (PreparedStatement ps = conn.prepareStatement(sql)) {
+                ps.setInt(1, quantityToHold);
+                ps.setInt(2, productId);
+                ps.setInt(3, warehouseId);
+                ps.setInt(4, quantityToHold);
+                int rows = ps.executeUpdate();
+                if (rows > 0) {
+                    conn.commit();
+                    LOGGER.info("Soft-allocated " + quantityToHold + " units of product ID " + productId
+                            + " at warehouse ID " + warehouseId);
+                    return true;
+                } else {
+                    conn.rollback();
+                    LOGGER.warning("Soft-allocation failed: insufficient qty_available for product ID "
+                            + productId + " at warehouse ID " + warehouseId);
+                    return false;
+                }
+            } catch (SQLException e) {
+                try { conn.rollback(); } catch (SQLException ignored) {}
+                LOGGER.log(Level.SEVERE, "Database error during soft-allocation", e);
+                return false;
+            }
+        } catch (SQLException e) {
+            LOGGER.log(Level.SEVERE, "DB connection failed for soft-allocation", e);
+            return false;
+        }
+    }
+
+    /**
+     * Returns the currently-available (un-allocated) stock for a given
+     * product/warehouse pair. Returns 0 if no inventory row exists.
+     *
+     * <p>Used by Sales order approval to validate that the chosen warehouse
+     * has enough stock for the requested quantities BEFORE performing the
+     * soft-allocate call. This prevents the bug where Sales could approve
+     * an order against an out-of-stock warehouse.
+     *
+     * @param productId    Product primary key
+     * @param warehouseId  Warehouse primary key
+     * @return qty_available (0 if no inventory row exists or on error)
+     */
+    public int getAvailableStock(int productId, int warehouseId) {
+        String sql = "SELECT qty_available FROM inventory WHERE product_id = ? AND warehouse_id = ?";
+        try (Connection conn = DBConnection.getConnection();
+             PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setInt(1, productId);
+            ps.setInt(2, warehouseId);
+            try (ResultSet rs = ps.executeQuery()) {
+                if (rs.next()) {
+                    return rs.getInt(1);
+                }
+            }
+        } catch (SQLException e) {
+            LOGGER.log(Level.WARNING,
+                "getAvailableStock failed productId=" + productId + " warehouseId=" + warehouseId, e);
+        }
+        return 0;
+    }
+
+    /**
+     * Returns a map of productId → qty_on_hand (normal stock only) for a specific warehouse.
+     * Used by WarehouseMasterSKUServlet so each warehouse manager only sees their own stock.
+     */
+    public java.util.Map<Integer, BigDecimal> findStockByWarehouse(int warehouseId) {
+        java.util.Map<Integer, BigDecimal> map = new java.util.HashMap<>();
+        String sql = "SELECT product_id, qty_on_hand FROM inventory WHERE warehouse_id = ? AND stock_type = 'NORMAL'";
+        try (Connection conn = DBConnection.getConnection();
+             PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setInt(1, warehouseId);
+            try (ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) {
+                    map.put(rs.getInt("product_id"), rs.getBigDecimal("qty_on_hand"));
+                }
+            }
+        } catch (SQLException e) {
+            LOGGER.log(Level.WARNING, "findStockByWarehouse failed warehouseId=" + warehouseId, e);
+        }
+        return map;
+    }
+
+    /**
+     * Adds quantity to inventory (for inbound receives).
+     * Increases qty_on_hand and qty_available by the given amount.
+     * Creates the inventory ledger entry for INBOUND transaction.
+     *
+     * @param productId    The ID of the product.
+     * @param warehouseId The ID of the warehouse.
+     * @param quantity    The quantity to add (must be > 0).
+     * @param userId      The ID of the user performing the operation.
+     * @return true if the inventory was updated successfully, false otherwise.
+     */
+    public boolean addInventory(int productId, int warehouseId, BigDecimal quantity, int userId) {
+        if (quantity == null || quantity.compareTo(BigDecimal.ZERO) <= 0) {
+            throw new IllegalArgumentException("Quantity to add must be greater than zero.");
+        }
+
+        String sqlUpsert =
+            "INSERT INTO inventory (product_id, warehouse_id, qty_on_hand, holding, qty_available) " +
+            "VALUES (?, ?, ?, 0, ?) " +
+            "ON DUPLICATE KEY UPDATE " +
+            "qty_on_hand = qty_on_hand + ?, qty_available = qty_available + ?";
+
+        String sqlGetInvId = "SELECT inventory_id FROM inventory WHERE product_id = ? AND warehouse_id = ?";
+
+        String sqlLedger =
+            "INSERT INTO inventory_ledger (inventory_id, product_id, warehouse_id, transaction_type, " +
+            "qty_change, avail_change, created_by, note) " +
+            "VALUES (?, ?, ?, 'INBOUND', ?, ?, ?, 'Nhập kho Inbound')";
+
+        try (Connection conn = DBConnection.getConnection()) {
+            conn.setAutoCommit(false);
+            try (PreparedStatement psUpdate = conn.prepareStatement(sqlUpsert);
+                 PreparedStatement psGet = conn.prepareStatement(sqlGetInvId);
+                 PreparedStatement psLedger = conn.prepareStatement(sqlLedger)) {
+
+                // Upsert inventory row
+                psUpdate.setInt(1, productId);
+                psUpdate.setInt(2, warehouseId);
+                psUpdate.setBigDecimal(3, quantity);
+                psUpdate.setBigDecimal(4, quantity);
+                psUpdate.setBigDecimal(5, quantity);
+                psUpdate.setBigDecimal(6, quantity);
+                psUpdate.executeUpdate();
+
+                // Get the inventory_id for the ledger entry
+                int inventoryId = -1;
+                psGet.setInt(1, productId);
+                psGet.setInt(2, warehouseId);
+                try (ResultSet rs = psGet.executeQuery()) {
+                    if (rs.next()) {
+                        inventoryId = rs.getInt("inventory_id");
+                    }
+                }
+
+                if (inventoryId <= 0) {
+                    conn.rollback();
+                    LOGGER.severe("addInventory: inventory row not found for productId=" + productId
+                            + " warehouseId=" + warehouseId);
+                    return false;
+                }
+
+                // Insert ledger entry
+                psLedger.setInt(1, inventoryId);
+                psLedger.setInt(2, productId);
+                psLedger.setInt(3, warehouseId);
+                psLedger.setBigDecimal(4, quantity);
+                psLedger.setBigDecimal(5, quantity);
+                psLedger.setInt(6, userId);
+                psLedger.executeUpdate();
+
+                conn.commit();
+                LOGGER.info("addInventory: added " + quantity + " units of product ID " + productId
+                        + " at warehouse ID " + warehouseId);
+                return true;
+
+            } catch (SQLException e) {
+                try { conn.rollback(); } catch (SQLException ignored) {}
+                LOGGER.log(Level.SEVERE, "Database error during addInventory", e);
+                return false;
+            }
+        } catch (SQLException e) {
+            LOGGER.log(Level.SEVERE, "DB connection failed for addInventory", e);
+            return false;
+        }
+    }
+
+    /**
+     * Load current inventory across all warehouses (joined with product + warehouse).
+     * Includes soft-allocation columns (on_hand, holding, qty_available) and
+     * inbound quantities from pending/in-progress PO.
+     * Returns List<Map<String,Object>> for easy JSP/Jackson consumption.
+     *
+     * <p>ATP formula: atp = qty_available + inbound_qty
+     *    (outbound forecast excluded for SME scope — add when PO forecasting is in place)
+     * <p>ATP status:
+     *    - shortage : atp <= 0
+     *    - running_low : 0 < atp < rop_calculated
+     *    - enough : atp >= rop_calculated
+     */
+    public List<java.util.Map<String, Object>> findAllInventorySummary() {
+        List<java.util.Map<String, Object>> result = new ArrayList<>();
+        String sql =
+            "SELECT inv.inventory_id, inv.product_id, p.sku_code, p.product_name, "
+            + "inv.warehouse_id, w.warehouse_name, w.warehouse_code, "
+            + "inv.qty_on_hand, inv.holding, inv.qty_available, inv.updated_at, "
+            + "p.min_stock, p.rop_calculated, "
+            + "COALESCE(inb.inbound_qty, 0) AS inbound_qty "
+            + "FROM inventory inv "
+            + "LEFT JOIN products p ON inv.product_id = p.product_id "
+            + "LEFT JOIN warehouses w ON inv.warehouse_id = w.warehouse_id "
+            + "LEFT JOIN ("
+            + "    SELECT ii.product_id, io.warehouse_id, "
+            + "           SUM(COALESCE(ii.accepted_qty, ii.received_qty, 0)) AS inbound_qty "
+            + "    FROM inbound_orders io "
+            + "    JOIN inbound_items ii ON io.inbound_id = ii.inbound_id "
+            + "    WHERE io.status IN ('PENDING','IN_PROGRESS') "
+            + "    GROUP BY ii.product_id, io.warehouse_id"
+            + ") inb ON inv.product_id = inb.product_id AND inv.warehouse_id = inb.warehouse_id "
+            + "ORDER BY p.sku_code, w.warehouse_name "
+            + "LIMIT 500";
+        try (Connection conn = DBConnection.getConnection();
+             PreparedStatement ps = conn.prepareStatement(sql);
+             ResultSet rs = ps.executeQuery()) {
+            while (rs.next()) {
+                java.util.Map<String, Object> row = new java.util.HashMap<>();
+                row.put("inventoryId", rs.getInt("inventory_id"));
+                row.put("productId", rs.getInt("product_id"));
+                row.put("skuCode", rs.getString("sku_code"));
+                row.put("productName", rs.getString("product_name"));
+                row.put("warehouseId", rs.getInt("warehouse_id"));
+                row.put("warehouseCode", rs.getString("warehouse_code"));
+                row.put("warehouseName", rs.getString("warehouse_name"));
+                row.put("qtyOnHand", rs.getBigDecimal("qty_on_hand"));
+                row.put("holding", rs.getBigDecimal("holding"));
+                row.put("qtyAvailable", rs.getBigDecimal("qty_available"));
+                java.sql.Timestamp updated = rs.getTimestamp("updated_at");
+                row.put("updatedAt", updated != null ? updated.toLocalDateTime().toString() : "");
+                row.put("inboundQty", rs.getBigDecimal("inbound_qty"));
+
+                // ATP: available + inbound (SME scope — outbound forecast deferred)
+                java.math.BigDecimal available = rs.getBigDecimal("qty_available") != null
+                        ? rs.getBigDecimal("qty_available") : java.math.BigDecimal.ZERO;
+                java.math.BigDecimal inboundQty = rs.getBigDecimal("inbound_qty") != null
+                        ? rs.getBigDecimal("inbound_qty") : java.math.BigDecimal.ZERO;
+                java.math.BigDecimal ropCalc = rs.getBigDecimal("rop_calculated") != null
+                        ? rs.getBigDecimal("rop_calculated") : java.math.BigDecimal.ZERO;
+                java.math.BigDecimal atp = available.add(inboundQty);
+
+                row.put("atp", atp);
+                row.put("atpStatus",
+                    atp.compareTo(java.math.BigDecimal.ZERO) <= 0 ? "shortage" :
+                    atp.compareTo(ropCalc) < 0  ? "running_low" : "enough");
+
+                // Stock level alert: based on on_hand vs min_stock
+                java.math.BigDecimal onHand = rs.getBigDecimal("qty_on_hand") != null
+                        ? rs.getBigDecimal("qty_on_hand") : java.math.BigDecimal.ZERO;
+                java.math.BigDecimal minStock = rs.getBigDecimal("min_stock") != null
+                        ? rs.getBigDecimal("min_stock") : java.math.BigDecimal.ZERO;
+                String level;
+                if (onHand.compareTo(minStock) <= 0) {
+                    level = "critical";
+                } else if (onHand.compareTo(minStock.multiply(java.math.BigDecimal.valueOf(1.3))) < 0) {
+                    level = "warning";
+                } else {
+                    level = "safe";
+                }
+                row.put("level", level);
+
+                result.add(row);
+            }
+        } catch (SQLException e) {
+            LOGGER.log(Level.WARNING, "findAllInventorySummary failed", e);
+        }
+        return result;
+    }
+
+    // ── Release Soft-Allocation (used when an order is cancelled) ──
+    //
+    // softAllocateInventory() only decrements qty_available. Without a release
+    // counterpart, qty_available keeps dropping over time even though the goods
+    // are still in the warehouse. The two methods below close the loop:
+    // cancel → restore available; SHIPPED → decrement on_hand.
+    // ──────────────────────────────────────────────────────────────
+
+    /**
+     * Releases a previously soft-allocated quantity (used on cancel).
+     * Adds back to qty_available. Guards against negative values.
+     *
+     * @param productId    Product to release
+     * @param warehouseId  Warehouse
+     * @param quantity     Quantity to return
+     * @return true if release succeeded, false otherwise
+     */
+    public boolean releaseSoftAllocateInventory(int productId, int warehouseId, BigDecimal quantity) {
+        if (quantity == null || quantity.compareTo(BigDecimal.ZERO) <= 0) {
+            throw new IllegalArgumentException("Quantity to release must be greater than zero.");
+        }
+
+        String sql = "UPDATE inventory "
+                   + "SET qty_available = qty_available + ? "
+                   + "WHERE product_id = ? AND warehouse_id = ?";
+
+        try (Connection conn = DBConnection.getConnection();
+             PreparedStatement ps = conn.prepareStatement(sql)) {
+
+            ps.setBigDecimal(1, quantity);
+            ps.setInt(2, productId);
+            ps.setInt(3, warehouseId);
+
+            int rows = ps.executeUpdate();
+            boolean ok = rows > 0;
+
+            if (ok) {
+                LOGGER.info("releaseSoftAllocateInventory: released " + quantity
+                        + " units of productId=" + productId
+                        + " at warehouseId=" + warehouseId);
+            } else {
+                LOGGER.warning("releaseSoftAllocateInventory: no inventory row found for productId="
+                        + productId + " warehouseId=" + warehouseId);
+            }
+            return ok;
+
+        } catch (SQLException e) {
+            LOGGER.log(Level.SEVERE, "releaseSoftAllocateInventory: SQL error", e);
+            return false;
+        }
+    }
+
+    /**
+     * Decrements on-hand stock when an order is successfully shipped.
+     * Reduces both qty_on_hand and qty_available. Guards against over-deduction.
+     *
+     * @param productId    Product
+     * @param warehouseId  Warehouse
+     * @param quantity     Quantity to deduct
+     * @return true if deducted, false if stock is insufficient
+     */
+    public boolean deductShippedInventory(int productId, int warehouseId, BigDecimal quantity) {
+        if (quantity == null || quantity.compareTo(BigDecimal.ZERO) <= 0) {
+            throw new IllegalArgumentException("Quantity to deduct must be greater than zero.");
+        }
+
+        String sql = "UPDATE inventory "
+                   + "SET qty_on_hand = qty_on_hand - ?, "
+                   + "    qty_available = qty_available - ? "
+                   + "WHERE product_id = ? AND warehouse_id = ? "
+                   + "  AND qty_on_hand >= ?";
+
+        try (Connection conn = DBConnection.getConnection();
+             PreparedStatement ps = conn.prepareStatement(sql)) {
+
+            ps.setBigDecimal(1, quantity);
+            ps.setBigDecimal(2, quantity);
+            ps.setInt(3, productId);
+            ps.setInt(4, warehouseId);
+            ps.setBigDecimal(5, quantity);
+
+            int rows = ps.executeUpdate();
+            boolean ok = rows > 0;
+
+            if (ok) {
+                LOGGER.info("deductShippedInventory: deducted " + quantity
+                        + " units of productId=" + productId
+                        + " at warehouseId=" + warehouseId);
+            } else {
+                LOGGER.warning("deductShippedInventory: insufficient qty_on_hand for productId="
+                        + productId + " warehouseId=" + warehouseId);
+            }
+            return ok;
+
+        } catch (SQLException e) {
+            LOGGER.log(Level.SEVERE, "deductShippedInventory: SQL error", e);
+            return false;
+        }
+    }
+
+    // ══ DEFECTIVE / LOCKED STOCK ════════════════════════════════
+
+    public boolean addDefectiveInventory(int productId, int warehouseId, BigDecimal quantity, int userId, String note) {
+        if (quantity == null || quantity.compareTo(BigDecimal.ZERO) <= 0) return false;
+
+        String sqlUpsert =
+            "INSERT INTO inventory (product_id, warehouse_id, qty_on_hand, holding, qty_available, stock_type) " +
+            "VALUES (?, ?, ?, 0, 0, 'DEFECTIVE') " +
+            "ON DUPLICATE KEY UPDATE qty_on_hand = qty_on_hand + ?";
+
+        String sqlLedger =
+            "INSERT INTO inventory_ledger (inventory_id, product_id, warehouse_id, transaction_type, ledger_type, " +
+            "qty_change, avail_change, created_by, note) " +
+            "VALUES (?, ?, ?, 'INBOUND', 'DEFECTIVE', ?, 0, ?, ?)";
+
+        String sqlGetInvId = "SELECT inventory_id FROM inventory WHERE product_id = ? AND warehouse_id = ? AND stock_type = 'DEFECTIVE'";
+
+        try (Connection conn = DBConnection.getConnection()) {
+            conn.setAutoCommit(false);
+            try (PreparedStatement psUpsert = conn.prepareStatement(sqlUpsert);
+                 PreparedStatement psGet = conn.prepareStatement(sqlGetInvId);
+                 PreparedStatement psLedger = conn.prepareStatement(sqlLedger)) {
+
+                psUpsert.setInt(1, productId);
+                psUpsert.setInt(2, warehouseId);
+                psUpsert.setBigDecimal(3, quantity);
+                psUpsert.setBigDecimal(4, quantity);
+                psUpsert.executeUpdate();
+
+                int inventoryId = -1;
+                psGet.setInt(1, productId);
+                psGet.setInt(2, warehouseId);
+                try (ResultSet rs = psGet.executeQuery()) {
+                    if (rs.next()) inventoryId = rs.getInt("inventory_id");
+                }
+
+                if (inventoryId <= 0) { conn.rollback(); return false; }
+
+                psLedger.setInt(1, inventoryId);
+                psLedger.setInt(2, productId);
+                psLedger.setInt(3, warehouseId);
+                psLedger.setBigDecimal(4, quantity);
+                psLedger.setInt(5, userId);
+                psLedger.setString(6, note != null ? note : "Hàng lỗi từ RTV");
+                psLedger.executeUpdate();
+
+                conn.commit();
+                return true;
+            } catch (SQLException e) {
+                try { conn.rollback(); } catch (SQLException ignored) {}
+                LOGGER.log(Level.SEVERE, "addDefectiveInventory error", e);
+                return false;
+            }
+        } catch (SQLException e) {
+            LOGGER.log(Level.SEVERE, "DB connection error for addDefectiveInventory", e);
+            return false;
+        }
+    }
+
+    public boolean deductDefectiveInventory(int productId, int warehouseId, BigDecimal quantity, int userId, String note) {
+        if (quantity == null || quantity.compareTo(BigDecimal.ZERO) <= 0) return false;
+
+        String sql = "UPDATE inventory " +
+                     "SET qty_on_hand = qty_on_hand - ? " +
+                     "WHERE product_id = ? AND warehouse_id = ? AND stock_type = 'DEFECTIVE' AND qty_on_hand >= ?";
+
+        String sqlGetInvId = "SELECT inventory_id FROM inventory WHERE product_id = ? AND warehouse_id = ? AND stock_type = 'DEFECTIVE'";
+
+        String sqlLedger =
+            "INSERT INTO inventory_ledger (inventory_id, product_id, warehouse_id, transaction_type, ledger_type, " +
+            "qty_change, avail_change, created_by, note) " +
+            "VALUES (?, ?, ?, 'OUTBOUND', 'DEFECTIVE', ?, 0, ?, ?)";
+
+        try (Connection conn = DBConnection.getConnection()) {
+            conn.setAutoCommit(false);
+            try (PreparedStatement psDed = conn.prepareStatement(sql);
+                 PreparedStatement psGet = conn.prepareStatement(sqlGetInvId);
+                 PreparedStatement psLedger = conn.prepareStatement(sqlLedger)) {
+
+                psDed.setBigDecimal(1, quantity);
+                psDed.setInt(2, productId);
+                psDed.setInt(3, warehouseId);
+                psDed.setBigDecimal(4, quantity);
+                int rows = psDed.executeUpdate();
+                if (rows == 0) { conn.rollback(); return false; }
+
+                int inventoryId = -1;
+                psGet.setInt(1, productId);
+                psGet.setInt(2, warehouseId);
+                try (ResultSet rs = psGet.executeQuery()) {
+                    if (rs.next()) inventoryId = rs.getInt("inventory_id");
+                }
+
+                if (inventoryId > 0) {
+                    psLedger.setInt(1, inventoryId);
+                    psLedger.setInt(2, productId);
+                    psLedger.setInt(3, warehouseId);
+                    psLedger.setBigDecimal(4, quantity.negate());
+                    psLedger.setInt(5, userId);
+                    psLedger.setString(6, note != null ? note : "Xuất trả NCC (RTV)");
+                    psLedger.executeUpdate();
+                }
+
+                conn.commit();
+                return true;
+            } catch (SQLException e) {
+                try { conn.rollback(); } catch (SQLException ignored) {}
+                LOGGER.log(Level.SEVERE, "deductDefectiveInventory error", e);
+                return false;
+            }
+        } catch (SQLException e) {
+            LOGGER.log(Level.SEVERE, "DB connection error for deductDefectiveInventory", e);
+            return false;
+        }
+    }
+
+    public BigDecimal getDefectiveQty(int productId, int warehouseId) {
+        String sql = "SELECT qty_on_hand FROM inventory WHERE product_id = ? AND warehouse_id = ? AND stock_type = 'DEFECTIVE'";
+        try (Connection conn = DBConnection.getConnection();
+             PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setInt(1, productId);
+            ps.setInt(2, warehouseId);
+            try (ResultSet rs = ps.executeQuery()) {
+                if (rs.next()) return rs.getBigDecimal("qty_on_hand");
+            }
+        } catch (SQLException e) {
+            LOGGER.log(Level.WARNING, "getDefectiveQty error", e);
+        }
+        return BigDecimal.ZERO;
+    }
+}

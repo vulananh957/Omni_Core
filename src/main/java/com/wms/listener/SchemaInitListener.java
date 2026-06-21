@@ -66,6 +66,7 @@ public class SchemaInitListener implements ServletContextListener {
             ensureStocktakes();
             ensureFulfillmentRequestTables();
             ensureLazadaCategoriesTable();
+            ensureProductRopLogTable();
             migrateChannelsColumns();
             ensureIndexes();
             seedDefaultData();
@@ -315,6 +316,24 @@ public class SchemaInitListener implements ServletContextListener {
             // UC-B2C09: Lazada short_description (max 255 chars per Lazada spec)
             addColumnIfMissing(conn, md, "products", "short_description",
                 "VARCHAR(255) DEFAULT NULL COMMENT 'Lazada short_description (<=255 chars)'");
+            // MAC: Moving Average Cost — recalculated every time a new lot is received.
+            // Formula: MAC = (current_on_hand × current_mac + accepted_qty × unit_cost) / (current_on_hand + accepted_qty)
+            addColumnIfMissing(conn, md, "products", "mac_price",
+                "DECIMAL(15,4) NOT NULL DEFAULT 0 COMMENT 'Moving Average Cost (Giá vốn bình quân gia quyền)'");
+            // ROP: Reorder Point — auto-calculated nightly by RopScheduler.
+            // SS = (D_max × L_max) - (D_avg × L_avg);  ROP = (D_avg × L_avg) + SS
+            addColumnIfMissing(conn, md, "products", "d_avg",
+                "DECIMAL(12,4) NOT NULL DEFAULT 0 COMMENT 'Average daily demand (units/day) over lookback window'");
+            addColumnIfMissing(conn, md, "products", "d_max",
+                "DECIMAL(12,4) NOT NULL DEFAULT 0 COMMENT 'Maximum daily demand observed in lookback window'");
+            addColumnIfMissing(conn, md, "products", "l_avg",
+                "DECIMAL(12,4) NOT NULL DEFAULT 0 COMMENT 'Average lead time in days (PO created → GRN received)'");
+            addColumnIfMissing(conn, md, "products", "l_max",
+                "DECIMAL(12,4) NOT NULL DEFAULT 0 COMMENT 'Maximum lead time in days observed in lookback window'");
+            addColumnIfMissing(conn, md, "products", "safety_stock",
+                "DECIMAL(12,4) NOT NULL DEFAULT 0 COMMENT 'Safety Stock = (D_max×L_max) − (D_avg×L_avg)'");
+            addColumnIfMissing(conn, md, "products", "rop_calculated",
+                "DECIMAL(12,3) NOT NULL DEFAULT 0 COMMENT 'Reorder Point = (D_avg×L_avg) + Safety_Stock'");
             // Status workflow is gone: drop the legacy columns if they still exist.
             dropProductApprovalColumnsIfExist(conn, md);
         }
@@ -570,6 +589,10 @@ public class SchemaInitListener implements ServletContextListener {
             addColumnIfMissing(conn, md, "inbound_orders", "created_by", "INT DEFAULT NULL");
             createTableIfNotExists(conn, "inbound_items",
                 "CREATE TABLE inbound_items (inbound_item_id INT AUTO_INCREMENT PRIMARY KEY, inbound_id INT NOT NULL, product_id INT NOT NULL, expected_qty DECIMAL(12,3) NOT NULL DEFAULT 0, received_qty DECIMAL(12,3) NOT NULL DEFAULT 0) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+            addColumnIfMissing(conn, md, "inbound_items", "unit_cost",
+                "DECIMAL(15,4) NOT NULL DEFAULT 0 COMMENT 'Unit cost at time of inbound receipt (used for MAC recalculation)'");
+            addColumnIfMissing(conn, md, "inbound_items", "accepted_qty",
+                "DECIMAL(12,3) NOT NULL DEFAULT 0 COMMENT 'Accepted quantity used for MAC'");
             createTableIfNotExists(conn, "receipt_notes",
                 "CREATE TABLE receipt_notes (receipt_id INT AUTO_INCREMENT PRIMARY KEY, inbound_id INT NOT NULL, warehouse_id INT NOT NULL, received_by INT, note TEXT, created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
         }
@@ -727,4 +750,25 @@ public class SchemaInitListener implements ServletContextListener {
     }
 
     // seedFulfillmentTestData() removed — production uses real data, no auto-seeding
+
+    // ── ROP Log (Reorder Point audit trail) ─────────────────────────
+    private void ensureProductRopLogTable() throws SQLException {
+        try (Connection conn = DBConnection.getConnection()) {
+            createTableIfNotExists(conn, "product_rop_log",
+                "CREATE TABLE product_rop_log ("
+                    + "log_id INT AUTO_INCREMENT PRIMARY KEY,"
+                    + "product_id INT NOT NULL,"
+                    + "run_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,"
+                    + "lookback_days INT NOT NULL DEFAULT 30,"
+                    + "d_avg DECIMAL(12,4) NOT NULL DEFAULT 0,"
+                    + "d_max DECIMAL(12,4) NOT NULL DEFAULT 0,"
+                    + "l_avg DECIMAL(12,4) NOT NULL DEFAULT 0,"
+                    + "l_max DECIMAL(12,4) NOT NULL DEFAULT 0,"
+                    + "safety_stock DECIMAL(12,4) NOT NULL DEFAULT 0,"
+                    + "rop_before DECIMAL(12,3) NOT NULL DEFAULT 0,"
+                    + "rop_after DECIMAL(12,3) NOT NULL DEFAULT 0,"
+                    + "triggered_by INT DEFAULT NULL COMMENT 'userId if manually triggered, 0 if scheduled'"
+                + ") ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+        }
+    }
 }

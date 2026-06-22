@@ -533,4 +533,81 @@ public class InventoryDAO {
         }
         return BigDecimal.ZERO;
     }
+
+    public List<java.util.Map<String, Object>> findInventorySummaryByWarehouse(int warehouseId) {
+        List<java.util.Map<String, Object>> result = new ArrayList<>();
+        String sql =
+            "SELECT inv.inventory_id, inv.product_id, p.sku_code, p.product_name, "
+            + "inv.warehouse_id, w.warehouse_name, w.warehouse_code, "
+            + "inv.qty_on_hand, inv.holding, inv.qty_available, inv.updated_at, "
+            + "p.min_stock, p.rop_calculated, "
+            + "COALESCE(inb.inbound_qty, 0) AS inbound_qty "
+            + "FROM inventory inv "
+            + "LEFT JOIN products p ON inv.product_id = p.product_id "
+            + "LEFT JOIN warehouses w ON inv.warehouse_id = w.warehouse_id "
+            + "LEFT JOIN ("
+            + "    SELECT ii.product_id, io.warehouse_id, "
+            + "           SUM(COALESCE(ii.accepted_qty, ii.received_qty, 0)) AS inbound_qty "
+            + "    FROM inbound_orders io "
+            + "    JOIN inbound_items ii ON io.inbound_id = ii.inbound_id "
+            + "    WHERE io.status IN ('PENDING','IN_PROGRESS') "
+            + "    GROUP BY ii.product_id, io.warehouse_id"
+            + ") inb ON inv.product_id = inb.product_id AND inv.warehouse_id = inb.warehouse_id "
+            + "WHERE inv.warehouse_id = ? "
+            + "ORDER BY p.sku_code ";
+        try (Connection conn = DBConnection.getConnection();
+             PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setInt(1, warehouseId);
+            try (ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) {
+                    java.util.Map<String, Object> row = new java.util.HashMap<>();
+                    row.put("inventoryId", rs.getInt("inventory_id"));
+                    row.put("productId", rs.getInt("product_id"));
+                    row.put("skuCode", rs.getString("sku_code"));
+                    row.put("productName", rs.getString("product_name"));
+                    row.put("warehouseId", rs.getInt("warehouse_id"));
+                    row.put("warehouseCode", rs.getString("warehouse_code"));
+                    row.put("warehouseName", rs.getString("warehouse_name"));
+                    row.put("qtyOnHand", rs.getBigDecimal("qty_on_hand"));
+                    row.put("holding", rs.getBigDecimal("holding"));
+                    row.put("qtyAvailable", rs.getBigDecimal("qty_available"));
+                    java.sql.Timestamp updated = rs.getTimestamp("updated_at");
+                    row.put("updatedAt", updated != null ? updated.toLocalDateTime().toString() : "");
+                    row.put("inboundQty", rs.getBigDecimal("inbound_qty"));
+
+                    java.math.BigDecimal available = rs.getBigDecimal("qty_available") != null
+                            ? rs.getBigDecimal("qty_available") : java.math.BigDecimal.ZERO;
+                    java.math.BigDecimal inboundQty = rs.getBigDecimal("inbound_qty") != null
+                            ? rs.getBigDecimal("inbound_qty") : java.math.BigDecimal.ZERO;
+                    java.math.BigDecimal ropCalc = rs.getBigDecimal("rop_calculated") != null
+                            ? rs.getBigDecimal("rop_calculated") : java.math.BigDecimal.ZERO;
+                    java.math.BigDecimal atp = available.add(inboundQty);
+
+                    row.put("atp", atp);
+                    row.put("atpStatus",
+                        atp.compareTo(java.math.BigDecimal.ZERO) <= 0 ? "shortage" :
+                        atp.compareTo(ropCalc) < 0  ? "running_low" : "enough");
+
+                    java.math.BigDecimal onHand = rs.getBigDecimal("qty_on_hand") != null
+                            ? rs.getBigDecimal("qty_on_hand") : java.math.BigDecimal.ZERO;
+                    java.math.BigDecimal minStock = rs.getBigDecimal("min_stock") != null
+                            ? rs.getBigDecimal("min_stock") : java.math.BigDecimal.ZERO;
+                    String level;
+                    if (onHand.compareTo(minStock) <= 0) {
+                        level = "critical";
+                    } else if (onHand.compareTo(minStock.multiply(java.math.BigDecimal.valueOf(1.3))) < 0) {
+                        level = "warning";
+                    } else {
+                        level = "safe";
+                    }
+                    row.put("level", level);
+
+                    result.add(row);
+                }
+            }
+        } catch (SQLException e) {
+            LOGGER.log(Level.WARNING, "findInventorySummaryByWarehouse failed whId=" + warehouseId, e);
+        }
+        return result;
+    }
 }

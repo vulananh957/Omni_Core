@@ -1,6 +1,7 @@
 <%@ page language="java" contentType="text/html; charset=UTF-8" pageEncoding="UTF-8" %>
 <%@ taglib prefix="c" uri="jakarta.tags.core" %>
 <%@ taglib prefix="fn" uri="jakarta.tags.functions" %>
+<%@ taglib prefix="fmt" uri="jakarta.tags.fmt" %>
 
 <link rel="stylesheet" href="${pageContext.request.contextPath}/assets/css/warehouse--warehouse-information.css"/>
 
@@ -17,49 +18,126 @@
 
 <c:choose>
     <c:when test="${empty warehouse}">
-        <div class="whinfo-card" style="padding:48px; text-align:center; color:rgba(16,55,92,0.4);">
+        <div class="whinfo-empty">
             Không tìm thấy thông tin kho được phân công.
         </div>
     </c:when>
     <c:otherwise>
-        <div class="whinfo-grid">
-            <div class="whinfo-field">
-                <div class="whinfo-field__lbl">Mã kho</div>
-                <div class="whinfo-field__val"><c:out value="${warehouse.warehouseCode}"/></div>
+
+        <%-- ══ Warehouse Info Header ═══════════════════════════════════ --%>
+        <div class="whinfo-hdr">
+            <div class="whinfo-hdr__badge">
+                <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none"
+                     stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>
+                    <polyline points="9 22 9 12 15 12 15 22"/>
+                </svg>
             </div>
-            <div class="whinfo-field">
-                <div class="whinfo-field__lbl">Tên kho</div>
-                <div class="whinfo-field__val"><c:out value="${warehouse.warehouseName}"/></div>
-            </div>
-            <div class="whinfo-field">
-                <div class="whinfo-field__lbl">Trạng thái</div>
-                <div class="whinfo-field__val">
-                    <c:choose>
-                        <c:when test="${warehouse.active}">
-                            <span class="whinfo-badge" style="background:#ECFDF5; color:#059669;">Đang hoạt động</span>
-                        </c:when>
-                        <c:otherwise>
-                            <span class="whinfo-badge" style="background:#FEF2F2; color:#ef4444;">Ngừng hoạt động</span>
-                        </c:otherwise>
-                    </c:choose>
+            <div class="whinfo-hdr__body">
+                <div class="whinfo-hdr__top">
+                    <div>
+                        <div class="whinfo-hdr__code"><c:out value="${warehouse.warehouseCode}"/></div>
+                        <div class="whinfo-hdr__name"><c:out value="${warehouse.warehouseName}"/></div>
+                    </div>
+                    <div class="whinfo-hdr__meta">
+                        <c:choose>
+                            <c:when test="${warehouse.active}">
+                                <span class="whinfo-pill whinfo-pill--active">
+                                    <span class="whinfo-pill__dot"></span>Đang hoạt động
+                                </span>
+                            </c:when>
+                            <c:otherwise>
+                                <span class="whinfo-pill whinfo-pill--inactive">
+                                    <span class="whinfo-pill__dot"></span>Ngừng hoạt động
+                                </span>
+                            </c:otherwise>
+                        </c:choose>
+                    </div>
                 </div>
-            </div>
-            <div class="whinfo-field" style="grid-column: span 2;">
-                <div class="whinfo-field__lbl">Địa chỉ</div>
-                <div class="whinfo-field__val"><c:out value="${not empty warehouse.address ? warehouse.address : '—'}"/></div>
-            </div>
-            <div class="whinfo-field">
-                <div class="whinfo-field__lbl">Số điện thoại</div>
-                <div class="whinfo-field__val"><c:out value="${not empty warehouse.phone ? warehouse.phone : '—'}"/></div>
-            </div>
-            <div class="whinfo-field">
-                <div class="whinfo-field__lbl">Sức chứa (đơn vị)</div>
-                <div class="whinfo-field__val">
-                    <c:out value="${warehouse.capacity > 0 ? warehouse.capacity : '—'}"/>
+                <%-- 40/60 split: admin fields | live metrics --%>
+                <div class="whinfo-hdr__split">
+                    <%-- Left: admin (40%) --%>
+                    <div class="whinfo-admin-fields">
+                        <div class="whinfo-admin-field">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none"
+                                 stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
+                                <circle cx="12" cy="7" r="4"/>
+                            </svg>
+                            <span class="whinfo-admin-field__lbl">Quản lý kho</span>
+                            <span class="whinfo-admin-field__val">
+                                <c:choose>
+                                    <c:when test="${not empty sessionScope.currentUser}">
+                                        <c:out value="${sessionScope.currentUser.fullName}"/>
+                                    </c:when>
+                                    <c:otherwise>—</c:otherwise>
+                                </c:choose>
+                            </span>
+                        </div>
+                        <div class="whinfo-admin-field">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none"
+                                 stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.69 13.5 19.79 19.79 0 0 1 1.61 4.9 2 2 0 0 1 3.6 2.73h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L7.91 10a16 16 0 0 0 6 6l.95-.95a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 22 16.92z"/>
+                            </svg>
+                            <span class="whinfo-admin-field__lbl">Hotline</span>
+                            <span class="whinfo-admin-field__val"><c:out value="${not empty warehouse.phone ? warehouse.phone : '—'}"/></span>
+                        </div>
+                        <div class="whinfo-admin-field">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none"
+                                 stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/>
+                                <circle cx="12" cy="10" r="3"/>
+                            </svg>
+                            <span class="whinfo-admin-field__lbl">Địa chỉ</span>
+                            <span class="whinfo-admin-field__val"><c:out value="${not empty warehouse.address ? warehouse.address : '—'}"/></span>
+                        </div>
+                    </div>
+                    <%-- Right: live KPIs (60%) --%>
+                    <div class="whinfo-kpi-strip">
+                        <div class="whinfo-kpi-card">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none"
+                                 stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/>
+                                <polyline points="3.27 6.96 12 12.01 20.73 6.96"/>
+                                <line x1="12" y1="22.08" x2="12" y2="12"/>
+                            </svg>
+                            <div class="whinfo-kpi-card__num"><c:out value="${dashboardMetrics.totalSku}"/></div>
+                            <div class="whinfo-kpi-card__lbl">Tổng SKU</div>
+                        </div>
+                        <div class="whinfo-kpi-card">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none"
+                                 stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <rect x="2" y="7" width="20" height="14" rx="2" ry="2"/>
+                                <path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/>
+                            </svg>
+                            <div class="whinfo-kpi-card__num">
+                                <c:choose>
+                                    <c:when test="${dashboardMetrics.totalPhysical >= 1000}">
+                                        <fmt:formatNumber value="${dashboardMetrics.totalPhysical / 1000}" pattern="#,##0.#" maxFractionDigits="1"/>k
+                                    </c:when>
+                                    <c:otherwise>
+                                        <fmt:formatNumber value="${dashboardMetrics.totalPhysical}" pattern="#,##0"/>
+                                    </c:otherwise>
+                                </c:choose>
+                            </div>
+                            <div class="whinfo-kpi-card__lbl">Tồn vật lý</div>
+                        </div>
+                        <a href="${pageContext.request.contextPath}/inventory/list" class="whinfo-kpi-card ${dashboardMetrics.alertCount > 0 ? 'whinfo-kpi-card--alert' : ''}">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none"
+                                 stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
+                                <line x1="12" y1="9" x2="12" y2="13"/>
+                                <line x1="12" y1="17" x2="12.01" y2="17"/>
+                            </svg>
+                            <div class="whinfo-kpi-card__num"><c:out value="${dashboardMetrics.alertCount}"/></div>
+                            <div class="whinfo-kpi-card__lbl">Cảnh báo</div>
+                        </a>
+                    </div>
                 </div>
             </div>
         </div>
 
+        <%-- ══ Zones Card ════════════════════════════════════════════════ --%>
         <div class="whinfo-card">
             <div class="whinfo-card__hdr">
                 <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none"
@@ -67,68 +145,74 @@
                     <rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/>
                     <rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/>
                 </svg>
-                <span>Phân khu lưu trữ (Zones) — <c:out value="${fn:length(warehouse.zones)}"/> khu</span>
+                <span>Phân khu lưu trữ (Zones)</span>
                 <button type="button" onclick="openCreateZone()"
-                        style="margin-left:auto; display:inline-flex; align-items:center; gap:6px; padding:8px 14px; background:var(--navy,#10375c); color:#fff; border:none; border-radius:8px; font-size:13px; font-weight:600; cursor:pointer;">
-                    + Thêm khu
+                        class="btn-add-zone">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="M12 5v14"/></svg>
+                    Thêm khu
                 </button>
             </div>
             <table class="whinfo-table">
                 <thead>
                     <tr>
-                        <th style="width:120px;">Mã khu</th>
+                        <th style="width:56px; text-align:center;">STT</th>
                         <th>Tên khu</th>
-                        <th style="width:140px;">Loại</th>
-                        <th>Mô tả</th>
-                        <th style="width:120px;">Trạng thái</th>
-                        <th style="width:150px; text-align:center;">Thao tác</th>
+                        <th style="width:150px;">Loại</th>
+                        <th>Sức chứa</th>
+                        <th style="width:110px;">Trạng thái</th>
+                        <th style="width:110px; text-align:center;">Thao tác</th>
                     </tr>
                 </thead>
                 <tbody>
                     <c:choose>
                         <c:when test="${empty warehouse.zones}">
-                            <tr><td colspan="6" style="text-align:center; padding:32px; color:rgba(16,55,92,0.4);">Chưa có phân khu nào.</td></tr>
+                            <tr><td colspan="6" class="whinfo-empty-cell">Chưa có phân khu nào.</td></tr>
                         </c:when>
                         <c:otherwise>
-                            <c:forEach var="z" items="${warehouse.zones}">
+                            <c:forEach var="z" items="${warehouse.zones}" varStatus="vs">
                                 <tr>
-                                    <td style="font-family:monospace; font-weight:600;"><c:out value="${z.zoneCode}"/></td>
+                                    <td style="text-align:center; color:rgba(16,55,92,0.35); font-weight:700;"><c:out value="${vs.count}"/></td>
                                     <td style="font-weight:600;"><c:out value="${z.zoneName}"/></td>
                                     <td>
                                         <c:choose>
-                                            <c:when test="${z.zoneType == 'NORMAL'}"><span class="whinfo-badge" style="background:#ECFDF5; color:#059669;">Khu thường</span></c:when>
-                                            <c:when test="${z.zoneType == 'RETURN'}"><span class="whinfo-badge" style="background:#EFF6FF; color:#2563eb;">Khu trả hàng</span></c:when>
-                                            <c:when test="${z.zoneType == 'DAMAGED'}"><span class="whinfo-badge" style="background:rgba(245,200,66,0.15); color:#d9a000;">Khu hỏng</span></c:when>
-                                            <c:when test="${z.zoneType == 'DESTROY'}"><span class="whinfo-badge" style="background:#FEF2F2; color:#ef4444;">Khu tiêu hủy</span></c:when>
-                                            <c:otherwise><span class="whinfo-badge" style="background:rgba(16,55,92,0.08); color:var(--navy,#10375c);"><c:out value="${z.zoneType}"/></span></c:otherwise>
+                                            <c:when test="${z.zoneType == 'NORMAL'}"><span class="zbadge zbadge--normal">Khu thường</span></c:when>
+                                            <c:when test="${z.zoneType == 'RETURN'}"><span class="zbadge zbadge--return">Khu trả hàng</span></c:when>
+                                            <c:when test="${z.zoneType == 'DAMAGED'}"><span class="zbadge zbadge--damaged">Khu hỏng</span></c:when>
+                                            <c:when test="${z.zoneType == 'DESTROY'}"><span class="zbadge zbadge--destroy">Khu tiêu hủy</span></c:when>
+                                            <c:when test="${z.zoneType == 'DISPUTE'}"><span class="zbadge zbadge--dispute">Khu khiếu nại</span></c:when>
+                                            <c:otherwise><span class="zbadge zbadge--custom"><c:out value="${z.zoneType}"/></span></c:otherwise>
                                         </c:choose>
                                     </td>
-                                    <td style="color:rgba(16,55,92,0.6);"><c:out value="${not empty z.description ? z.description : '—'}"/></td>
+                                    <td style="color:rgba(16,55,92,0.55);"><c:out value="${not empty z.capacity ? z.capacity : '—'}"/></td>
                                     <td>
                                         <c:choose>
-                                            <c:when test="${z.active}"><span style="color:#059669; font-weight:600;">Hoạt động</span></c:when>
-                                            <c:otherwise><span style="color:rgba(16,55,92,0.4);">Ngừng</span></c:otherwise>
+                                            <c:when test="${z.active}"><span class="zstatus zstatus--active">Hoạt động</span></c:when>
+                                            <c:otherwise><span class="zstatus zstatus--inactive">Ngừng</span></c:otherwise>
                                         </c:choose>
                                     </td>
-                                    <td style="text-align:center; white-space:nowrap;">
-                                        <button type="button"
-                                                data-id="${z.zoneId}" data-code="${fn:escapeXml(z.zoneCode)}"
-                                                data-name="${fn:escapeXml(z.zoneName)}" data-type="${z.zoneType}"
+                                    <td style="text-align:center;">
+                                        <button type="button" class="btn-z-action btn-z-edit"
+                                                data-id="${z.zoneId}"
+                                                data-name="${fn:escapeXml(z.zoneName)}"
+                                                data-type="${z.zoneType}"
                                                 data-desc="${fn:escapeXml(z.description)}"
-                                                onclick="openEditZone(this)"
-                                                style="padding:5px 10px; margin-right:4px; background:rgba(16,55,92,0.06); color:var(--navy,#10375c); border:1px solid rgba(16,55,92,0.12); border-radius:6px; font-size:12px; font-weight:600; cursor:pointer;">Sửa</button>
+                                                data-default="${z['default']}"
+                                                onclick="openEditZone(this)">
+                                            <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
+                                            Sửa
+                                        </button>
                                         <c:choose>
                                             <c:when test="${not z['default']}">
-                                                <form method="post" action="${pageContext.request.contextPath}/warehouse/information"
-                                                      style="display:inline;" onsubmit="return confirm('Xóa khu này?');">
-                                                    <input type="hidden" name="action" value="deleteZone"/>
-                                                    <input type="hidden" name="zoneId" value="${z.zoneId}"/>
-                                                    <button type="submit"
-                                                            style="padding:5px 10px; background:#FEF2F2; color:#ef4444; border:1px solid #FECACA; border-radius:6px; font-size:12px; font-weight:600; cursor:pointer;">Xóa</button>
-                                                </form>
+                                                <button type="button" class="btn-z-action btn-z-delete"
+                                                        data-zone-id="${z.zoneId}"
+                                                        data-zone-name="${fn:escapeXml(z.zoneName)}"
+                                                        onclick="deleteZone(this)">
+                                                    <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg>
+                                                    Xóa
+                                                </button>
                                             </c:when>
                                             <c:otherwise>
-                                                <span style="font-size:11px; color:rgba(16,55,92,0.35);">(mặc định)</span>
+                                                <span style="display:inline-block; width:30px;"></span>
                                             </c:otherwise>
                                         </c:choose>
                                     </td>
@@ -145,74 +229,275 @@
             Khu mặc định của hệ thống không thể xóa.
         </div>
 
-        <div id="zoneModalOverlay" onclick="if(event.target===this)closeZoneModal()"
-             style="display:none; position:fixed; inset:0; background:rgba(16,55,92,0.45); z-index:1000; align-items:center; justify-content:center;">
-            <div style="background:#fff; width:440px; max-width:92vw; border-radius:14px; overflow:hidden;">
-                <div style="padding:16px 20px; border-bottom:1px solid var(--border,#e5eaf3); font-size:16px; font-weight:700; color:var(--navy,#10375c);">
-                    <span id="zoneModalTitle">Thêm khu</span>
+        <%-- ══ Zone Modal ═══════════════════════════════════════════════ --%>
+        <div id="zoneModalOverlay" class="zm-overlay" onclick="if(event.target===this)closeZoneModal()">
+            <div class="zm-box">
+                <%-- Header --%>
+                <div class="zm-hdr">
+                    <div class="zm-hdr__icon">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none"
+                             stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/>
+                            <rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/>
+                        </svg>
+                    </div>
+                    <div>
+                        <div class="zm-hdr__title" id="zoneModalTitle">Thêm phân khu mới</div>
+                        <div class="zm-hdr__sub">Thiết lập thông tin chi tiết cho phân khu lưu trữ</div>
+                    </div>
+                    <button type="button" class="zm-close" onclick="closeZoneModal()">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+                    </button>
                 </div>
-                <form method="post" action="${pageContext.request.contextPath}/warehouse/information" style="padding:20px;">
+
+                <%-- Body --%>
+                <form method="post" action="${pageContext.request.contextPath}/warehouse/information"
+                      id="zoneForm" onsubmit="return resolveZoneTypeSubmit()">
                     <input type="hidden" name="action" id="zoneFormAction" value="createZone"/>
                     <input type="hidden" name="zoneId" id="zoneFormId"/>
+                    <input type="hidden" name="zoneType" id="zoneFormTypeResolved" value="NORMAL"/>
 
-                    <label style="display:block; font-size:12px; font-weight:600; color:rgba(16,55,92,0.6); margin-bottom:4px;">Mã khu</label>
-                    <input type="text" name="zoneCode" id="zoneFormCode" required maxlength="50"
-                           style="width:100%; padding:9px 12px; border:1px solid var(--border,#e5eaf3); border-radius:8px; margin-bottom:14px; font-size:13px; box-sizing:border-box;"/>
+                    <div class="zm-body">
+                        <%-- Section: Zone type selection --%>
+                        <div class="zm-section">
+                            <div class="zm-section__title">Loại khu</div>
+                            <div class="zm-type-grid" id="zoneTypeGrid">
+                                <label class="zm-type-item" data-type="NORMAL">
+                                    <input type="radio" name="zoneTypeRadio" value="NORMAL" checked/>
+                                    <div class="zm-type-item__inner">
+                                        <div class="zm-type-item__icon zm-type-item__icon--normal">
+                                            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 8.35V20a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V8.35A2 2 0 0 1 3.26 6.5l8-3.2a2 2 0 0 1 1.48 0l8 3.2A2 2 0 0 1 22 8.35Z"/><rect width="4" height="6" x="10" y="18" rx="0"/></svg>
+                                        </div>
+                                        <div class="zm-type-item__info">
+                                            <div class="zm-type-item__name">Khu Hàng Thường</div>
+                                            <div class="zm-type-item__desc">Hàng đạt tiêu chuẩn, sẵn sàng xuất kho</div>
+                                        </div>
+                                        <span class="zm-type-item__badge zm-badge-normal">Tiêu chuẩn</span>
+                                    </div>
+                                </label>
+                                <label class="zm-type-item" data-type="DAMAGED">
+                                    <input type="radio" name="zoneTypeRadio" value="DAMAGED"/>
+                                    <div class="zm-type-item__inner">
+                                        <div class="zm-type-item__icon zm-type-item__icon--damaged">
+                                            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" x2="12" y1="8" y2="12"/><line x1="12" x2="12.01" y1="16" y2="16"/></svg>
+                                        </div>
+                                        <div class="zm-type-item__info">
+                                            <div class="zm-type-item__name">Khu Hàng Hỏng</div>
+                                            <div class="zm-type-item__desc">Hàng hư hỏng, lỗi ngoại quan chờ thanh lý</div>
+                                        </div>
+                                        <span class="zm-type-item__badge zm-badge-damaged">Bắt buộc</span>
+                                    </div>
+                                </label>
+                                <label class="zm-type-item" data-type="DISPUTE">
+                                    <input type="radio" name="zoneTypeRadio" value="DISPUTE"/>
+                                    <div class="zm-type-item__inner">
+                                        <div class="zm-type-item__icon zm-type-item__icon--dispute">
+                                            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 18 0a9 9 0 0 0 -18 0"/><path d="M12 8v4"/><path d="M12 16h.01"/></svg>
+                                        </div>
+                                        <div class="zm-type-item__info">
+                                            <div class="zm-type-item__name">Khu Hàng Khiếu Nại</div>
+                                            <div class="zm-type-item__desc">Hàng khách trả về, chờ QC kiểm định</div>
+                                        </div>
+                                        <span class="zm-type-item__badge zm-badge-dispute">Hoàn trả</span>
+                                    </div>
+                                </label>
+                                <label class="zm-type-item" data-type="RETURN">
+                                    <input type="radio" name="zoneTypeRadio" value="RETURN"/>
+                                    <div class="zm-type-item__inner">
+                                        <div class="zm-type-item__icon zm-type-item__icon--return">
+                                            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg>
+                                        </div>
+                                        <div class="zm-type-item__info">
+                                            <div class="zm-type-item__name">Khu Hàng Trả Hàng (RTV)</div>
+                                            <div class="zm-type-item__desc">Hàng hoàn trả nhà cung cấp</div>
+                                        </div>
+                                        <span class="zm-type-item__badge zm-badge-return">Hoàn trả</span>
+                                    </div>
+                                </label>
+                                <label class="zm-type-item" data-type="DESTROY">
+                                    <input type="radio" name="zoneTypeRadio" value="DESTROY"/>
+                                    <div class="zm-type-item__inner">
+                                        <div class="zm-type-item__icon zm-type-item__icon--destroy">
+                                            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+                                        </div>
+                                        <div class="zm-type-item__info">
+                                            <div class="zm-type-item__name">Khu Tiêu Hủy</div>
+                                            <div class="zm-type-item__desc">Hàng hết hạn hoặc không thể sử dụng</div>
+                                        </div>
+                                        <span class="zm-type-item__badge zm-badge-destroy">Tiêu hủy</span>
+                                    </div>
+                                </label>
+                                <label class="zm-type-item zm-type-item--custom" data-type="__CUSTOM__" id="customTypeLabel">
+                                    <input type="radio" name="zoneTypeRadio" value="__CUSTOM__"/>
+                                    <div class="zm-type-item__inner">
+                                        <div class="zm-type-item__icon zm-type-item__icon--custom">
+                                            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M8 12h8"/><path d="M12 8v8"/></svg>
+                                        </div>
+                                        <div class="zm-type-item__info">
+                                            <div class="zm-type-item__name">+ Thêm loại khác...</div>
+                                            <div class="zm-type-item__desc">Tự đặt tên theo nhu cầu vận hành</div>
+                                        </div>
+                                    </div>
+                                </label>
+                            </div>
 
-                    <label style="display:block; font-size:12px; font-weight:600; color:rgba(16,55,92,0.6); margin-bottom:4px;">Tên khu</label>
-                    <input type="text" name="zoneName" id="zoneFormName" required maxlength="100"
-                           style="width:100%; padding:9px 12px; border:1px solid var(--border,#e5eaf3); border-radius:8px; margin-bottom:14px; font-size:13px; box-sizing:border-box;"/>
+                            <%-- Custom type input --%>
+                            <div id="customTypeWrap" class="zm-custom-type-wrap" style="display:none;">
+                                <div class="zm-custom-type-inner">
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/></svg>
+                                    <input type="text" id="zoneFormCustomType"
+                                           placeholder="Nhập tên loại khu (VD: Khu Hàng Dự Trữ, Khu Hàng Khuyến Mãi...)"
+                                           maxlength="50"/>
+                                </div>
+                            </div>
+                        </div>
 
-                    <label style="display:block; font-size:12px; font-weight:600; color:rgba(16,55,92,0.6); margin-bottom:4px;">Loại khu</label>
-                    <select name="zoneType" id="zoneFormType"
-                            style="width:100%; padding:9px 12px; border:1px solid var(--border,#e5eaf3); border-radius:8px; margin-bottom:14px; font-size:13px; box-sizing:border-box;">
-                        <option value="NORMAL">Khu thường</option>
-                        <option value="RETURN">Khu trả hàng</option>
-                        <option value="DAMAGED">Khu hỏng</option>
-                        <option value="DESTROY">Khu tiêu hủy</option>
-                    </select>
+                        <%-- Section: Zone name --%>
+                        <div class="zm-section">
+                            <div class="zm-section__title">Thông tin khu</div>
+                            <div class="zm-field">
+                                <label class="zm-field__lbl" for="zoneFormName">Tên khu</label>
+                                <input class="zm-field__input" type="text" id="zoneFormName" name="zoneName"
+                                       placeholder="VD: Khu Hàng Dự Trữ, Khu Hàng Khuyến Mãi..."
+                                       required maxlength="100"/>
+                            </div>
+                            <div class="zm-field">
+                                <label class="zm-field__lbl" for="zoneFormDesc">Mô tả <span class="zm-field__opt">(Tùy chọn)</span></label>
+                                <textarea class="zm-field__input" id="zoneFormDesc" name="description"
+                                          placeholder="Mô tả ngắn gọn chức năng hoặc quy định của khu vực này..."
+                                          rows="2" maxlength="255"></textarea>
+                            </div>
+                        </div>
+                    </div>
 
-                    <label style="display:block; font-size:12px; font-weight:600; color:rgba(16,55,92,0.6); margin-bottom:4px;">Mô tả</label>
-                    <textarea name="description" id="zoneFormDesc" rows="2"
-                              style="width:100%; padding:9px 12px; border:1px solid var(--border,#e5eaf3); border-radius:8px; margin-bottom:18px; font-size:13px; resize:vertical; box-sizing:border-box;"></textarea>
-
-                    <div style="display:flex; justify-content:flex-end; gap:10px;">
-                        <button type="button" onclick="closeZoneModal()"
-                                style="padding:9px 16px; background:#fff; color:var(--navy,#10375c); border:1px solid var(--border,#e5eaf3); border-radius:8px; font-size:13px; font-weight:600; cursor:pointer;">Hủy</button>
-                        <button type="submit"
-                                style="padding:9px 16px; background:var(--navy,#10375c); color:#fff; border:none; border-radius:8px; font-size:13px; font-weight:600; cursor:pointer;">Lưu</button>
+                    <%-- Footer --%>
+                    <div class="zm-ftr">
+                        <button type="button" class="zm-btn zm-btn--cancel" onclick="closeZoneModal()">Hủy</button>
+                        <button type="submit" class="zm-btn zm-btn--save">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+                            Lưu phân khu
+                        </button>
                     </div>
                 </form>
             </div>
         </div>
 
+        <%-- Delete confirm inline overlay --%>
+        <div id="deleteConfirmOverlay" class="zm-overlay" style="display:none; z-index:2000;" onclick="if(event.target===this)document.getElementById('deleteConfirmOverlay').style.display='none'">
+            <div class="zm-box zm-box--sm">
+                <div class="zm-hdr">
+                    <div class="zm-hdr__icon zm-hdr__icon--warn">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" x2="12" y1="9" y2="13"/><line x1="12" x2="12.01" y1="17" y2="17"/></svg>
+                    </div>
+                    <div>
+                        <div class="zm-hdr__title">Xác nhận xóa phân khu</div>
+                        <div class="zm-hdr__sub" id="deleteConfirmMsg"></div>
+                    </div>
+                    <button type="button" class="zm-close" onclick="document.getElementById('deleteConfirmOverlay').style.display='none'">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+                    </button>
+                </div>
+                <div class="zm-ftr">
+                    <button type="button" class="zm-btn zm-btn--cancel" onclick="document.getElementById('deleteConfirmOverlay').style.display='none'">Hủy</button>
+                    <form method="post" action="${pageContext.request.contextPath}/warehouse/information" style="display:inline;">
+                        <input type="hidden" name="action" value="deleteZone"/>
+                        <input type="hidden" name="zoneId" id="deleteZoneId"/>
+                        <button type="submit" class="zm-btn zm-btn--delete">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg>
+                            Xóa phân khu
+                        </button>
+                    </form>
+                </div>
+            </div>
+        </div>
+
         <script>
+            var PRESET_TYPES = ['NORMAL', 'RETURN', 'DAMAGED', 'DESTROY', 'DISPUTE'];
+
             function openCreateZone() {
-                document.getElementById('zoneModalTitle').textContent = 'Thêm khu';
+                document.getElementById('zoneModalTitle').textContent = 'Thêm phân khu mới';
                 document.getElementById('zoneFormAction').value = 'createZone';
                 document.getElementById('zoneFormId').value = '';
-                var code = document.getElementById('zoneFormCode');
-                code.value = ''; code.readOnly = false; code.style.background = '#fff';
                 document.getElementById('zoneFormName').value = '';
-                document.getElementById('zoneFormType').value = 'NORMAL';
                 document.getElementById('zoneFormDesc').value = '';
+                document.getElementById('zoneFormCustomType').value = '';
+                document.getElementById('customTypeWrap').style.display = 'none';
+                document.getElementById('zoneFormTypeResolved').value = 'NORMAL';
+                document.querySelector('input[name="zoneTypeRadio"][value="NORMAL"]').checked = true;
+                document.querySelectorAll('.zm-type-item').forEach(function(el){ el.classList.remove('active'); });
+                document.querySelector('.zm-type-item[data-type="NORMAL"]').classList.add('active');
                 document.getElementById('zoneModalOverlay').style.display = 'flex';
             }
+
             function openEditZone(btn) {
-                document.getElementById('zoneModalTitle').textContent = 'Sửa khu';
+                document.getElementById('zoneModalTitle').textContent = 'Chỉnh sửa phân khu';
                 document.getElementById('zoneFormAction').value = 'updateZone';
                 document.getElementById('zoneFormId').value = btn.getAttribute('data-id');
-                var code = document.getElementById('zoneFormCode');
-                code.value = btn.getAttribute('data-code');
-                code.readOnly = true; code.style.background = 'rgba(16,55,92,0.05)';
                 document.getElementById('zoneFormName').value = btn.getAttribute('data-name');
-                document.getElementById('zoneFormType').value = btn.getAttribute('data-type') || 'NORMAL';
                 document.getElementById('zoneFormDesc').value = btn.getAttribute('data-desc') || '';
+
+                var rawType = btn.getAttribute('data-type') || 'NORMAL';
+                var radio;
+                if (PRESET_TYPES.indexOf(rawType) !== -1) {
+                    radio = document.querySelector('input[name="zoneTypeRadio"][value="' + rawType + '"]');
+                    document.getElementById('zoneFormTypeResolved').value = rawType;
+                    document.getElementById('zoneFormCustomType').value = '';
+                    document.getElementById('customTypeWrap').style.display = 'none';
+                } else {
+                    radio = document.querySelector('input[name="zoneTypeRadio"][value="__CUSTOM__"]');
+                    document.getElementById('zoneFormTypeResolved').value = rawType;
+                    document.getElementById('zoneFormCustomType').value = rawType;
+                    document.getElementById('customTypeWrap').style.display = 'block';
+                }
+                if (radio) radio.checked = true;
+                document.querySelectorAll('.zm-type-item').forEach(function(el){ el.classList.remove('active'); });
+                if (radio) radio.closest('.zm-type-item').classList.add('active');
+
                 document.getElementById('zoneModalOverlay').style.display = 'flex';
             }
+
             function closeZoneModal() {
                 document.getElementById('zoneModalOverlay').style.display = 'none';
             }
+
+            function deleteZone(btn) {
+                document.getElementById('deleteZoneId').value = btn.getAttribute('data-zone-id');
+                document.getElementById('deleteConfirmMsg').textContent =
+                    'Bạn có chắc muốn xóa phân khu "' + btn.getAttribute('data-zone-name') + '"? Hành động này không thể hoàn tác.';
+                document.getElementById('deleteConfirmOverlay').style.display = 'flex';
+            }
+
+            function resolveZoneTypeSubmit() {
+                var checked = document.querySelector('input[name="zoneTypeRadio"]:checked');
+                var resolved = document.getElementById('zoneFormTypeResolved');
+                if (checked.value === '__CUSTOM__') {
+                    var customVal = document.getElementById('zoneFormCustomType').value.trim();
+                    if (!customVal) {
+                        document.getElementById('zoneFormCustomType').style.borderColor = '#ef4444';
+                        document.getElementById('zoneFormCustomType').focus();
+                        return false;
+                    }
+                    resolved.value = customVal.toUpperCase().replace(/\s+/g, '_');
+                } else {
+                    resolved.value = checked.value;
+                }
+                return true;
+            }
+
+            // Wire zone type radio to hidden select + active state
+            document.querySelectorAll('input[name="zoneTypeRadio"]').forEach(function(radio) {
+                radio.addEventListener('change', function() {
+                    document.querySelectorAll('.zm-type-item').forEach(function(el){ el.classList.remove('active'); });
+                    this.closest('.zm-type-item').classList.add('active');
+                    var customWrap = document.getElementById('customTypeWrap');
+                    if (this.value === '__CUSTOM__') {
+                        customWrap.style.display = 'block';
+                        document.getElementById('zoneFormCustomType').style.borderColor = '';
+                    } else {
+                        customWrap.style.display = 'none';
+                    }
+                });
+            });
         </script>
     </c:otherwise>
 </c:choose>

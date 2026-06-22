@@ -835,3 +835,21 @@
     .pill--red    { background: #FEF2F2; color: #ef4444; }
     .pill--blue   { background: #EFF6FF; color: #2563eb; }
     .pill--gray   { background: rgba(16, 55, 92, 0.08); color: rgba(16, 55, 92, 0.6); }
+
+    /* Text-style edit button */
+    .btn-edit-text {
+        padding: 4px 10px;
+        border: 1px solid rgba(16, 55, 92, 0.18);
+        background: rgba(16, 55, 92, 0.04);
+        color: var(--navy);
+        font-size: 12px;
+        font-weight: 600;
+        border-radius: calc(var(--radius-btn) - 2px);
+        cursor: pointer;
+        transition: background 0.15s, color 0.15s, border-color 0.15s;
+    }
+    .btn-edit-text:hover {
+        background: var(--navy);
+        color: #fff;
+        border-color: var(--navy);
+    }

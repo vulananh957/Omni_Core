@@ -32,7 +32,7 @@ public class WarehouseDAO extends BaseDAO {
       + "FROM warehouses";
 
     private static final String SELECT_ZONE =
-        "SELECT zone_id, warehouse_id, zone_code, zone_name, zone_type, description, active, is_default "
+        "SELECT zone_id, warehouse_id, zone_code, zone_name, zone_type, description, active, is_default, capacity "
       + "FROM zones";
 
     public List<Warehouse> findAll() {
@@ -310,6 +310,16 @@ public class WarehouseDAO extends BaseDAO {
         return found != null;
     }
 
+    public boolean isZoneNameExists(int warehouseId, String name, Integer excludeZoneId) {
+        String sql = excludeZoneId != null
+            ? "SELECT 1 FROM zones WHERE warehouse_id = ? AND zone_name = ? AND zone_id != ?"
+            : "SELECT 1 FROM zones WHERE warehouse_id = ? AND zone_name = ?";
+        Integer found = excludeZoneId != null
+            ? queryOne(LOGGER, sql, rs -> 1, warehouseId, name.trim(), excludeZoneId)
+            : queryOne(LOGGER, sql, rs -> 1, warehouseId, name.trim());
+        return found != null;
+    }
+
     private void closeConnectionQuietly(Connection conn) {
         if (conn != null) {
             try {
@@ -347,6 +357,7 @@ public class WarehouseDAO extends BaseDAO {
         z.setZoneName(rs.getString("zone_name"));
         z.setZoneType(rs.getString("zone_type"));
         z.setDescription(rs.getString("description"));
+        z.setCapacity(rs.getInt("capacity"));
         z.setActive(rs.getBoolean("active"));
         z.setDefault(rs.getBoolean("is_default"));
         return z;

@@ -15,40 +15,7 @@
 <link rel="stylesheet" href="${pageContext.request.contextPath}/assets/css/sku--warehouse-master-sku.css"/>
 
 <!-- ══ STATS SECTION ═════════════════════════════════════════ -->
-<div class="stats-grid-3" style="grid-template-columns: repeat(3, 1fr);" id="statsGrid">
-    <!-- Card: Total Products -->
-    <div class="sku-card card-navy">
-        <div class="sku-card__icon">
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path><polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline><line x1="12" y1="22.08" x2="12" y2="12"></line></svg>
-        </div>
-        <div class="sku-card__info">
-            <div class="sku-card__lbl">Sản phẩm trong kho</div>
-            <div class="sku-card__val" id="stat-total-skus">0</div>
-        </div>
-    </div>
-
-    <!-- Card: Total available stock -->
-    <div class="sku-card card-emerald">
-        <div class="sku-card__icon">
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><polyline points="7 11 11 15 16 9"/></svg>
-        </div>
-        <div class="sku-card__info">
-            <div class="sku-card__lbl">Tồn khả dụng</div>
-            <div class="sku-card__val" id="stat-total-stock">0</div>
-        </div>
-    </div>
-
-    <!-- Card: Fill rate -->
-    <div class="sku-card card-orange">
-        <div class="sku-card__icon">
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="5" x2="5" y2="19"/><circle cx="6.5" cy="6.5" r="2.5"/><circle cx="17.5" cy="17.5" r="2.5"/></svg>
-        </div>
-        <div class="sku-card__info">
-            <div class="sku-card__lbl">Tỷ lệ lấp đầy</div>
-            <div class="sku-card__val" id="stat-fill-rate">0%</div>
-        </div>
-    </div>
-</div>
+<!-- Stats removed — Master SKU focuses on static product data only -->
 
 <!-- ══ TOOLBAR SECTION ═══════════════════════════════════════ -->
 <div class="toolbar-wrap">
@@ -90,6 +57,12 @@
         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
         Xuất CSV
     </button>
+
+    <!-- ROP Trigger — Manager/Admin only -->
+    <button class="btn-toolbar" id="btnRunRop" title="Tính lại ROP cho tất cả SKU (dựa trên lịch sử 30 ngày)" onclick="runRopCalculation()" style="background:#b45309;color:#fff;display:none;">
+        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-4.5"/></svg>
+        Tính ROP
+    </button>
 </div>
 
 <!-- ══ TABLE SECTION ═════════════════════════════════════════ -->
@@ -100,10 +73,10 @@
                 <tr>
                     <th style="width: 240px;">Sản phẩm (SKU & Tên)</th>
                     <th style="width: 130px;">Danh mục</th>
-                    <th style="width: 110px; text-align: right;">Tồn tay</th>
+                    <th style="width: 150px;">Kích thước / Trọng lượng</th>
                     <th style="width: 180px;">Khu vực cất hàng (Zone)</th>
-                    <th style="width: 100px; text-align: right;">Định mức (Min/Max)</th>
-                    <th style="width: 130px;">Cập nhật</th>
+                    <th style="width: 170px; text-align: right;">Định mức (Min / Max)</th>
+                    <th style="width: 150px;">Cập nhật</th>
                     <th style="width: 150px; text-align: center;">Thao tác</th>
                 </tr>
             </thead>
@@ -113,7 +86,7 @@
     
     <div class="table-footer">
         <span class="table-footer__info" id="skuTableInfo">Hiển thị 0 / 0 SKU</span>
-        <span style="margin-right:auto; margin-left:12px; font-size:11px; color:rgba(16,55,92,0.4); font-style:italic;">Danh sách chỉ đọc · Liên hệ Manager để chỉnh sửa thông tin sản phẩm</span>
+        <span style="margin-right:auto; margin-left:12px; font-size:11px; color:rgba(16,55,92,0.4); font-style:italic;">Danh sách chỉ đọc · Liên hệ sales staff để chỉnh sửa thông tin sản phẩm</span>
         <div class="pagination" id="skuPagination"></div>
     </div>
 </div>
@@ -214,6 +187,10 @@
                 <label class="form-label">Đơn vị tính</label>
                 <div class="form-input" id="view-unit" style="background: rgba(16, 55, 92, 0.02); pointer-events: none; height: auto; min-height: 38px; display: flex; align-items: center; border: 1px solid var(--border); border-radius: 6px; padding: 0 12px; font-weight: 500; color: var(--navy);">Cái</div>
             </div>
+            <div class="form-group">
+                <label class="form-label" style="color:#b45309;font-weight:700">Giá vốn bình quân (MAC) — ₫</label>
+                <div class="form-input" id="view-mac" style="background:rgba(180,83,9,.06); border-color:rgba(180,83,9,.25); pointer-events: none; height: auto; min-height: 38px; display: flex; align-items: center; border-radius: 6px; padding: 0 12px; font-weight: 700; color: #b45309;"></div>
+            </div>
             <div class="form-grid">
                 <div class="form-group">
                     <label class="form-label">Người tạo</label>
@@ -251,7 +228,8 @@
 // Expose JSTL session user details to client-side
 window.WMS_USER = {
     fullName: "${fn:escapeXml(not empty loggedInUser.fullName ? loggedInUser.fullName : 'Guest')}",
-    role: "${fn:escapeXml(not empty loggedInUser.role ? loggedInUser.role : 'Guest')}"
+    role: "${fn:escapeXml(not empty loggedInUser.role ? loggedInUser.role : 'Guest')}",
+    warehouseId: "${myWarehouseId}"
 };
 
 function submitPostAction(action, params) {
@@ -300,9 +278,16 @@ try {
         dimensions: p.attributesText || 'N/A',
         weight: p.weightKg ? p.weightKg + ' kg' : 'N/A',
                 qtyOnHand: Number(p.qtyOnHand || 0),
+                macPrice: Number(p.macPrice || 0),
                 minStock: Number(p.minStock || 0),
                 maxStock: Number(p.maxStock || 0),
-        locationConfigs: p.locationConfigs || [],
+                dAvg: Number(p.dAvg || 0),
+                dMax: Number(p.dMax || 0),
+                lAvg: Number(p.lAvg || 0),
+                lMax: Number(p.lMax || 0),
+                safetyStock: Number(p.safetyStock || 0),
+                ropCalculated: Number(p.ropCalculated || 0),
+                locationConfigs: p.locationConfigs || [],
                 createdBy: p.creatorName || '',
         createdAt: p.createdAt || '',
                 updatedBy: p.creatorName || '',
@@ -353,6 +338,38 @@ try {
     }
 } catch (e) {}
 
+/* ─── Toast Notification ────────────────────────────────── */
+function showToast(msg, type, duration) {
+    var toast = document.getElementById('opToast') || createToast();
+    if (!toast) { alert(msg); return; }
+    var icon = document.getElementById('opToastIcon');
+    var iconOk = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="width:16px;height:16px"><polyline points="20 6 9 17 4 12"/></svg>';
+    var iconErr = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="width:16px;height:16px"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>';
+    var iconInfo = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="width:16px;height:16px"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>';
+    if (icon) icon.innerHTML = (type === 'error') ? iconErr : ((type === 'success') ? iconOk : iconInfo);
+    var msgEl = document.getElementById('opToastMsg');
+    if (msgEl) msgEl.textContent = msg;
+    toast.style.background = (type === 'error') ? '#dc2626' : ((type === 'success') ? '#16a34a' : 'var(--navy)');
+    toast.style.pointerEvents = 'none';
+    toast.style.opacity = '1';
+    toast.style.transform = 'translateY(0)';
+    var ms = duration || (type === 'error' ? 5000 : 3000);
+    clearTimeout(window._toastTimer);
+    window._toastTimer = setTimeout(function() {
+        toast.style.opacity = '0';
+        toast.style.transform = 'translateY(-20px)';
+        setTimeout(function() { toast.style.pointerEvents = ''; }, 300);
+    }, ms);
+}
+function createToast() {
+    var t = document.createElement('div');
+    t.id = 'opToast';
+    t.style.cssText = 'position:fixed;top:1rem;right:1rem;background:var(--navy);color:#fff;padding:.75rem 1.25rem;border-radius:var(--radius-btn);box-shadow:0 10px 25px rgba(0,0,0,.15);z-index:9999;font-size:13px;font-weight:600;display:flex;align-items:center;gap:.75rem;transition:all .25s ease-out;opacity:0;transform:translateY(-20px);pointer-events:none;';
+    t.innerHTML = '<span id="opToastIcon"></span><span id="opToastMsg"></span>';
+    document.body.appendChild(t);
+    return t;
+}
+
 /* ─── Helpers ─────────────────────────────────────────────── */
 function escapeHtml(str) {
     if (!str) return '';
@@ -386,7 +403,8 @@ var pageSize = 20;
 (function initMyWarehouse() {
     var label = document.getElementById('myWarehouseName');
     if (label && LOCATIONS.length > 0) {
-        label.textContent = LOCATIONS[0].name;
+        var myLoc = LOCATIONS.find(function(l) { return l.id === window.WMS_USER.warehouseId; }) || LOCATIONS[0];
+        label.textContent = myLoc.name;
     }
 if (catSelect && DB_CATEGORIES.length > 0) {
     catSelect.innerHTML = buildCategoryTreeOptions(DB_CATEGORIES, true);
@@ -438,7 +456,7 @@ window.triggerConfigSKU = function(id) {
     configMinInput.value = item.minStock || '';
     configMaxInput.value = item.maxStock || '';
 
-    var myLoc = LOCATIONS[0] || null;
+    var myLoc = LOCATIONS.find(function(l) { return l.id === window.WMS_USER.warehouseId; }) || LOCATIONS[0] || null;
     configWarehouseName.textContent = myLoc ? myLoc.name : '—';
     populateZoneSelect(myLoc ? myLoc.id : null);
 
@@ -485,11 +503,11 @@ if (btnConfigSubmit) {
 var btnExport = document.getElementById('btnExportCsv');
 if (btnExport) {
     btnExport.addEventListener('click', function() {
-        var rows = [['SKU', 'Tên sản phẩm', 'Danh mục', 'Tồn tay', 'Min', 'Max']];
+        var rows = [['SKU', 'Tên sản phẩm', 'Danh mục', 'Kích thước', 'Trọng lượng', 'Min', 'Max', 'ROP']];
         // Use the most-recently filtered set
         var data = (typeof filtered !== 'undefined' && filtered) ? filtered : skus;
         data.forEach(function(s) {
-            rows.push([s.sku, s.name, s.category, s.qtyOnHand, s.minStock, s.maxStock]);
+            rows.push([s.sku, s.name, s.category, s.dimensions, s.weight, s.minStock, s.maxStock, s.ropCalculated || 0]);
         });
         var csv = rows.map(function(r) {
             return r.map(function(c) { return '"' + String(c == null ? '' : c).replace(/"/g, '""') + '"'; }).join(',');
@@ -515,6 +533,10 @@ window.triggerViewSKU = function(id) {
     document.getElementById('view-weight').textContent = item.weight || 'N/A';
     document.getElementById('view-min').textContent = item.minStock;
     document.getElementById('view-max').textContent = item.maxStock;
+    var macVal = item.macPrice || 0;
+    document.getElementById('view-mac').textContent = macVal > 0
+        ? Number(macVal).toLocaleString('vi-VN') + ' đ'
+        : 'Chưa có tồn kho (chờ nhập)';
     document.getElementById('view-created-by').textContent = item.createdBy || 'N/A';
     document.getElementById('view-created-at').textContent = item.createdAt || 'N/A';
     document.getElementById('view-updated-by').textContent = item.updatedBy || item.createdBy || 'N/A';
@@ -586,9 +608,43 @@ function getCategoryDescendantIds(selectedCatName) {
     return ids;
 }
 
+/* ─── Role-based UI (ROP button visible to Manager/Admin only) ─── */
+(function() {
+    var role = (window.WMS_USER || {}).role || '';
+    var isManager = role === 'MANAGER' || role === 'ADMIN';
+    var btn = document.getElementById('btnRunRop');
+    if (btn && isManager) {
+        btn.style.display = 'inline-flex';
+        btn.style.alignItems = 'center';
+        btn.style.gap = '4px';
+    }
+})();
+
+/* ─── ROP Calculation ──────────────────────────────────────── */
+function runRopCalculation() {
+    var btn = document.getElementById('btnRunRop');
+    if (btn) { btn.disabled = true; btn.textContent = 'Đang tính ROP...'; }
+    fetch('/api/rop/trigger', { method: 'POST' })
+    .then(function(r) { return r.json(); })
+    .then(function(result) {
+        if (result.success) {
+            showToast('Tính ROP hoàn tất! Đã cập nhật ' + result.updated + '/' + result.processed + ' SKU. ' + result.message, 'success', 8000);
+            location.reload();
+        } else {
+            showToast('Lỗi tính ROP: ' + result.message, 'error');
+        }
+    })
+    .catch(function(err) {
+        showToast('Lỗi kết nối: ' + err.message, 'error');
+    })
+    .finally(function() {
+        if (btn) { btn.disabled = false; btn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-4.5"/></svg> Tính ROP'; }
+    });
+}
+
 /* ─── Render Table ────────────────────────────────────────── */
 function renderAll() {
-    var myLoc = LOCATIONS[0];
+    var myLoc = LOCATIONS.find(function(l) { return l.id === window.WMS_USER.warehouseId; }) || LOCATIONS[0];
     var myLocId = myLoc ? myLoc.id : null;
 
     var zoneStatusSelect = document.getElementById('skuZoneStatusSelect');
@@ -674,27 +730,21 @@ function renderAll() {
                 '<div class="sku-name-cell" style="font-weight: 700; font-size: 13px;" title="' + escapeHtml(item.name) + '">' + escapeHtml(item.name) + '</div>' +
             '</td>' +
             '<td><div style="font-size: 13px; color: var(--navy);">' + escapeHtml(item.category || '—') + '</div></td>' +
-            '<td style="text-align:right;">' +
-                '<div class="qty-val' + (isOut ? ' out' : (isLow ? ' low' : '')) + '">' + item.qtyOnHand.toLocaleString() + '</div>' +
-                '<div style="font-size: 10px; color: rgba(16,55,92,0.45); margin-top: 2px;">' + escapeHtml(item.dimensions || '—') + '</div>' +
+            '<td>' +
+                '<div style="font-size: 13px; color: var(--navy); font-weight: 500;">' + escapeHtml(item.dimensions || '—') + '</div>' +
+                '<div style="font-size: 11px; color: rgba(16,55,92,0.5); margin-top: 2px;">' + escapeHtml(item.weight || '—') + '</div>' +
             '</td>' +
             '<td>' + locHtml + '</td>' +
             '<td style="text-align: right;">' +
                 '<div style="font-size: 13px; color: var(--navy); font-weight: 600;">' + item.minStock + ' / ' + item.maxStock + '</div>' +
+                (item.ropCalculated > 0 ? '<div style="font-size: 11px; color: rgba(16,55,92,.45); margin-top: 2px;">Gợi ý ROP: <strong style="color:' + (item.qtyOnHand <= item.ropCalculated ? '#dc2626' : '#16a34a') + '">' + Number(item.ropCalculated).toLocaleString() + '</strong></div>' : '<div style="font-size: 11px; color: rgba(16,55,92,.35); margin-top: 2px;">Chưa tính ROP</div>') +
             '</td>' +
             '<td>' +
                 '<div style="font-size: 12px; color: var(--navy); font-weight: 500;">' + (item.lastUpdated || item.createdAt || '—') + '</div>' +
                 '<div style="font-size: 10px; color: rgba(16,55,92,0.45); margin-top: 2px;">' + escapeHtml(item.updatedBy || item.createdBy || '—') + '</div>' +
             '</td>' +
             '<td style="text-align: center;">' +
-                '<div style="display:flex;align-items:center;justify-content:center;gap:8px;">' +
-                    '<button class="btn-act-circle edit" onclick="window.triggerConfigSKU(\'' + item.id + '\')" title="Cấu hình Kho" style="width:28px;height:28px;">' +
-                        '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>' +
-                    '</button>' +
-                    '<button class="btn-act-circle" onclick="window.location.href=\'${pageContext.request.contextPath}/warehouse/inbound?action=create&sku=\' + encodeURIComponent(\'' + item.sku + '\')" title="Nhập hàng" style="width:28px;height:28px; ' + inboundBtnStyle + '">' +
-                        '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>' +
-                    '</button>' +
-                '</div>' +
+                    '<button class="btn-edit-text" onclick="window.triggerConfigSKU(\'' + item.id + '\')" title="Cấu hình Kho">Sửa</button>' +
             '</td>' +
         '</tr>';
     }).join('');

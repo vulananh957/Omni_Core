@@ -1,6 +1,7 @@
 package com.wms.controller.warehouse;
 
 import com.wms.controller.BaseController;
+import com.wms.dao.InventoryDAO;
 import com.wms.model.Category;
 import com.wms.model.Product;
 import com.wms.model.User;
@@ -30,6 +31,7 @@ public class WarehouseMasterSKUServlet extends BaseController {
 
     private final ProductService productService = new ProductService();
     private final WarehouseService warehouseService = new WarehouseService();
+    private final InventoryDAO inventoryDAO = new InventoryDAO();
 
     @Override
     protected void doGet(HttpServletRequest req, HttpServletResponse resp)
@@ -37,8 +39,17 @@ public class WarehouseMasterSKUServlet extends BaseController {
 
         consumeFlash(req);
 
+        int myWarehouseId = currentWarehouseId(req);
+
         try {
-            req.setAttribute("products", productService.findAll());
+            List<Product> products = productService.findAll();
+            java.util.Map<Integer, java.math.BigDecimal> stockMap =
+                    inventoryDAO.findStockByWarehouse(myWarehouseId);
+            for (Product p : products) {
+                java.math.BigDecimal qty = stockMap.get(p.getProductId());
+                p.setQtyOnHand(qty != null ? qty.doubleValue() : 0.0);
+            }
+            req.setAttribute("products", products);
         } catch (Exception e) {
             req.setAttribute("products", List.<Product>of());
         }

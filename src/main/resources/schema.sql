@@ -73,7 +73,7 @@ CREATE TABLE IF NOT EXISTS zones (
     warehouse_id INT NOT NULL,
     zone_code   VARCHAR(50)  NOT NULL,
     zone_name   VARCHAR(100) NOT NULL,
-    zone_type   ENUM('NORMAL','RETURN','DAMAGED','DESTROY') NOT NULL DEFAULT 'NORMAL',
+    zone_type   VARCHAR(30) NOT NULL DEFAULT 'NORMAL',
     description TEXT,
     active      TINYINT(1) NOT NULL DEFAULT 1,
     is_default  TINYINT(1) NOT NULL DEFAULT 0,

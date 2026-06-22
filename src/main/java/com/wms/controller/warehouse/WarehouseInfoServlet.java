@@ -33,8 +33,13 @@ public class WarehouseInfoServlet extends BaseController {
         try {
             Warehouse warehouse = warehouseService.findById(warehouseId);
             req.setAttribute("warehouse", warehouse);
+
+            // Dashboard KPIs
+            req.setAttribute("dashboardMetrics", warehouseService.getDashboardMetrics(warehouseId));
         } catch (Exception e) {
             req.setAttribute("warehouse", null);
+            req.setAttribute("dashboardMetrics",
+                new com.wms.model.DashboardMetrics(0, 0, 0));
         }
 
         req.setAttribute("pageTitle",    "Thông Tin Kho");
@@ -58,7 +63,7 @@ public class WarehouseInfoServlet extends BaseController {
         try {
             if ("createZone".equals(action)) {
                 result = warehouseService.createZone(warehouseId,
-                        req.getParameter("zoneCode"), req.getParameter("zoneName"),
+                        null, req.getParameter("zoneName"),
                         req.getParameter("zoneType"), req.getParameter("description"));
             } else if ("updateZone".equals(action)) {
                 int zoneId = Integer.parseInt(req.getParameter("zoneId").trim());

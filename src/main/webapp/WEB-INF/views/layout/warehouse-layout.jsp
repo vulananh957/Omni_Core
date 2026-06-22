@@ -42,21 +42,21 @@
         <!-- Nav -->
         <nav class="sidebar__nav">
 
-            <!-- SẢN PHẨM & DANH MỤC -->
+            <!-- ══ TRA CỨU & BÁO CÁO ══ -->
             <div class="nav-group">
-                <div class="nav-group__label">Sản Phẩm &amp; Danh Mục</div>
-                <a href="${pageContext.request.contextPath}/warehouse/master-sku"
-                   class="nav-item ${currentPage == 'wh-master-sku' ? 'active' : ''}">
-                    <!-- Package icon -->
+                <div class="nav-group__label">Tra Cứu &amp; Báo Cáo</div>
+
+                <!-- Tồn Kho -->
+                <a href="${pageContext.request.contextPath}/warehouse/inventory"
+                   class="nav-item ${currentPage == 'wh-inventory' ? 'active' : ''}">
                     <svg class="nav-item__icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
                          stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                        <path d="M16.5 9.4 7.55 4.24"/>
-                        <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/>
-                        <polyline points="3.29 7 12 12 20.71 7"/>
-                        <line x1="12" x2="12" y1="22" y2="12"/>
+                        <path d="m7.5 4.27 9 5.15"/>
+                        <path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z"/>
+                        <path d="m3.3 7 8.7 5 8.7-5"/><path d="M12 22V12"/>
                     </svg>
-                    <span>Master SKU</span>
-                    <c:if test="${currentPage == 'wh-master-sku'}">
+                    <span>Tồn Kho</span>
+                    <c:if test="${currentPage == 'wh-inventory'}">
                         <svg class="nav-item__chevron" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
                              stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
                             <path d="m9 18 6-6-6-6"/>
@@ -64,18 +64,19 @@
                     </c:if>
                 </a>
 
-                <!-- Thông tin kho -->
-                <a href="${pageContext.request.contextPath}/warehouse/information"
-                   class="nav-item ${currentPage == 'wh-information' ? 'active' : ''}">
+                <!-- Sổ kho -->
+                <a href="${pageContext.request.contextPath}/warehouse/documents"
+                   class="nav-item ${currentPage == 'wh-documents' ? 'active' : ''}">
                     <svg class="nav-item__icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
                          stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                        <rect x="3" y="3" width="7" height="7"/>
-                        <rect x="14" y="3" width="7" height="7"/>
-                        <rect x="14" y="14" width="7" height="7"/>
-                        <rect x="3" y="14" width="7" height="7"/>
+                        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                        <polyline points="14 2 14 8 20 8"/>
+                        <line x1="16" y1="13" x2="8" y2="13"/>
+                        <line x1="16" y1="17" x2="8" y2="17"/>
+                        <polyline points="10 9 9 9 8 9"/>
                     </svg>
-                    <span>Thông Tin Kho</span>
-                    <c:if test="${currentPage == 'wh-information'}">
+                    <span>Sổ kho</span>
+                    <c:if test="${currentPage == 'wh-documents'}">
                         <svg class="nav-item__chevron" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
                              stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
                             <path d="m9 18 6-6-6-6"/>
@@ -84,9 +85,9 @@
                 </a>
             </div>
 
-            <!-- VẬN HÀNH KHO -->
+            <!-- ══ VẬN HÀNH HÀNG HÓA ══ -->
             <div class="nav-group">
-                <div class="nav-group__label">Vận Hành Kho</div>
+                <div class="nav-group__label">Vận Hành Hàng Hóa</div>
 
                 <!-- Nhập kho -->
                 <a href="${pageContext.request.contextPath}/warehouse/inbound"
@@ -124,7 +125,7 @@
                     </c:if>
                 </a>
 
-                <!-- Chờ cấp mã vận đơn -->
+                <!-- Chờ cấp tracking -->
                 <a href="${pageContext.request.contextPath}/warehouse/pending-tracking"
                    class="nav-item ${currentPage == 'warehouse-pending-tracking' ? 'active' : ''}">
                     <svg class="nav-item__icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
@@ -139,6 +140,46 @@
                         <span class="nav-item__count">${pendingCount}</span>
                     </c:if>
                     <c:if test="${currentPage == 'warehouse-pending-tracking'}">
+                        <svg class="nav-item__chevron" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
+                             stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="m9 18 6-6-6-6"/>
+                        </svg>
+                    </c:if>
+                </a>
+
+                <!-- Hàng hoàn & QC -->
+                <a href="${pageContext.request.contextPath}/warehouse/returns"
+                   class="nav-item ${currentPage == 'wh-returns' ? 'active' : ''}">
+                    <svg class="nav-item__icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
+                         stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/>
+                        <path d="M3 3v5h5"/>
+                    </svg>
+                    <span>Hàng hoàn &amp; QC</span>
+                    <c:if test="${currentPage == 'wh-returns'}">
+                        <svg class="nav-item__chevron" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
+                             stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="m9 18 6-6-6-6"/>
+                        </svg>
+                    </c:if>
+                </a>
+            </div>
+
+            <!-- ══ QUẢN LÝ NỘI BỘ ══ -->
+            <div class="nav-group">
+                <div class="nav-group__label">Quản Lý Nội Bộ</div>
+
+                <!-- Kiểm kê -->
+                <a href="${pageContext.request.contextPath}/warehouse/inventory-check"
+                   class="nav-item ${currentPage == 'wh-inventory-check' ? 'active' : ''}">
+                    <svg class="nav-item__icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
+                         stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <rect width="8" height="4" x="8" y="2" rx="1" ry="1"/>
+                        <path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/>
+                        <path d="m9 14 2 2 4-4"/>
+                    </svg>
+                    <span>Kiểm kê</span>
+                    <c:if test="${currentPage == 'wh-inventory-check'}">
                         <svg class="nav-item__chevron" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
                              stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
                             <path d="m9 18 6-6-6-6"/>
@@ -163,54 +204,18 @@
                     </c:if>
                 </a>
 
-                <!-- Kiểm kê -->
-                <a href="${pageContext.request.contextPath}/warehouse/inventory-check"
-                   class="nav-item ${currentPage == 'wh-inventory-check' ? 'active' : ''}">
+                <!-- Thông tin kho -->
+                <a href="${pageContext.request.contextPath}/warehouse/information"
+                   class="nav-item ${currentPage == 'wh-information' ? 'active' : ''}">
                     <svg class="nav-item__icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
                          stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                        <rect width="8" height="4" x="8" y="2" rx="1" ry="1"/>
-                        <path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/>
-                        <path d="m9 14 2 2 4-4"/>
+                        <rect x="3" y="3" width="7" height="7"/>
+                        <rect x="14" y="3" width="7" height="7"/>
+                        <rect x="14" y="14" width="7" height="7"/>
+                        <rect x="3" y="14" width="7" height="7"/>
                     </svg>
-                    <span>Kiểm kê</span>
-                    <c:if test="${currentPage == 'wh-inventory-check'}">
-                        <svg class="nav-item__chevron" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
-                             stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-                            <path d="m9 18 6-6-6-6"/>
-                        </svg>
-                    </c:if>
-                </a>
-
-                <!-- Hàng hoàn & QC -->
-                <a href="${pageContext.request.contextPath}/warehouse/returns"
-                   class="nav-item ${currentPage == 'wh-returns' ? 'active' : ''}">
-                    <svg class="nav-item__icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
-                         stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                        <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/>
-                        <path d="M3 3v5h5"/>
-                    </svg>
-                    <span>Hàng hoàn &amp; QC</span>
-                    <c:if test="${currentPage == 'wh-returns'}">
-                        <svg class="nav-item__chevron" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
-                             stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-                            <path d="m9 18 6-6-6-6"/>
-                        </svg>
-                    </c:if>
-                </a>
-
-                <!-- Sổ kho -->
-                <a href="${pageContext.request.contextPath}/warehouse/documents"
-                   class="nav-item ${currentPage == 'wh-documents' ? 'active' : ''}">
-                    <svg class="nav-item__icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
-                         stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
-                        <polyline points="14 2 14 8 20 8"/>
-                        <line x1="16" y1="13" x2="8" y2="13"/>
-                        <line x1="16" y1="17" x2="8" y2="17"/>
-                        <polyline points="10 9 9 9 8 9"/>
-                    </svg>
-                    <span>Sổ kho</span>
-                    <c:if test="${currentPage == 'wh-documents'}">
+                    <span>Thông Tin Kho</span>
+                    <c:if test="${currentPage == 'wh-information'}">
                         <svg class="nav-item__chevron" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
                              stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
                             <path d="m9 18 6-6-6-6"/>
@@ -219,14 +224,36 @@
                 </a>
             </div>
 
-            <!-- CÀI ĐẶT -->
-            <div class="sidebar__settings-divider">
-                <div class="nav-group__label sidebar__settings-label">Cài Đặt Tài Khoản</div>
+            <!-- ══ HỆ THỐNG ══ -->
+            <div class="nav-group">
+                <div class="nav-group__label">Hệ Thống</div>
+
+                <!-- Master SKU -->
+                <a href="${pageContext.request.contextPath}/warehouse/master-sku"
+                   class="nav-item ${currentPage == 'wh-master-sku' ? 'active' : ''}">
+                    <svg class="nav-item__icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
+                         stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M16.5 9.4 7.55 4.24"/>
+                        <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/>
+                        <polyline points="3.29 7 12 12 20.71 7"/>
+                        <line x1="12" x2="12" y1="22" y2="12"/>
+                    </svg>
+                    <span>Master SKU</span>
+                    <c:if test="${currentPage == 'wh-master-sku'}">
+                        <svg class="nav-item__chevron" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
+                             stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="m9 18 6-6-6-6"/>
+                        </svg>
+                    </c:if>
+                </a>
+
+                <!-- Cài đặt tài khoản -->
                 <a href="${pageContext.request.contextPath}/warehouse/profile"
                    class="nav-item ${currentPage == 'wh-profile' ? 'active' : ''}">
                     <svg class="nav-item__icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
                          stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                        <circle cx="12" cy="8" r="5"/><path d="M20 21a8 8 0 1 0-16 0"/>
+                        <circle cx="12" cy="8" r="5"/>
+                        <path d="M20 21a8 8 0 1 0-16 0"/>
                     </svg>
                     <span>Cài đặt tài khoản</span>
                 </a>

@@ -3,6 +3,8 @@ package com.wms.dao;
 import com.wms.model.Product;
 import com.wms.util.DBConnection;
 
+import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
@@ -29,7 +31,9 @@ public class ProductDAO {
 
     private static final String SELECT_CORE =
         "SELECT p.product_id, p.sku_code, p.product_name, p.category_id, p.barcode, p.unit, "
-        + "p.min_stock, p.max_stock, p.attributes_text, p.weight_kg, p.base_price, p.created_by, p.created_at, p.updated_at, "
+        + "p.min_stock, p.max_stock, p.attributes_text, p.weight_kg, p.base_price, p.mac_price, "
+        + "p.d_avg, p.d_max, p.l_avg, p.l_max, p.safety_stock, p.rop_calculated, "
+        + "p.created_by, p.created_at, p.updated_at, "
         + "p.short_description, "
         + "c.category_name, u.full_name AS creator_name, "
         + "COALESCE(i.qty_on_hand, 0) AS qty_on_hand "
@@ -207,6 +211,234 @@ public class ProductDAO {
     }
 
     /**
+     * Updates the Moving Average Cost for a product.
+     * Called by InboundService after each inbound receipt.
+     *
+     * MAC formula (Moving Average Cost):
+     *   MAC_new = (current_on_hand × MAC_current + accepted_qty × unit_cost)
+     *             / (current_on_hand + accepted_qty)
+     *
+     * @param productId    The product ID
+     * @param currentOnHand Current total qty_on_hand (across all warehouses)
+     * @param macCurrent   Current mac_price in products table
+     * @param acceptedQty  Quantity accepted in this inbound lot
+     * @param unitCost     Unit cost of this inbound lot
+     * @return true if updated, false otherwise
+     */
+    public boolean updateMacPrice(int productId, BigDecimal currentOnHand,
+                                   BigDecimal macCurrent, BigDecimal acceptedQty, BigDecimal unitCost) {
+        if (productId <= 0 || currentOnHand == null || macCurrent == null
+                || acceptedQty == null || unitCost == null) {
+            return false;
+        }
+        if (acceptedQty.compareTo(BigDecimal.ZERO) <= 0 || unitCost.signum() < 0) {
+            return false; // reject invalid inputs
+        }
+
+        BigDecimal totalOnHand = currentOnHand.add(acceptedQty);
+        if (totalOnHand.signum() <= 0) {
+            return false;
+        }
+
+        BigDecimal totalValue = currentOnHand.multiply(macCurrent)
+                .add(acceptedQty.multiply(unitCost));
+        BigDecimal newMac = totalValue.divide(totalOnHand, 4, RoundingMode.HALF_UP);
+
+        String sql = "UPDATE products SET mac_price = ? WHERE product_id = ?";
+        try (Connection conn = DBConnection.getConnection();
+             PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setBigDecimal(1, newMac);
+            ps.setInt(2, productId);
+            int rows = ps.executeUpdate();
+            if (rows > 0) {
+                LOGGER.info("MAC updated: productId=" + productId + " newMAC=" + newMac
+                        + " (on_hand=" + currentOnHand + " mac=" + macCurrent
+                        + " accepted=" + acceptedQty + " unit_cost=" + unitCost + ")");
+            }
+            return rows > 0;
+        } catch (SQLException e) {
+            LOGGER.log(Level.SEVERE, "ProductDAO.updateMacPrice failed productId=" + productId, e);
+            return false;
+        }
+    }
+
+    /**
+     * Returns the current mac_price for a product. Returns 0.0 if not found.
+     */
+    public BigDecimal findMacPrice(int productId) {
+        String sql = "SELECT mac_price FROM products WHERE product_id = ?";
+        try (Connection conn = DBConnection.getConnection();
+             PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setInt(1, productId);
+            try (ResultSet rs = ps.executeQuery()) {
+                if (rs.next()) {
+                    return rs.getBigDecimal("mac_price");
+                }
+            }
+        } catch (SQLException e) {
+            LOGGER.log(Level.WARNING, "ProductDAO.findMacPrice failed productId=" + productId, e);
+        }
+        return BigDecimal.ZERO;
+    }
+
+    // ══ ROP (Reorder Point) Methods ══════════════════════════════════════
+
+    /**
+     * Batch update ROP metrics + rop_calculated for a product.
+     * Called by RopCalculationService after computing from history.
+     *
+     * @param productId  The product ID
+     * @param dAvg       Average daily demand
+     * @param dMax       Maximum daily demand
+     * @param lAvg       Average lead time in days
+     * @param lMax       Maximum lead time in days
+     * @param safetyStock Safety Stock = (D_max×L_max) − (D_avg×L_avg)
+     * @param rop        Reorder Point = (D_avg×L_avg) + SS
+     * @return true if updated, false otherwise
+     */
+    public boolean updateRopMetrics(int productId, BigDecimal dAvg, BigDecimal dMax,
+                                   BigDecimal lAvg, BigDecimal lMax,
+                                   BigDecimal safetyStock, BigDecimal rop) {
+        String sql = "UPDATE products SET "
+                + "d_avg = ?, d_max = ?, l_avg = ?, l_max = ?, "
+                + "safety_stock = ?, rop_calculated = ?, updated_at = NOW() "
+                + "WHERE product_id = ?";
+        try (Connection conn = DBConnection.getConnection();
+             PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setBigDecimal(1, dAvg != null ? dAvg : BigDecimal.ZERO);
+            ps.setBigDecimal(2, dMax != null ? dMax : BigDecimal.ZERO);
+            ps.setBigDecimal(3, lAvg != null ? lAvg : BigDecimal.ZERO);
+            ps.setBigDecimal(4, lMax != null ? lMax : BigDecimal.ZERO);
+            ps.setBigDecimal(5, safetyStock != null ? safetyStock : BigDecimal.ZERO);
+            ps.setBigDecimal(6, rop != null ? rop : BigDecimal.ZERO);
+            ps.setInt(7, productId);
+            int rows = ps.executeUpdate();
+            if (rows > 0) {
+                LOGGER.info("ROP updated: productId=" + productId + " dAvg=" + dAvg + " dMax=" + dMax
+                        + " lAvg=" + lAvg + " lMax=" + lMax + " SS=" + safetyStock + " ROP=" + rop);
+            }
+            return rows > 0;
+        } catch (SQLException e) {
+            LOGGER.log(Level.SEVERE, "ProductDAO.updateRopMetrics failed productId=" + productId, e);
+            return false;
+        }
+    }
+
+    /**
+     * Logs a ROP computation run to the audit trail table.
+     */
+    public void insertRopLog(int productId, int lookbackDays,
+                             BigDecimal dAvg, BigDecimal dMax,
+                             BigDecimal lAvg, BigDecimal lMax,
+                             BigDecimal safetyStock,
+                             BigDecimal ropBefore, BigDecimal ropAfter,
+                             Integer triggeredBy) {
+        String sql = "INSERT INTO product_rop_log "
+                + "(product_id, lookback_days, d_avg, d_max, l_avg, l_max, safety_stock, rop_before, rop_after, triggered_by) "
+                + "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+        try (Connection conn = DBConnection.getConnection();
+             PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setInt(1, productId);
+            ps.setInt(2, lookbackDays);
+            ps.setBigDecimal(3, dAvg != null ? dAvg : BigDecimal.ZERO);
+            ps.setBigDecimal(4, dMax != null ? dMax : BigDecimal.ZERO);
+            ps.setBigDecimal(5, lAvg != null ? lAvg : BigDecimal.ZERO);
+            ps.setBigDecimal(6, lMax != null ? lMax : BigDecimal.ZERO);
+            ps.setBigDecimal(7, safetyStock != null ? safetyStock : BigDecimal.ZERO);
+            ps.setBigDecimal(8, ropBefore != null ? ropBefore : BigDecimal.ZERO);
+            ps.setBigDecimal(9, ropAfter != null ? ropAfter : BigDecimal.ZERO);
+            ps.setObject(10, triggeredBy);
+            ps.executeUpdate();
+        } catch (SQLException e) {
+            LOGGER.log(Level.WARNING, "ProductDAO.insertRopLog failed productId=" + productId, e);
+        }
+    }
+
+    /**
+     * Returns demand metrics (d_avg, d_max) for a product over a lookback window.
+     * d_avg = total outbound qty / number of distinct shipping days
+     * d_max = max daily outbound qty in any single day
+     *
+     * @param productId   The product ID
+     * @param lookbackDays Number of past days to analyse
+     * @return BigDecimal[2] where [0]=dAvg, [1]=dMax, or null if no data
+     */
+    public BigDecimal[] findDemandMetrics(int productId, int lookbackDays) {
+        // Daily demand: sum picked qty per day (from outbound_items joined to outbound_orders shipped)
+        String sql =
+            "SELECT "
+            + "  COALESCE(SUM(oi.picked_qty) / NULLIF(COUNT(DISTINCT DATE(oo.shipped_at)), 0), 0) AS d_avg, "
+            + "  COALESCE(MAX(daily_qty), 0) AS d_max "
+            + "FROM ("
+            + "  SELECT DATE(oo.shipped_at) AS ship_day, SUM(oi.picked_qty) AS daily_qty "
+            + "  FROM outbound_orders oo "
+            + "  JOIN outbound_items oi ON oo.outbound_id = oi.outbound_id "
+            + "  WHERE oi.product_id = ? "
+            + "    AND oo.status IN ('SHIPPED','DELIVERED') "
+            + "    AND oo.shipped_at >= DATE_SUB(CURDATE(), INTERVAL ? DAY) "
+            + "  GROUP BY DATE(oo.shipped_at)"
+            + ") daily";
+        try (Connection conn = DBConnection.getConnection();
+             PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setInt(1, productId);
+            ps.setInt(2, lookbackDays);
+            try (ResultSet rs = ps.executeQuery()) {
+                if (rs.next()) {
+                    return new BigDecimal[]{
+                        rs.getBigDecimal("d_avg"),
+                        rs.getBigDecimal("d_max")
+                    };
+                }
+            }
+        } catch (SQLException e) {
+            LOGGER.log(Level.WARNING, "ProductDAO.findDemandMetrics failed productId=" + productId, e);
+        }
+        return null;
+    }
+
+    /**
+     * Returns lead-time metrics (l_avg, l_max) for a product over a lookback window.
+     * l = days between inbound order creation (PO) and GRN received_at.
+     *
+     * @param productId   The product ID
+     * @param lookbackDays Number of past days to analyse
+     * @return BigDecimal[2] where [0]=lAvg, [1]=lMax, or null if no data
+     */
+    public BigDecimal[] findLeadTimeMetrics(int productId, int lookbackDays) {
+        // Lead time: DATEDIFF(received_at, created_at) per inbound order
+        String sql =
+            "SELECT "
+            + "  COALESCE(AVG(lead_days), 0) AS l_avg, "
+            + "  COALESCE(MAX(lead_days), 0) AS l_max "
+            + "FROM ("
+            + "  SELECT DATEDIFF(io.received_at, io.created_at) AS lead_days "
+            + "  FROM inbound_orders io "
+            + "  JOIN inbound_items ii ON io.inbound_id = ii.inbound_id "
+            + "  WHERE ii.product_id = ? "
+            + "    AND io.status = 'RECEIVED' "
+            + "    AND io.received_at IS NOT NULL "
+            + "    AND io.created_at >= DATE_SUB(CURDATE(), INTERVAL ? DAY) "
+            + "    AND DATEDIFF(io.received_at, io.created_at) >= 0 "
+            + ") lt";
+        try (Connection conn = DBConnection.getConnection();
+             PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setInt(1, productId);
+            ps.setInt(2, lookbackDays);
+            try (ResultSet rs = ps.executeQuery()) {
+                if (rs.next()) {
+                    return new BigDecimal[]{
+                        rs.getBigDecimal("l_avg"),
+                        rs.getBigDecimal("l_max")
+                    };
+                }
+            }
+        } catch (SQLException e) {
+            LOGGER.log(Level.WARNING, "ProductDAO.findLeadTimeMetrics failed productId=" + productId, e);
+        }
+        return null;
+    }
+
+    /**
      * Convenience method for single-product zone lookup.
      * Prefer {@link #batchFindDefaultZones()} when loading multiple products.
      */
@@ -251,7 +483,7 @@ public class ProductDAO {
      */
     public boolean updateZoneForWarehouse(int productId, int warehouseId, Integer zoneId) {
         if (zoneId == null) {
-            String sql = "UPDATE product_warehouse_zone SET active = 0 "
+            String sql = "DELETE FROM product_default_zones "
                        + "WHERE product_id = ? AND warehouse_id = ?";
             try (Connection conn = DBConnection.getConnection();
                  PreparedStatement ps = conn.prepareStatement(sql)) {
@@ -263,9 +495,9 @@ public class ProductDAO {
                 return false;
             }
         }
-        String upsert = "INSERT INTO product_warehouse_zone (product_id, warehouse_id, zone_id, active) "
-                      + "VALUES (?, ?, ?, 1) "
-                      + "ON DUPLICATE KEY UPDATE zone_id = VALUES(zone_id), active = 1";
+        String upsert = "INSERT INTO product_default_zones (product_id, warehouse_id, zone_id) "
+                      + "VALUES (?, ?, ?) "
+                      + "ON DUPLICATE KEY UPDATE zone_id = VALUES(zone_id)";
         try (Connection conn = DBConnection.getConnection();
              PreparedStatement ps = conn.prepareStatement(upsert)) {
             ps.setInt(1, productId);
@@ -320,6 +552,16 @@ public class ProductDAO {
 
         double bp = rs.getDouble("base_price");
         product.setBasePrice(rs.wasNull() ? 0.0 : bp);
+
+        double mac = rs.getDouble("mac_price");
+        product.setMacPrice(rs.wasNull() ? 0.0 : mac);
+
+        product.setDAvg(rs.getDouble("d_avg"));
+        product.setDMax(rs.getDouble("d_max"));
+        product.setLAvg(rs.getDouble("l_avg"));
+        product.setLMax(rs.getDouble("l_max"));
+        product.setSafetyStock(rs.getDouble("safety_stock"));
+        product.setRopCalculated(rs.getDouble("rop_calculated"));
 
         int createdBy = rs.getInt("created_by");
         product.setCreatedBy(rs.wasNull() ? null : createdBy);

@@ -1,10 +1,12 @@
 package com.wms.service.warehouse;
 
+import com.wms.dao.InventoryDAO;
 import com.wms.dao.UserDAO;
 import com.wms.dao.WarehouseDAO;
 import com.wms.model.User;
 import com.wms.model.Warehouse;
 import com.wms.model.Zone;
+import com.wms.model.DashboardMetrics;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -17,6 +19,7 @@ public class WarehouseService {
 
     private final WarehouseDAO warehouseDAO = new WarehouseDAO();
     private final UserDAO userDAO = new UserDAO();
+    private final InventoryDAO inventoryDAO = new InventoryDAO();
 
     public List<Warehouse> findAll() throws SQLException {
         return warehouseDAO.findAll();
@@ -58,16 +61,15 @@ public class WarehouseService {
     /** Creates one zone inside the given warehouse. */
     public SaveResult createZone(int warehouseId, String code, String name, String type, String description) {
         try {
-            if (code == null || code.trim().isEmpty()
-                    || name == null || name.trim().isEmpty()
+            if (name == null || name.trim().isEmpty()
                     || type == null || type.trim().isEmpty()) {
-                return SaveResult.failure("Vui lòng nhập mã khu, tên khu và loại khu.");
+                return SaveResult.failure("Vui lòng nhập tên khu và loại khu.");
             }
-            String normalizedCode = code.trim().toUpperCase();
-            if (warehouseDAO.isZoneCodeExists(warehouseId, normalizedCode)) {
-                return SaveResult.failure("Mã khu đã tồn tại trong kho này.");
+            if (warehouseDAO.isZoneNameExists(warehouseId, name.trim(), null)) {
+                return SaveResult.failure("Tên khu '" + name.trim() + "' đã tồn tại trong kho này.");
             }
-            boolean ok = warehouseDAO.insertZone(warehouseId, normalizedCode,
+            String generatedCode = "ZONE-" + System.currentTimeMillis();
+            boolean ok = warehouseDAO.insertZone(warehouseId, generatedCode,
                     name.trim(), type.trim().toUpperCase(),
                     description != null ? description.trim() : null);
             if (!ok) return SaveResult.failure("Không thể tạo phân khu.");
@@ -86,6 +88,9 @@ public class WarehouseService {
             }
             if (name == null || name.trim().isEmpty() || type == null || type.trim().isEmpty()) {
                 return SaveResult.failure("Vui lòng nhập tên khu và loại khu.");
+            }
+            if (warehouseDAO.isZoneNameExists(warehouseId, name.trim(), zoneId)) {
+                return SaveResult.failure("Tên khu '" + name.trim() + "' đã tồn tại trong kho này.");
             }
             boolean ok = warehouseDAO.updateZone(zoneId, warehouseId,
                     name.trim(), type.trim().toUpperCase(),
@@ -170,6 +175,21 @@ public class WarehouseService {
     }
     public Warehouse findById(int warehouseId) throws SQLException {
         return warehouseDAO.findById(warehouseId);
+    }
+
+    /**
+     * Returns live operational KPIs for the warehouse information header.
+     */
+    public DashboardMetrics getDashboardMetrics(int warehouseId) {
+        try {
+            int totalSku = inventoryDAO.countDistinctSkuByWarehouse(warehouseId);
+            double totalPhysical = inventoryDAO.sumPhysicalByWarehouse(warehouseId);
+            int alertCount = inventoryDAO.countLowStockByWarehouse(warehouseId);
+            return new DashboardMetrics(totalSku, totalPhysical, alertCount);
+        } catch (Exception e) {
+            log.error("getDashboardMetrics failed for warehouseId={}", warehouseId, e);
+            return new DashboardMetrics(0, 0, 0);
+        }
     }
 
     public SaveResult saveWarehouse(Warehouse warehouse) {

@@ -88,6 +88,22 @@
         <param-value>30</param-value>
     </context-param>
 
+    <!-- ROP Auto-Calculation (Reorder Point) — enabled by default, runs daily -->
+    <context-param>
+        <param-name>rop.enabled</param-name>
+        <param-value>true</param-value>
+    </context-param>
+    <context-param>
+        <param-name>rop.interval.minutes</param-name>
+        <!-- 1440 = once per day. Set to 60 for hourly during testing. -->
+        <param-value>1440</param-value>
+    </context-param>
+    <context-param>
+        <param-name>rop.lookback.days</param-name>
+        <!-- Number of past days to analyse for demand & lead-time metrics -->
+        <param-value>30</param-value>
+    </context-param>
+
     <!-- ======================================================
          FILTERS — run before every request
     ====================================================== -->
@@ -350,6 +366,16 @@
     <servlet-mapping>
         <servlet-name>PendingTrackingServlet</servlet-name>
         <url-pattern>/warehouse/pending-tracking</url-pattern>
+    </servlet-mapping>
+
+    <!-- ROP API (Manager/Admin only) -->
+    <servlet>
+        <servlet-name>RopServlet</servlet-name>
+        <servlet-class>com.wms.controller.warehouse.RopServlet</servlet-class>
+    </servlet>
+    <servlet-mapping>
+        <servlet-name>RopServlet</servlet-name>
+        <url-pattern>/api/rop/*</url-pattern>
     </servlet-mapping>
 
     <!-- ── Sales Staff routes ──────────────────────────────────── -->

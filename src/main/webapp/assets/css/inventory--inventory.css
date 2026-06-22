@@ -245,3 +245,28 @@
         font-size: 12px;
         color: rgba(16, 55, 92, 0.60);
     }
+
+    /* ─── ATP Chips ─── */
+    .atp-chip {
+        display: inline-block;
+        padding: 3px 10px;
+        border-radius: 20px;
+        font-size: 11px;
+        font-weight: 700;
+        letter-spacing: 0.3px;
+    }
+    .chip-shortage {
+        background: rgba(220, 38, 38, 0.10);
+        color: #dc2626;
+        border: 1px solid rgba(220, 38, 38, 0.25);
+    }
+    .chip-running-low {
+        background: rgba(234, 179, 8, 0.10);
+        color: #b45309;
+        border: 1px solid rgba(234, 179, 8, 0.30);
+    }
+    .chip-enough {
+        background: rgba(5, 150, 105, 0.08);
+        color: #059669;
+        border: 1px solid rgba(5, 150, 105, 0.22);
+    }

@@ -18,6 +18,7 @@ public class ReceiptNote {
     private BigDecimal receivedQty;
     private BigDecimal acceptedQty;
     private BigDecimal rejectedQty;
+    private BigDecimal unitCost;
     private String note;
     private LocalDateTime receivedAt;
 
@@ -105,6 +106,14 @@ public class ReceiptNote {
 
     public void setRejectedQty(BigDecimal rejectedQty) {
         this.rejectedQty = rejectedQty;
+    }
+
+    public BigDecimal getUnitCost() {
+        return unitCost;
+    }
+
+    public void setUnitCost(BigDecimal unitCost) {
+        this.unitCost = unitCost;
     }
 
     public String getNote() {

@@ -2,6 +2,7 @@ package com.wms.service.warehouse;
 
 import com.wms.dao.InboundDAO;
 import com.wms.dao.InventoryDAO;
+import com.wms.dao.ProductDAO;
 import com.wms.model.InboundOrder;
 import com.wms.model.ReceiptNote;
 import org.slf4j.Logger;
@@ -19,6 +20,7 @@ public class InboundService {
 
     private final InboundDAO inboundDAO = new InboundDAO();
     private final InventoryDAO inventoryDAO = new InventoryDAO();
+    private final ProductDAO productDAO = new ProductDAO();
 
     public List<InboundOrder> findAll() {
         return inboundDAO.findAll();
@@ -93,24 +95,45 @@ public class InboundService {
         if (receiptItems != null) {
             for (ReceiptItem item : receiptItems) {
                 try {
-                    if (item.getReceivedQty().compareTo(BigDecimal.ZERO) <= 0) continue;
+                    BigDecimal received = item.getReceivedQty() != null ? item.getReceivedQty() : BigDecimal.ZERO;
+                    BigDecimal accepted = item.getAcceptedQty() != null ? item.getAcceptedQty() : BigDecimal.ZERO;
+                    BigDecimal rejected = received.subtract(accepted); // auto-calculate
 
-                    ReceiptNote receipt = new ReceiptNote();
-                    receipt.setInboundId(inboundId);
-                    receipt.setProductId(item.getProductId());
-                    receipt.setExpectedQty(BigDecimal.ZERO);
-                    receipt.setReceivedQty(item.getReceivedQty());
-                    receipt.setAcceptedQty(item.getReceivedQty());
-                    receipt.setRejectedQty(BigDecimal.ZERO);
-                    receipt.setReceivedAt(now);
+                    if (received.compareTo(BigDecimal.ZERO) <= 0 && accepted.compareTo(BigDecimal.ZERO) <= 0) {
+                        continue;
+                    }
 
-                    inboundDAO.insertReceipt(receipt);
-                    inventoryDAO.addInventory(item.getProductId(), existing.getWarehouseId(), item.getReceivedQty(), userId);
+                    // Update all 4 fields in inbound_items (qty + unit_cost for MAC)
+                    inboundDAO.updateReceivedQtys(inboundId, item.getProductId(), received, accepted, rejected,
+                            item.getUnitCost() != null ? item.getUnitCost() : BigDecimal.ZERO);
+                    // Only accepted qty goes into inventory
+                    if (accepted.compareTo(BigDecimal.ZERO) > 0) {
+                        // MAC: Moving Average Cost — read state BEFORE inventory changes,
+                        // then recalculate after addInventory to include the new lot.
+                        double currentOnHand = 0.0;
+                        BigDecimal currentMac = BigDecimal.ZERO;
+                        var prod = productDAO.findById(item.getProductId());
+                        if (prod != null) {
+                            currentOnHand = prod.getQtyOnHand() != null ? prod.getQtyOnHand() : 0.0;
+                            currentMac = productDAO.findMacPrice(item.getProductId());
+                        }
+                        inventoryDAO.addInventory(item.getProductId(), existing.getWarehouseId(), accepted, userId);
+                        // unitCost may be null if not provided by caller (e.g. legacy paths).
+                        BigDecimal unitCost = item.getUnitCost() != null
+                                ? item.getUnitCost()
+                                : BigDecimal.ZERO;
+                        productDAO.updateMacPrice(
+                                item.getProductId(),
+                                BigDecimal.valueOf(currentOnHand),
+                                currentMac,
+                                accepted,
+                                unitCost);
+                    }
                     successCount++;
                 } catch (Exception e) {
                     failCount++;
-                    log.error("Receive goods item error: inboundId={} productId={} qty={} error={}",
-                            inboundId, item.getProductId(), item.getReceivedQty(), e.getMessage());
+                    log.error("Receive goods item error: inboundId={} productId={} error={}",
+                            inboundId, item.getProductId(), e.getMessage());
                 }
             }
         }
@@ -128,11 +151,20 @@ public class InboundService {
     public static class ReceiptItem {
         private int productId;
         private BigDecimal receivedQty;
+        private BigDecimal acceptedQty;
+        private BigDecimal rejectedQty;
+        private BigDecimal unitCost;  // used for MAC recalculation
 
         public int getProductId() { return productId; }
         public void setProductId(int productId) { this.productId = productId; }
         public BigDecimal getReceivedQty() { return receivedQty; }
         public void setReceivedQty(BigDecimal receivedQty) { this.receivedQty = receivedQty; }
+        public BigDecimal getAcceptedQty() { return acceptedQty; }
+        public void setAcceptedQty(BigDecimal acceptedQty) { this.acceptedQty = acceptedQty; }
+        public BigDecimal getRejectedQty() { return rejectedQty; }
+        public void setRejectedQty(BigDecimal rejectedQty) { this.rejectedQty = rejectedQty; }
+        public BigDecimal getUnitCost() { return unitCost; }
+        public void setUnitCost(BigDecimal unitCost) { this.unitCost = unitCost; }
     }
 
     public static class ValidationResult {

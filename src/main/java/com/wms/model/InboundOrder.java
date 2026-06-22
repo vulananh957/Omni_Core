@@ -151,6 +151,7 @@ public class InboundOrder {
 
     /**
      * Returns items as JSON array string for JSP embedding.
+     * Uses both field name variants so JS can always find the values.
      */
     public String getItemsJson() {
         if (items == null || items.isEmpty()) return "[]";
@@ -158,10 +159,15 @@ public class InboundOrder {
         for (int i = 0; i < items.size(); i++) {
             ReceiptNote it = items.get(i);
             if (i > 0) sb.append(",");
-            sb.append("{\"sku\":\"").append(escapeJson(it.getSkuCode()))
+            sb.append("{\"productId\":").append(it.getProductId())
+              .append(",\"skuCode\":\"").append(escapeJson(it.getSkuCode()))
+              .append("\",\"sku\":\"").append(escapeJson(it.getSkuCode()))
+              .append("\",\"skuName\":\"").append(escapeJson(it.getProductName()))
               .append("\",\"productName\":\"").append(escapeJson(it.getProductName()))
               .append("\",\"orderedQty\":").append(it.getExpectedQty())
+              .append(",\"expectedQty\":").append(it.getExpectedQty())
               .append(",\"receivedQty\":").append(it.getReceivedQty())
+              .append(",\"price\":").append(it.getUnitCost() != null ? it.getUnitCost() : 0)
               .append("}");
         }
         sb.append("]");

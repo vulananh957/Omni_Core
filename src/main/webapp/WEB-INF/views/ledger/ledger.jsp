@@ -35,7 +35,7 @@
         Kiểm Kê <span class="tab-badge" id="badge-kk">0</span>
     </button>
     <button class="tab-btn tab-tr" data-tab="Phiếu Chuyển Kho">
-        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 3h5v5"/><path d="M8 3H3v5"/><path d="M12 21v-6"/><path d="M12 12a3 3 0 1 0 0-6 3 3 0 0 0 0 6Z"/><path d="m20 12-5 5-5-5"/></svg>
+        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4"/></svg>
         Chuyển Kho <span class="tab-badge" id="badge-tr">0</span>
     </button>
     <button class="tab-btn tab-rma" data-tab="Phiếu Hoàn Hàng">
@@ -161,7 +161,7 @@
     DOCUMENT DETAILS VIEW MODAL (PDF-like preview)
     ════════════════════════════════════════════════════ -->
 <div class="modal-overlay" id="detailModalOverlay">
-    <div class="modal-box modal-lg" style="border-radius: var(--radius-card); overflow: hidden;">
+    <div class="modal-box modal-lg detail-modal-grn" style="border-radius: var(--radius-card); overflow: hidden; max-width: 1400px; width: 98%;">
         <!-- Header actions -->
         <div class="modal-hdr" style="background: rgba(240, 244, 250, 0.30); border-bottom: 1px solid var(--border); padding: 16px 24px; display: flex; align-items: center; justify-content: space-between;">
             <div id="detailModalTitleArea" style="display: flex; align-items: center; gap: 12px;">
@@ -259,11 +259,11 @@
             "Phiếu Nhập Kho": { colorClass: "theme-grn", badgeClass: "type-badge-grn", shortName: "Nhập kho", icon: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 17V3"/><path d="m6 11 6 6 6-6"/><path d="M19 21H5"/></svg>' },
             "Phiếu Xuất Kho": { colorClass: "theme-gi", badgeClass: "type-badge-gi", shortName: "Xuất kho", icon: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v14"/><path d="m18 10-6 7-6-7"/><path d="M5 21h14"/></svg>' },
             "Phiếu Kiểm Kê": { colorClass: "theme-kk", badgeClass: "type-badge-kk", shortName: "Kiểm kê", icon: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="18" x="3" y="4" rx="2" ry="2"/><line x1="16" x2="16" y1="2" y2="6"/><line x1="8" x2="8" y1="2" y2="6"/><line x1="3" x2="21" y1="10" y2="10"/><path d="m9 16 2 2 4-4"/></svg>' },
-            "Phiếu Chuyển Kho": { colorClass: "theme-tr", badgeClass: "type-badge-tr", shortName: "Chuyển kho", icon: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 3h5v5"/><path d="M8 3H3v5"/><path d="M12 21v-6"/><path d="M12 12a3 3 0 1 0 0-6 3 3 0 0 0 0 6Z"/><path d="m20 12-5 5-5-5"/></svg>' },
+            "Phiếu Chuyển Kho": { colorClass: "theme-tr", badgeClass: "type-badge-tr", shortName: "Chuyển kho", icon: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4"/></svg>' },
             "Phiếu Hoàn Hàng": { colorClass: "theme-rma", badgeClass: "type-badge-rma", shortName: "Hoàn hàng", icon: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg>' }
         };
 
-        var PENDING_STATUSES = ["Đang xét QC", "Đang xử lý", "Đang giao", "Chờ duyệt", "Trình duyệt"];
+        var PENDING_STATUSES = ["Đang xét QC", "Đang xử lý", "Đang giao", "Chờ duyệt", "Chờ BM duyệt", "Trình duyệt"];
 
         // Init tab clicks
         tabBtns.forEach(function(btn) {
@@ -326,19 +326,31 @@
         // Approve execution
         function performApproval() {
             if (!selectedConfirmDoc) return;
-            var newStatus = (selectedConfirmDoc.type === "Phiếu Kiểm Kê") ? "Hoàn thành" : "Đã duyệt";
             
-            window.WMS_LEDGER_DATA = window.WMS_LEDGER_DATA.map(function(d) {
-                if (d.id === selectedConfirmDoc.id) {
-                    d.status = newStatus;
-                    d.statusColor = "#059669"; // Green
-                }
-                return d;
-            });
+            var form = document.createElement('form');
+            form.method = 'POST';
+            form.action = '${pageContext.request.contextPath}/business/ledger';
 
-            localStorage.setItem('wms_ledger_docs', JSON.stringify(window.WMS_LEDGER_DATA));
-            approveOverlay.classList.remove('active');
-            renderLedger();
+            var actionInput = document.createElement('input');
+            actionInput.type = 'hidden';
+            actionInput.name = 'action';
+            actionInput.value = 'approve';
+            form.appendChild(actionInput);
+
+            var typeInput = document.createElement('input');
+            typeInput.type = 'hidden';
+            typeInput.name = 'docType';
+            typeInput.value = selectedConfirmDoc.type;
+            form.appendChild(typeInput);
+
+            var idInput = document.createElement('input');
+            idInput.type = 'hidden';
+            idInput.name = 'docId';
+            idInput.value = selectedConfirmDoc.id;
+            form.appendChild(idInput);
+
+            document.body.appendChild(form);
+            form.submit();
         }
 
         // Reject execution
@@ -346,18 +358,36 @@
             if (!selectedConfirmDoc) return;
             var reason = rejectReasonText.value.trim() || "Thông tin hàng hóa chưa chính xác";
 
-            window.WMS_LEDGER_DATA = window.WMS_LEDGER_DATA.map(function(d) {
-                if (d.id === selectedConfirmDoc.id) {
-                    d.status = "Từ chối";
-                    d.statusColor = "#dc2626"; // Red
-                    d.remarks = "Lý do từ chối: " + reason;
-                }
-                return d;
-            });
+            var form = document.createElement('form');
+            form.method = 'POST';
+            form.action = '${pageContext.request.contextPath}/business/ledger';
 
-            localStorage.setItem('wms_ledger_docs', JSON.stringify(window.WMS_LEDGER_DATA));
-            rejectOverlay.classList.remove('active');
-            renderLedger();
+            var actionInput = document.createElement('input');
+            actionInput.type = 'hidden';
+            actionInput.name = 'action';
+            actionInput.value = 'reject';
+            form.appendChild(actionInput);
+
+            var typeInput = document.createElement('input');
+            typeInput.type = 'hidden';
+            typeInput.name = 'docType';
+            typeInput.value = selectedConfirmDoc.type;
+            form.appendChild(typeInput);
+
+            var idInput = document.createElement('input');
+            idInput.type = 'hidden';
+            idInput.name = 'docId';
+            idInput.value = selectedConfirmDoc.id;
+            form.appendChild(idInput);
+
+            var reasonInput = document.createElement('input');
+            reasonInput.type = 'hidden';
+            reasonInput.name = 'rejectReason';
+            reasonInput.value = reason;
+            form.appendChild(reasonInput);
+
+            document.body.appendChild(form);
+            form.submit();
         }
 
         // Helper to convert number to Vietnamese words
@@ -424,6 +454,29 @@
         // Open detailed PDF viewer
         function openDetailModal(doc) {
             viewDetailDoc = doc;
+            // Show loading placeholder
+            detailModalTitleArea.innerHTML = '<h3 class="modal-title" style="font-size: 16px; font-weight: 700; color: var(--navy);">Đang tải chi tiết...</h3>';
+            detailModalBody.innerHTML = '<div style="display: flex; align-items: center; justify-content: center; height: 300px; gap: 12px; font-size: 14px; font-weight: 500; color: rgba(16, 55, 92, 0.50);">' +
+                '<span style="display: inline-block; width: 24px; height: 24px; border: 3px solid rgba(16, 55, 92, 0.2); border-top-color: var(--navy); border-radius: 50%; animation: spin 0.8s linear infinite;"></span>' +
+                ' Đang tải dữ liệu chứng từ kho...' +
+                '</div>' +
+                '<style>@keyframes spin { to { transform: rotate(360deg); } }</style>';
+            detailOverlay.classList.add('active');
+
+            fetch('${pageContext.request.contextPath}/business/ledger?ajax=items&docId=' + encodeURIComponent(doc.id) + '&docType=' + encodeURIComponent(doc.type))
+                .then(function(res) { return res.json(); })
+                .then(function(items) {
+                    renderDetailModalWithItems(doc, items);
+                })
+                .catch(function(err) {
+                    console.error('Error fetching document items:', err);
+                    renderDetailModalWithItems(doc, []);
+                });
+        }
+
+        function renderDetailModalWithItems(doc, items) {
+            items = items || [];
+            viewDetailDoc = doc;
 
             // Parse date details
             var dateStr = doc.date || "";
@@ -455,41 +508,7 @@
                 // Render GRN Title
                 detailModalTitleArea.innerHTML = '<h3 class="modal-title" style="font-size: 16px; font-weight: 700; color: var(--navy);">Chi tiết Phiếu Nhập Kho (GRN)</h3>';
 
-                var itemsCount = doc.items || 120;
-                var item1Qty = Math.max(1, Math.ceil(itemsCount * 0.65));
-                var item2Qty = Math.max(0, itemsCount - item1Qty);
-
-                var items = [];
-                items.push({
-                    stt: 1,
-                    sku: "978-0545162074",
-                    name: "Gương soi cầm tay mini",
-                    uom: "Cái",
-                    lot: "LOT-2026-05-20",
-                    hsd: "31/12/2026",
-                    ordered: item1Qty,
-                    received: item1Qty,
-                    accepted: item1Qty,
-                    rejected: 0,
-                    remarks: "",
-                    price: 150000
-                });
-                if (item2Qty > 0) {
-                    items.push({
-                        stt: 2,
-                        sku: "978-8935235670891",
-                        name: "Lược chải tóc gỡ rối",
-                        uom: "Cái",
-                        lot: "LOT-2026-05-21",
-                        hsd: "30/06/2027",
-                        ordered: item2Qty,
-                        received: item2Qty,
-                        accepted: item2Qty,
-                        rejected: 0,
-                        remarks: "",
-                        price: 95000
-                    });
-                }
+                // Using dynamic items passed in
 
                 var totalOrdered = 0;
                 var totalReceived = 0;
@@ -500,26 +519,24 @@
 
                 for (var i = 0; i < items.length; i++) {
                     var it = items[i];
-                    totalOrdered += it.ordered;
-                    totalReceived += it.received;
-                    totalAccepted += it.accepted;
-                    totalRejected += it.rejected;
-                    totalValue += it.accepted * it.price;
+                    totalOrdered += it.ordered || 0;
+                    totalReceived += it.received || 0;
+                    totalAccepted += it.accepted || 0;
+                    totalRejected += it.rejected || 0;
+                    var lineTotal = (it.accepted || 0) * (it.price || 0);
+                    totalValue += lineTotal;
 
                     rowsHtml += '<tr style="line-height: 2.0;">' +
                         '<td style="border: 1px solid rgba(16, 55, 92, 0.15); padding: 10px 12px; font-size: 13px; text-align: center;">' + it.stt + '</td>' +
                         '<td style="border: 1px solid rgba(16, 55, 92, 0.15); padding: 10px 12px; font-size: 11px; font-family: monospace; color: rgba(16, 55, 92, 0.70);">' + it.sku + '</td>' +
                         '<td style="border: 1px solid rgba(16, 55, 92, 0.15); padding: 10px 12px; font-size: 13px; font-weight: 600; color: var(--navy);">' + it.name + '</td>' +
                         '<td style="border: 1px solid rgba(16, 55, 92, 0.15); padding: 10px 12px; font-size: 12px; text-align: center;">' + it.uom + '</td>' +
-                        '<td style="border: 1px solid rgba(16, 55, 92, 0.15); padding: 10px 12px; font-size: 10px; text-align: center; color: rgba(16, 55, 92, 0.70);">' +
-                            '<div style="font-family: monospace;">' + it.lot + '</div>' +
-                            '<div style="color: rgba(16, 55, 92, 0.5);">HSD: ' + it.hsd + '</div>' +
-                        '</td>' +
-                        '<td style="border: 1px solid rgba(16, 55, 92, 0.15); padding: 10px 12px; font-size: 13px; text-align: center; color: rgba(16, 55, 92, 0.60);">' + it.ordered + '</td>' +
-                        '<td style="border: 1px solid rgba(16, 55, 92, 0.15); padding: 10px 12px; font-size: 14px; font-weight: 600; text-align: center;">' + it.received + '</td>' +
-                        '<td style="border: 1px solid rgba(16, 55, 92, 0.15); padding: 10px 12px; font-size: 15px; font-weight: 800; text-align: center; background: rgba(16, 185, 129, 0.05); color: #059669;">' + it.accepted + '</td>' +
-                        '<td style="border: 1px solid rgba(16, 55, 92, 0.15); padding: 10px 12px; font-size: 13px; text-align: center; background: rgba(239, 68, 68, 0.05); color: ' + (it.rejected > 0 ? '#dc2626' : 'rgba(16, 55, 92, 0.3)') + ';">' + (it.rejected > 0 ? it.rejected : '—') + '</td>' +
-                        '<td style="border: 1px solid rgba(16, 55, 92, 0.15); padding: 10px 12px; font-size: 12px; color: rgba(16, 55, 92, 0.70);">' + (it.remarks ? it.remarks : '<div style="border-bottom: 1px dashed rgba(16, 55, 92, 0.2); pb: 4px;"></div>') + '</td>' +
+                        '<td style="border: 1px solid rgba(16, 55, 92, 0.15); padding: 10px 12px; font-size: 13px; text-align: center; color: rgba(16, 55, 92, 0.60);">' + (it.ordered || 0) + '</td>' +
+                        '<td style="border: 1px solid rgba(16, 55, 92, 0.15); padding: 10px 12px; font-size: 13px; text-align: right; color: var(--navy);">' + (it.price ? it.price.toLocaleString('vi-VN') : '—') + '</td>' +
+                        '<td style="border: 1px solid rgba(16, 55, 92, 0.15); padding: 10px 12px; font-size: 13px; text-align: center; color: #1d4ed8; font-weight: 700; background: rgba(30, 64, 175, 0.04);">' + (it.received || 0) + '</td>' +
+                        '<td style="border: 1px solid rgba(16, 55, 92, 0.15); padding: 10px 12px; font-size: 13px; text-align: center; color: #047857; font-weight: 700; background: rgba(4, 120, 87, 0.04);">' + (it.accepted || 0) + '</td>' +
+                        '<td style="border: 1px solid rgba(16, 55, 92, 0.15); padding: 10px 12px; font-size: 13px; text-align: center; color: #dc2626; font-weight: 700; background: rgba(220, 38, 38, 0.04);">' + (it.rejected || 0) + '</td>' +
+                        '<td style="border: 1px solid rgba(16, 55, 92, 0.15); padding: 10px 12px; font-size: 13px; text-align: right; font-weight: 700; color: var(--navy);">' + lineTotal.toLocaleString('vi-VN') + '</td>' +
                     '</tr>';
                 }
 
@@ -539,9 +556,6 @@
                                 '<label style="display: block; font-size: 11px; font-weight: 700; text-transform: uppercase; color: rgba(16, 55, 92, 0.50); letter-spacing: 0.05em; margin-bottom: 4px;">Mã Phiếu Nhập (GRN No.)</label>' +
                                 '<span style="font-size: 18px; font-weight: 700; color: var(--navy);">' + escapeHtml(doc.id) + '</span>' +
                             '</div>' +
-                            '<div class="pdf-barcode-box" style="border: 1px solid var(--border); border-radius: var(--radius-btn); padding: 8px 16px; background: #fff; display: flex; flex-direction: column; align-items: center;">' +
-                                '<div style="height: 48px; width: 180px; background: rgba(16, 55, 92, 0.05); display: flex; align-items: center; justify-content: center; font-family: monospace; font-size: 10px; color: rgba(16, 55, 92, 0.35); margin-top: 4px;">||||| ' + escapeHtml(doc.id) + ' |||||</div>' +
-                            '</div>' +
                         '</div>' +
 
                         '<div style="display: grid; grid-template-columns: 1fr 1fr; gap: 24px; margin-bottom: 24px; border-bottom: 1px solid var(--border); padding-bottom: 24px;">' +
@@ -549,8 +563,6 @@
                                 '<div>' +
                                     '<label style="display: block; font-size: 11px; font-weight: 700; text-transform: uppercase; color: rgba(16, 55, 92, 0.50); letter-spacing: 0.05em; margin-bottom: 4px;">Nhà Cung Cấp (Supplier)</label>' +
                                     '<div style="font-size: 14px; font-weight: 600; color: var(--navy);">' + escapeHtml(supplierText) + '</div>' +
-                                    '<div style="font-size: 12px; color: rgba(16, 55, 92, 0.60); margin-top: 2px;">Địa chỉ: 123 Đường ABC, Quận 1, TP.HCM</div>' +
-                                    '<div style="font-size: 12px; color: rgba(16, 55, 92, 0.60); margin-top: 2px;">SĐT: 028 1234 5678</div>' +
                                 '</div>' +
                                 '<div>' +
                                     '<label style="display: block; font-size: 11px; font-weight: 700; text-transform: uppercase; color: rgba(16, 55, 92, 0.50); letter-spacing: 0.05em; margin-bottom: 4px;">Mã Đơn Đặt Hàng (PO Ref.) <span style="color: #ef4444;">*</span></label>' +
@@ -563,12 +575,12 @@
                                     '<div style="font-size: 14px; color: var(--navy);">' + day + '/' + month + '/' + year + ' - ' + timeStr + '</div>' +
                                 '</div>' +
                                 '<div>' +
-                                    '<label style="display: block; font-size: 11px; font-weight: 700; text-transform: uppercase; color: rgba(16, 55, 92, 0.50); letter-spacing: 0.05em; margin-bottom: 4px;">Trạng Thái (Status)</label>' +
-                                    '<span style="display: inline-block; padding: 4px 10px; font-size: 12px; font-weight: 700; color: #047857; background: #ECFDF5; border: 1px solid #A7F3D0; border-radius: var(--radius-btn);">' + grnStatusText + '</span>' +
+                                    '<label style="display: block; font-size: 11px; font-weight: 700; text-transform: uppercase; color: rgba(16, 55, 92, 0.50); letter-spacing: 0.05em; margin-bottom: 4px;">Người Lập Phiếu / Nhân Viên Kiểm Đếm</label>' +
+                                    '<div style="font-size: 14px; font-weight: 600; color: var(--navy);">' + escapeHtml(doc.createdBy || '—') + '</div>' +
                                 '</div>' +
                                 '<div>' +
-                                    '<label style="display: block; font-size: 11px; font-weight: 700; text-transform: uppercase; color: rgba(16, 55, 92, 0.50); letter-spacing: 0.05em; margin-bottom: 4px;">Giá Trị Lô Hàng (Document Value)</label>' +
-                                    '<div style="font-size: 15px; font-weight: 700; color: var(--navy);">' + totalValue.toLocaleString('vi-VN') + ' VNĐ</div>' +
+                                    '<label style="display: block; font-size: 11px; font-weight: 700; text-transform: uppercase; color: rgba(16, 55, 92, 0.50); letter-spacing: 0.05em; margin-bottom: 4px;">Trạng Thái (Status)</label>' +
+                                    '<span style="display: inline-block; padding: 4px 10px; font-size: 12px; font-weight: 700; color: #047857; background: #ECFDF5; border: 1px solid #A7F3D0; border-radius: var(--radius-btn);">' + grnStatusText + '</span>' +
                                 '</div>' +
                             '</div>' +
                         '</div>' +
@@ -583,33 +595,27 @@
                                         '<th style="border: 1px solid rgba(16, 55, 92, 0.15); padding: 10px 12px; font-size: 10px; font-weight: 700; text-transform: uppercase; color: rgba(16, 55, 92, 0.50); text-align: left;">Mã SKU</th>' +
                                         '<th style="border: 1px solid rgba(16, 55, 92, 0.15); padding: 10px 12px; font-size: 10px; font-weight: 700; text-transform: uppercase; color: rgba(16, 55, 92, 0.50); text-align: left;">Tên Sản Phẩm</th>' +
                                         '<th style="border: 1px solid rgba(16, 55, 92, 0.15); padding: 10px 12px; font-size: 10px; font-weight: 700; text-transform: uppercase; color: rgba(16, 55, 92, 0.50); text-align: center;">ĐVT</th>' +
-                                        '<th style="border: 1px solid rgba(16, 55, 92, 0.15); padding: 10px 12px; font-size: 10px; font-weight: 700; text-transform: uppercase; color: rgba(16, 55, 92, 0.50); text-align: center;">Số Lô / HSD</th>' +
                                         '<th style="border: 1px solid rgba(16, 55, 92, 0.15); padding: 10px 12px; font-size: 10px; font-weight: 700; text-transform: uppercase; color: rgba(16, 55, 92, 0.50); text-align: center;">SL Đặt Hàng</th>' +
-                                        '<th style="border: 1px solid rgba(16, 55, 92, 0.15); padding: 10px 12px; font-size: 10px; font-weight: 700; text-transform: uppercase; color: rgba(16, 55, 92, 0.50); text-align: center;">SL Thực Nhận</th>' +
-                                        '<th style="border: 1px solid rgba(16, 55, 92, 0.15); padding: 10px 12px; font-size: 10px; font-weight: 700; text-transform: uppercase; color: rgba(16, 55, 92, 0.50); text-align: center; background: rgba(16, 185, 129, 0.05);">SL Chấp Nhận</th>' +
-                                        '<th style="border: 1px solid rgba(16, 55, 92, 0.15); padding: 10px 12px; font-size: 10px; font-weight: 700; text-transform: uppercase; color: rgba(16, 55, 92, 0.50); text-align: center; background: rgba(239, 68, 68, 0.05);">SL Từ Chối</th>' +
-                                        '<th style="border: 1px solid rgba(16, 55, 92, 0.15); padding: 10px 12px; font-size: 10px; font-weight: 700; text-transform: uppercase; color: rgba(16, 55, 92, 0.50); text-align: left;">Ghi Chú / Mã Lỗi</th>' +
+                                        '<th style="border: 1px solid rgba(16, 55, 92, 0.15); padding: 10px 12px; font-size: 10px; font-weight: 700; text-transform: uppercase; color: rgba(16, 55, 92, 0.50); text-align: right;">Đơn Giá</th>' +
+                                        '<th style="border: 1px solid rgba(16, 55, 92, 0.15); padding: 10px 12px; font-size: 10px; font-weight: 700; text-transform: uppercase; color: rgba(16, 55, 92, 0.50); text-align: center; background: #eff6ff; color: #1d4ed8;">SL Thực Nhận</th>' +
+                                        '<th style="border: 1px solid rgba(16, 55, 92, 0.15); padding: 10px 12px; font-size: 10px; font-weight: 700; text-transform: uppercase; color: rgba(16, 55, 92, 0.50); text-align: center; background: #ecfdf5; color: #047857;">SL Chấp Nhận</th>' +
+                                        '<th style="border: 1px solid rgba(16, 55, 92, 0.15); padding: 10px 12px; font-size: 10px; font-weight: 700; text-transform: uppercase; color: rgba(16, 55, 92, 0.50); text-align: center; background: #fef2f2; color: #dc2626;">SL Từ Chối</th>' +
+                                        '<th style="border: 1px solid rgba(16, 55, 92, 0.15); padding: 10px 12px; font-size: 10px; font-weight: 700; text-transform: uppercase; color: rgba(16, 55, 92, 0.50); text-align: right;">Thành Tiền</th>' +
                                     '</tr>' +
                                 '</thead>' +
                                 '<tbody>' +
                                     rowsHtml +
                                     '<tr style="background: rgba(240, 244, 250, 0.35); font-weight: 700; border-top: 2px solid rgba(16, 55, 92, 0.30);">' +
-                                        '<td colspan="5" style="border: 1px solid rgba(16, 55, 92, 0.15); padding: 10px 12px; text-align: right; font-size: 13px; color: var(--navy);">TỔNG CỘNG:</td>' +
+                                        '<td colspan="4" style="border: 1px solid rgba(16, 55, 92, 0.15); padding: 10px 12px; text-align: right; font-size: 13px; color: var(--navy);">TỔNG CỘNG:</td>' +
                                         '<td style="border: 1px solid rgba(16, 55, 92, 0.15); padding: 10px 12px; text-align: center; font-size: 14px; color: rgba(16, 55, 92, 0.6);">' + totalOrdered + '</td>' +
-                                        '<td style="border: 1px solid rgba(16, 55, 92, 0.15); padding: 10px 12px; text-align: center; font-size: 14px; color: var(--navy);">' + totalReceived + '</td>' +
-                                        '<td style="border: 1px solid rgba(16, 55, 92, 0.15); padding: 10px 12px; text-align: center; font-size: 14px; background: rgba(16, 185, 129, 0.05); color: #059669;">' + totalAccepted + '</td>' +
-                                        '<td style="border: 1px solid rgba(16, 55, 92, 0.15); padding: 10px 12px; text-align: center; font-size: 14px; background: rgba(239, 68, 68, 0.05); color: #dc2626;">' + totalRejected + '</td>' +
-                                        '<td style="border: 1px solid rgba(16, 55, 92, 0.15); padding: 10px 12px;"></td>' +
+                                        '<td style="border: 1px solid rgba(16, 55, 92, 0.15); padding: 10px 12px; text-align: right; font-size: 14px; color: rgba(16, 55, 92, 0.6);"></td>' +
+                                        '<td style="border: 1px solid rgba(16, 55, 92, 0.15); padding: 10px 12px; text-align: center; font-size: 14px; background: #eff6ff; color: #1d4ed8; font-weight: 800;">' + totalReceived + '</td>' +
+                                        '<td style="border: 1px solid rgba(16, 55, 92, 0.15); padding: 10px 12px; text-align: center; font-size: 14px; background: #ecfdf5; color: #047857; font-weight: 800;">' + totalAccepted + '</td>' +
+                                        '<td style="border: 1px solid rgba(16, 55, 92, 0.15); padding: 10px 12px; text-align: center; font-size: 14px; background: #fef2f2; color: #dc2626; font-weight: 800;">' + totalRejected + '</td>' +
+                                        '<td style="border: 1px solid rgba(16, 55, 92, 0.15); padding: 10px 12px; text-align: right; font-size: 14px; font-weight: 800; color: var(--navy);">' + totalValue.toLocaleString('vi-VN') + '</td>' +
                                     '</tr>' +
                                 '</tbody>' +
                             '</table>' +
-
-                            '<div style="margin-top: 16px; display: flex; align-items: center; gap: 24px;">' +
-                                '<div style="border: 1px solid rgba(16, 55, 92, 0.2); padding: 8px 16px; border-radius: var(--radius-btn); display: inline-block;">' +
-                                    '<span style="font-size: 11px; font-weight: 600; text-transform: uppercase; color: rgba(16, 55, 92, 0.60); letter-spacing: 0.05em;">Tổng Số Bao Kiện/Pallet: </span>' +
-                                    '<span style="font-size: 14px; font-weight: 700; color: var(--navy);">' + Math.ceil(totalAccepted / 100) + ' Pallet, ' + Math.ceil(totalAccepted / 20) + ' Thùng lớn</span>' +
-                                '</div>' +
-                            '</div>' +
                         '</div>' +
 
                         '<!-- FOOTER -->' +
@@ -653,35 +659,7 @@
                 // Render GI Title
                 detailModalTitleArea.innerHTML = '<h3 class="modal-title" style="font-size: 16px; font-weight: 700; color: var(--navy);">Chi tiết Phiếu Xuất Kho</h3>';
 
-                var itemsCount = doc.items || 85;
-                var item1Qty = Math.max(1, Math.ceil(itemsCount * 0.7));
-                var item2Qty = Math.max(0, itemsCount - item1Qty);
-
-                var items = [];
-                items.push({
-                    stt: 1,
-                    sku: "978-0545162074",
-                    name: "Gương soi cầm tay mini",
-                    uom: "Cái",
-                    lot: "LOT-2026-05-01",
-                    hsd: "31/12/2026",
-                    qtyRequest: item1Qty,
-                    qtyIssued: item1Qty,
-                    price: 35000
-                });
-                if (item2Qty > 0) {
-                    items.push({
-                        stt: 2,
-                        sku: "978-8935235670891",
-                        name: "Lược chải tóc gỡ rối",
-                        uom: "Cái",
-                        lot: "LOT-2026-04-15",
-                        hsd: "30/06/2027",
-                        qtyRequest: item2Qty,
-                        qtyIssued: item2Qty,
-                        price: 15000
-                    });
-                }
+                // Using dynamic items passed in
 
                 var totalQtyRequest = 0;
                 var totalQtyIssued = 0;
@@ -857,23 +835,7 @@
                 // Render KK Title
                 detailModalTitleArea.innerHTML = '<h3 class="modal-title" style="font-size: 16px; font-weight: 700; color: var(--navy);">Chi tiết Phiếu Kiểm Kê</h3>';
 
-                var totalItems = doc.items || 150;
-                var item1Book = Math.max(1, Math.ceil(totalItems * 0.55));
-                var item1Actual = item1Book - 2;
-                var item1Diff = item1Actual - item1Book;
-
-                var item2Book = Math.max(0, totalItems - item1Book);
-                var item2Actual = item2Book;
-                var item2Diff = 0;
-
-                var items = [];
-                items.push({ stt: 1, sku: "978-0545162074", name: "Gương soi cầm tay mini", uom: "Cái", book: item1Book, actual: item1Actual, diff: item1Diff, remark: "Hư hỏng 2 cái (vỡ kính)" });
-                if (item2Book > 0) {
-                    items.push({ stt: 2, sku: "978-8935235670891", name: "Lược chải tóc gỡ rối", uom: "Cái", book: item2Book, actual: item2Actual, diff: item2Diff, remark: "" });
-                }
-                // Add some other mock items to look complete
-                items.push({ stt: items.length + 1, sku: "978-0316769174", name: "Vở kẻ ngang 120 trang", uom: "Cái", book: 150, actual: 148, diff: -2, remark: "Mất mát không xác định" });
-                items.push({ stt: items.length + 1, sku: "978-0061120084", name: "Bút bi xanh cao cấp", uom: "Cái", book: 300, actual: 302, diff: 2, remark: "Nhập thừa lô GRN-2024-049" });
+                // Using dynamic items passed in
 
                 var totalBook = 0;
                 var totalActual = 0;
@@ -1054,33 +1016,7 @@
                 // Render TR Title
                 detailModalTitleArea.innerHTML = '<h3 class="modal-title" style="font-size: 16px; font-weight: 700; color: var(--navy);">Chi tiết Phiếu Chuyển Kho</h3>';
 
-                var totalItems = doc.items || 8;
-                var item1Qty = Math.max(1, Math.ceil(totalItems * 0.65));
-                var item2Qty = Math.max(0, totalItems - item1Qty);
-
-                var items = [];
-                items.push({
-                    stt: 1,
-                    sku: "978-0545162074",
-                    name: "Gương soi cầm tay mini",
-                    uom: "Cái",
-                    lot: "LOT-2024-05-20",
-                    requested: item1Qty,
-                    transferred: item1Qty,
-                    remark: ""
-                });
-                if (item2Qty > 0) {
-                    items.push({
-                        stt: 2,
-                        sku: "978-8935235670891",
-                        name: "Lược chải tóc gỡ rối",
-                        uom: "Cái",
-                        lot: "LOT-2024-04-15",
-                        requested: item2Qty,
-                        transferred: item2Qty,
-                        remark: ""
-                    });
-                }
+                // Using dynamic items passed in
 
                 var totalRequested = 0;
                 var totalTransferred = 0;
@@ -1281,35 +1217,7 @@
                         '</span>' +
                     '</div>';
 
-                var totalItems = doc.items || 5;
-                var combReturned = Math.max(0, Math.floor(totalItems * 0.4));
-                var mirrorReturned = Math.max(1, totalItems - combReturned);
-
-                var items = [];
-                items.push({
-                    stt: 1,
-                    sku: "978-0545162074",
-                    name: "Gương soi cầm tay mini",
-                    uom: "Cái",
-                    returned: mirrorReturned,
-                    reuse: 0,
-                    destroy: mirrorReturned,
-                    price: 150000,
-                    remark: "Bề mặt nứt vỡ, không bán được"
-                });
-                if (combReturned > 0) {
-                    items.push({
-                        stt: 2,
-                        sku: "978-8935235670891",
-                        name: "Lược chải tóc gỡ rối",
-                        uom: "Cái",
-                        returned: combReturned,
-                        reuse: combReturned,
-                        destroy: 0,
-                        price: 95000,
-                        remark: "Khách đổi ý, hàng còn mới"
-                    });
-                }
+                // Using dynamic items passed in
 
                 var totalReturned = 0;
                 var totalReuse = 0;

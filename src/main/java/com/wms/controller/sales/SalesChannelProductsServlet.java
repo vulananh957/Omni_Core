@@ -13,11 +13,14 @@ import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
+import java.math.BigDecimal;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.text.NumberFormat;
 import java.util.Base64;
 import java.util.List;
+import java.util.Locale;
 import java.util.UUID;
 
 /**
@@ -120,6 +123,7 @@ public class SalesChannelProductsServlet extends BaseController {
             // to the channel_products row so the payload builder uses the values
             // the user just typed in the wizard (not stale DB state).
             try {
+            NumberFormat nf = NumberFormat.getInstance(Locale.forLanguageTag("vi"));
             int channelId = Integer.parseInt(req.getParameter("channelId"));
             int productId = Integer.parseInt(req.getParameter("productId"));
             Channel ch = new ChannelDAO().findById(channelId);
@@ -149,8 +153,31 @@ public class SalesChannelProductsServlet extends BaseController {
                     if (prod != null) cp.setChannelSkuCode(prod.getSkuCode());
                 }
                 String priceParam = req.getParameter("price");
+                BigDecimal channelPrice = null;
                 if (priceParam != null && !priceParam.isBlank()) {
-                    cp.setChannelPrice(new java.math.BigDecimal(priceParam));
+                    try {
+                        channelPrice = new BigDecimal(priceParam);
+                    } catch (NumberFormatException ignored) {}
+                }
+
+                // BR-PRICE-01: Giá bán trên sàn phải >= base_price * 1.30 (lãi tối thiểu 30%).
+                // base_price là giá nhập (tồn kho) — lấy từ products.base_price.
+                if (channelPrice != null && channelPrice.signum() > 0 && prod != null) {
+                    double basePrice = prod.getBasePrice() != null ? prod.getBasePrice() : 0.0;
+                    if (basePrice > 0) {
+                        BigDecimal minPrice = BigDecimal.valueOf(basePrice * 1.30);
+                        if (channelPrice.compareTo(minPrice) < 0) {
+                            writeJson(resp, "{\"success\":false,\"code\":\"PRICE_TOO_LOW\","
+                                + "\"message\":\"Giá bán phải từ \" + nf.format(minPrice) + \"đ trở lên (giá nhập × 1.30). Giá hiện tại: \" + nf.format(channelPrice) + \"đ.\","
+                                + "\"minPrice\":\"" + nf.format(minPrice) + "\","
+                                + "\"basePrice\":\"" + nf.format(BigDecimal.valueOf(basePrice)) + "\"}");
+                            return;
+                        }
+                    }
+                }
+
+                if (priceParam != null && !priceParam.isBlank()) {
+                    cp.setChannelPrice(channelPrice);
                 }
                 String qtyParam = req.getParameter("quantity");
                 if (qtyParam != null && !qtyParam.isBlank()) {

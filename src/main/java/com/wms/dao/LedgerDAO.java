@@ -91,7 +91,7 @@ public class LedgerDAO {
             "w.warehouse_id, w.warehouse_name, u.full_name AS creator_name " +
             "FROM inbound_orders io " +
             "LEFT JOIN warehouses w ON io.warehouse_id = w.warehouse_id " +
-            "LEFT JOIN users u ON io.received_by = u.user_id " +
+            "LEFT JOIN users u ON io.created_by = u.user_id " +
             (byWh ? "WHERE io.warehouse_id = ? " : "") +
             "ORDER BY io.created_at DESC LIMIT 100";
         try (Connection conn = DBConnection.getConnection();
@@ -381,8 +381,8 @@ public class LedgerDAO {
         try {
             conn = DBConnection.getConnection();
             if ("Phiếu Nhập Kho".equals(docType)) {
-                String sql = 
-                    "SELECT ii.expected_qty, ii.received_qty, p.sku_code, p.product_name, p.unit, p.base_price " +
+                String sql =
+                    "SELECT ii.expected_qty, ii.received_qty, ii.accepted_qty, ii.rejected_qty, ii.unit_cost, p.sku_code, p.product_name, p.unit, p.base_price " +
                     "FROM inbound_items ii " +
                     "LEFT JOIN products p ON ii.product_id = p.product_id " +
                     "LEFT JOIN inbound_orders io ON ii.inbound_id = io.inbound_id " +
@@ -401,10 +401,13 @@ public class LedgerDAO {
                             map.put("hsd", "31/12/2026");
                             map.put("ordered", rs.getDouble("expected_qty"));
                             map.put("received", rs.getDouble("received_qty"));
-                            map.put("accepted", rs.getDouble("received_qty"));
-                            map.put("rejected", 0.0);
+                            map.put("accepted", rs.getDouble("accepted_qty"));
+                            map.put("rejected", rs.getDouble("rejected_qty"));
                             map.put("remarks", "");
-                            map.put("price", rs.getDouble("base_price"));
+                            // Use unit_cost if available, fallback to base_price
+                            double unitCost = rs.getDouble("unit_cost");
+                            if (rs.wasNull()) unitCost = rs.getDouble("base_price");
+                            map.put("price", unitCost);
                             items.add(map);
                         }
                     }
@@ -536,15 +539,13 @@ public class LedgerDAO {
             if ("Phiếu Nhập Kho".equals(docType)) {
                 // Find order
                 int inboundId = -1;
-                int warehouseId = -1;
                 String status = "";
-                String sqlFind = "SELECT inbound_id, warehouse_id, status FROM inbound_orders WHERE inbound_code = ?";
+                String sqlFind = "SELECT inbound_id, status FROM inbound_orders WHERE inbound_code = ?";
                 try (PreparedStatement ps = conn.prepareStatement(sqlFind)) {
                     ps.setString(1, docId);
                     try (ResultSet rs = ps.executeQuery()) {
                         if (rs.next()) {
                             inboundId = rs.getInt("inbound_id");
-                            warehouseId = rs.getInt("warehouse_id");
                             status = rs.getString("status");
                         }
                     }
@@ -554,44 +555,24 @@ public class LedgerDAO {
                     throw new SQLException("Inbound order not found.");
                 }
 
-                if ("RECEIVED".equals(status)) {
-                    // Already approved/received to avoid double-processing
+                // Guard: already past approval
+                if ("RECEIVED".equals(status) || "IN_PROGRESS".equals(status)) {
                     conn.rollback();
                     return true;
                 }
 
-                // Retrieve inbound items
-                String sqlItems = "SELECT product_id, received_qty FROM inbound_items WHERE inbound_id = ?";
-                List<Map<String, Object>> orderItems = new ArrayList<>();
-                try (PreparedStatement ps = conn.prepareStatement(sqlItems)) {
-                    ps.setInt(1, inboundId);
-                    try (ResultSet rs = ps.executeQuery()) {
-                        while (rs.next()) {
-                            Map<String, Object> map = new HashMap<>();
-                            map.put("productId", rs.getInt("product_id"));
-                            map.put("qty", rs.getBigDecimal("received_qty"));
-                            orderItems.add(map);
-                        }
-                    }
-                }
-
-                // Update inventory & ledger
-                for (Map<String, Object> item : orderItems) {
-                    int prodId = (int) item.get("productId");
-                    BigDecimal qty = (BigDecimal) item.get("qty");
-                    if (qty.compareTo(BigDecimal.ZERO) <= 0) continue;
-
-                    upsertInventory(conn, prodId, warehouseId, qty, qty);
-                    int invId = getInventoryId(conn, prodId, warehouseId);
-                    insertLedgerEntry(conn, invId, prodId, warehouseId, "INBOUND", inboundId, qty, qty, userId, "Nhập kho GRN approved");
-                }
-
-                // Update status
-                String sqlUpdateStatus = "UPDATE inbound_orders SET status = 'RECEIVED', received_at = ? WHERE inbound_id = ?";
+                // BM approval: PENDING → IN_PROGRESS (authorises WH staff to receive goods).
+                // Inventory is updated later when WH staff enters actual received quantities
+                // via the "Nhập kho" receive modal (action=receive in WarehouseInboundServlet).
+                String sqlUpdateStatus = "UPDATE inbound_orders SET status = 'IN_PROGRESS' WHERE inbound_id = ? AND status = 'PENDING'";
                 try (PreparedStatement ps = conn.prepareStatement(sqlUpdateStatus)) {
-                    ps.setTimestamp(1, Timestamp.valueOf(LocalDateTime.now()));
-                    ps.setInt(2, inboundId);
-                    ps.executeUpdate();
+                    ps.setInt(1, inboundId);
+                    int rows = ps.executeUpdate();
+                    if (rows == 0) {
+                        conn.rollback();
+                        LOGGER.warning("approveDocument: inbound order not in PENDING state, id=" + inboundId);
+                        return false;
+                    }
                 }
 
             } else if ("Phiếu Xuất Kho".equals(docType)) {
@@ -990,7 +971,7 @@ public class LedgerDAO {
     }
 
     private String mapInboundStatus(String dbStatus) {
-        if ("PENDING".equals(dbStatus)) return "Chờ duyệt";
+        if ("PENDING".equals(dbStatus)) return "Chờ BM duyệt";
         if ("IN_PROGRESS".equals(dbStatus)) return "Đang xử lý";
         if ("RECEIVED".equals(dbStatus)) return "Hoàn thành";
         if ("CANCELLED".equals(dbStatus)) return "Từ chối";

@@ -114,6 +114,7 @@
                         <th style="width: 25%;">Sản phẩm</th>
                         <th style="width: 10%; text-align: center;">Trạng thái</th>
                         <th style="width: 10%; text-align: right;">Giá nhập</th>
+                        <th style="width: 10%; text-align: right;">MAC (Giá vốn BQ)</th>
                         <th style="width: 12%; text-align: right;">Retail Price</th>
                         <th style="width: 12%; text-align: right;">Promo Price</th>
                         <th style="width: 10%; text-align: right;">Biên lợi nhuận</th>
@@ -559,6 +560,7 @@ function loadData() {
                 status: "active",
                 qtyOnHand: sku.qtyOnHand || 0,
                 importPrice: importP,
+                macPrice: sku.macPrice || 0,  // Moving Average Cost from inbound receipts
                 costOfGoodsSold: importP,
                 importUpdatedAt: today + " 12:00",
                 channelPrices: {
@@ -962,6 +964,16 @@ function executePublishProduct() {
         return;
     }
 
+    // BR-PRICE-01: client-side validation — price must be >= priceMin (basePrice * 1.30)
+    const cfg = wizChannelConfigs.lazada || {};
+    const priceMin = cfg.priceMin || 0;
+    const enteredPrice = Number(cfg.price) || 0;
+    if (priceMin > 0 && enteredPrice < priceMin) {
+        showToast("Giá bán phải từ " + priceMin.toLocaleString() + "đ trở lên (giá nhập × 1.30).", "error");
+        if (pushBtn) { pushBtn.disabled = false; renderWizProgress(); }
+        return;
+    }
+
     pushToLazada(channelId, productId).then(result => {
         console.log("[executePublishProduct] server result:", JSON.stringify(result));
         if (result.success) {
@@ -1181,6 +1193,11 @@ function renderPricingTab() {
             </td>
             <td style="text-align: center">\${badgeHtml}</td>
             <td style="text-align: right; font-weight: 700">\${Number(r.importPrice).toLocaleString()}đ</td>
+            <td style="text-align: right;">
+                <span style="font-weight:700; color:\${r.macPrice > 0 ? '#b45309' : '#9ca3af'}" title="Giá vốn bình quân (Moving Average Cost)">
+                    \${r.macPrice > 0 ? Number(r.macPrice).toLocaleString() + 'đ' : '—'}
+                </span>
+            </td>
             <td style="text-align: right">
                 <input type="number" class="pr-price-input" min="0" value="\${channelPrice.retailPrice}" oninput="onPricingPriceChange('\${r.id}', 'retailPrice', this.value)" \${editable ? "" : "disabled"} />
             </td>
@@ -1423,10 +1440,13 @@ function selectWizMasterSKU(sku) {
 
     // Pre-fill wizard fields with SKU defaults so the user doesn't accidentally
     // push a product at 150,000 VND (the old hardcoded default).
-    // basePrice = product's cost price in WMS — sales can override before pushing.
+    // basePrice = product's cost price in WMS.
+    // BR-PRICE-01: pre-fill with basePrice * 1.30 (minimum required selling price, 30% margin).
     const basePrice = (sku.basePrice && sku.basePrice > 0) ? sku.basePrice : 100000;
+    const minPrice = Math.round(basePrice * 1.30);
     const qty = (sku.qtyOnHand && sku.qtyOnHand > 0) ? Math.floor(sku.qtyOnHand) : 0;
-    wizChannelConfigs.lazada.price = basePrice;
+    wizChannelConfigs.lazada.price = minPrice; // pre-fill with min required price
+    wizChannelConfigs.lazada.priceMin = minPrice; // store for validation
     wizChannelConfigs.lazada.quantity = qty;
     wizChannelConfigs.lazada.weight = parseFloat(String(sku.weightKg || sku.weight || 0.2).replace(/[^0-9.]/g, '')) || 0.2;
     wizChannelConfigs.lazada.dimensions = sku.dimensions || "10x10x10";
@@ -1657,6 +1677,7 @@ function renderWizStep3() {
                     <div class="cp-form-group">
                         <label class="cp-form-label">Giá bán lẻ (Retail Price) *</label>
                         <input type="number" class="cp-input-text" style="padding:0.5rem; text-align:right" value="\${wizChannelConfigs.lazada.price}" oninput="wizChannelConfigs.lazada.price = Math.max(0, Number(this.value) || 0)" />
+                        <div id="wizPriceHint" style="font-size:11px; color:rgba(16,55,92,.5); margin-top:2px">Tối thiểu: \${wizChannelConfigs.lazada.priceMin ? wizChannelConfigs.lazada.priceMin.toLocaleString() + 'đ' : '—'} (giá nhập × 1.30)</div>
                     </div>
                     <div class="cp-form-group">
                         <label class="cp-form-label">Số lượng tồn (Quantity) *</label>

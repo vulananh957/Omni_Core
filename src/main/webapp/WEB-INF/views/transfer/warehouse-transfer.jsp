@@ -152,7 +152,7 @@
                     <div class="wt-form-group">
                         <div class="wt-label-row">
                             <label class="wt-label">Số lượng chuyển *</label>
-                            <span class="wt-avail" id="wtAvail">Khả dụng: — sp</span>
+                            <span class="wt-avail" id="wtAvail">— sp</span>
                         </div>
                         <input class="wt-input" type="number" id="wtFormQty" min="1" value="1"/>
                     </div>
@@ -600,7 +600,7 @@
                     '<div class="wt-dl-lbl" style="font-size:10px;color:#1d4ed8;">KHO NGUỒN</div>' +
                     '<div style="font-size:14px;font-weight:800;color:var(--navy);margin-top:4px;">' + esc(t.fromWH || '—') + '</div>' +
                 '</div>' +
-                '<div class="wt-flow-arrow"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 1l4 4-4 4"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><path d="M7 23l-4-4 4-4"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg></div>' +
+                '<div class="wt-flow-arrow"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg></div>' +
                 '<div style="flex:1;background:#ecfdf5;border:1px solid #b7ebcf;border-radius:12px;padding:12px 14px;">' +
                     '<div class="wt-dl-lbl" style="font-size:10px;color:#047857;">KHO ĐÍCH</div>' +
                     '<div style="font-size:14px;font-weight:800;color:var(--navy);margin-top:4px;">' + esc(t.toWH || '—') + '</div>' +

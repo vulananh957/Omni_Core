@@ -245,7 +245,7 @@ public class SchemaInitListener implements ServletContextListener {
     private void ensureWarehousesTable() throws SQLException {
         try (Connection conn = DBConnection.getConnection()) {
             createTableIfNotExists(conn, "warehouses",
-                "CREATE TABLE warehouses (warehouse_id INT AUTO_INCREMENT PRIMARY KEY, warehouse_code VARCHAR(20) NOT NULL UNIQUE, warehouse_name VARCHAR(100) NOT NULL, address VARCHAR(255), capacity INT DEFAULT 0, active TINYINT(1) NOT NULL DEFAULT 1, created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+                "CREATE TABLE warehouses (warehouse_id INT AUTO_INCREMENT PRIMARY KEY, warehouse_code VARCHAR(20) NOT NULL UNIQUE, warehouse_name VARCHAR(100) NOT NULL, address VARCHAR(255), phone VARCHAR(20), capacity INT DEFAULT 0, active TINYINT(1) NOT NULL DEFAULT 1, created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
             DatabaseMetaData md = conn.getMetaData();
             addColumnIfMissing(conn, md, "warehouses", "phone", "VARCHAR(20) DEFAULT NULL");
         }
@@ -261,7 +261,7 @@ public class SchemaInitListener implements ServletContextListener {
     private void ensureZonesTable() throws SQLException {
         try (Connection conn = DBConnection.getConnection()) {
             createTableIfNotExists(conn, "zones",
-                "CREATE TABLE zones (zone_id INT AUTO_INCREMENT PRIMARY KEY, warehouse_id INT NOT NULL, zone_code VARCHAR(50) NOT NULL, zone_name VARCHAR(100) NOT NULL, zone_type ENUM('NORMAL','RETURN','DAMAGED','DESTROY') NOT NULL DEFAULT 'NORMAL', description TEXT, active TINYINT(1) NOT NULL DEFAULT 1, UNIQUE KEY uq_zone_code_wh (zone_code, warehouse_id)) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+                "CREATE TABLE zones (zone_id INT AUTO_INCREMENT PRIMARY KEY, warehouse_id INT NOT NULL, zone_code VARCHAR(50) NOT NULL, zone_name VARCHAR(100) NOT NULL, zone_type ENUM('NORMAL','RETURN','DAMAGED','DESTROY') NOT NULL DEFAULT 'NORMAL', description TEXT, capacity INT DEFAULT 0, active TINYINT(1) NOT NULL DEFAULT 1, UNIQUE KEY uq_zone_code_wh (zone_code, warehouse_id)) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
             DatabaseMetaData md = conn.getMetaData();
             addColumnIfMissing(conn, md, "zones", "is_default", "TINYINT(1) NOT NULL DEFAULT 0");
         }
@@ -519,15 +519,21 @@ public class SchemaInitListener implements ServletContextListener {
 
     private void ensureInventoryTable() throws SQLException {
         try (Connection conn = DBConnection.getConnection()) {
+            DatabaseMetaData md = conn.getMetaData();
             createTableIfNotExists(conn, "inventory",
-                "CREATE TABLE inventory (inventory_id INT AUTO_INCREMENT PRIMARY KEY, product_id INT NOT NULL, warehouse_id INT NOT NULL, qty_on_hand DECIMAL(12,3) NOT NULL DEFAULT 0, holding DECIMAL(12,3) NOT NULL DEFAULT 0, qty_available DECIMAL(12,3) NOT NULL DEFAULT 0, reorder_point DECIMAL(12,3) DEFAULT NULL, updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP, UNIQUE KEY uq_product_warehouse (product_id, warehouse_id)) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+                "CREATE TABLE inventory (inventory_id INT AUTO_INCREMENT PRIMARY KEY, product_id INT NOT NULL, warehouse_id INT NOT NULL, qty_on_hand DECIMAL(12,3) NOT NULL DEFAULT 0, holding DECIMAL(12,3) NOT NULL DEFAULT 0, qty_available DECIMAL(12,3) NOT NULL DEFAULT 0, reorder_point DECIMAL(12,3) DEFAULT NULL, stock_type VARCHAR(20) NOT NULL DEFAULT 'NORMAL', updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP, UNIQUE KEY uq_product_warehouse (product_id, warehouse_id, stock_type)) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+            addColumnIfMissing(conn, md, "inventory", "stock_type",
+                "VARCHAR(20) NOT NULL DEFAULT 'NORMAL' COMMENT 'NORMAL or DEFECTIVE stock pool'");
         }
     }
 
     private void ensureInventoryLedgerTable() throws SQLException {
         try (Connection conn = DBConnection.getConnection()) {
+            DatabaseMetaData md = conn.getMetaData();
             createTableIfNotExists(conn, "inventory_ledger",
                 "CREATE TABLE inventory_ledger (ledger_id INT AUTO_INCREMENT PRIMARY KEY, inventory_id INT NOT NULL, product_id INT NOT NULL, warehouse_id INT NOT NULL, transaction_type ENUM('INBOUND','OUTBOUND','ADJUSTMENT','TRANSFER_IN','TRANSFER_OUT') NOT NULL, ref_document_id INT, qty_change DECIMAL(12,3) NOT NULL, avail_change DECIMAL(12,3) NOT NULL, timestamp DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP, created_by INT, note TEXT) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+            addColumnIfMissing(conn, md, "inventory_ledger", "ledger_type",
+                "VARCHAR(20) DEFAULT 'NORMAL' COMMENT 'NORMAL or DEFECTIVE — mirrors inventory.stock_type'");
         }
     }
 

@@ -30,7 +30,7 @@ public class InboundDAO {
       + "w.warehouse_name, io.status, io.received_by, io.created_by, io.note, io.created_at, io.received_at, "
       + "ii.inbound_item_id, ii.product_id, "
       + "p.sku_code, p.product_name, "
-      + "ii.expected_qty, ii.received_qty "
+      + "ii.expected_qty, ii.received_qty, ii.accepted_qty, ii.rejected_qty, ii.unit_cost "
       + "FROM inbound_orders io "
       + "LEFT JOIN warehouses w ON io.warehouse_id = w.warehouse_id "
       + "LEFT JOIN inbound_items ii ON io.inbound_id = ii.inbound_id "
@@ -81,21 +81,26 @@ public class InboundDAO {
     private static final String SQL_FIND_RECEIPTS_BY_INBOUND_ID =
         "SELECT ii.inbound_item_id AS receipt_id, ii.inbound_id, ii.product_id, "
       + "p.sku_code, p.product_name, "
-      + "ii.expected_qty, ii.received_qty, "
-      + "ii.received_qty AS accepted_qty, 0 AS rejected_qty, "
+      + "ii.expected_qty, ii.received_qty, ii.accepted_qty, ii.rejected_qty, ii.unit_cost, "
       + "NULL AS note, NULL AS received_at "
       + "FROM inbound_items ii "
       + "LEFT JOIN products p ON ii.product_id = p.product_id "
       + "WHERE ii.inbound_id = ?";
 
+    private static final String SQL_FIND_ALL_ITEMS_FOR_ORDERS =
+        "SELECT ii.inbound_item_id, ii.inbound_id, ii.product_id, "
+      + "p.sku_code, p.product_name, "
+      + "ii.expected_qty, ii.received_qty, ii.unit_cost "
+      + "FROM inbound_items ii "
+      + "LEFT JOIN products p ON ii.product_id = p.product_id";
+
     private static final String SQL_INSERT_RECEIPT =
-        "INSERT INTO inbound_items (inbound_id, product_id, expected_qty, received_qty) "
-      + "VALUES (?, ?, ?, ?)";
+        "INSERT INTO inbound_items (inbound_id, product_id, expected_qty, received_qty, accepted_qty, rejected_qty, unit_cost) "
+      + "VALUES (?, ?, ?, ?, ?, ?, ?)";
 
     private static final String SQL_UPDATE_RECEIPT =
-        "UPDATE inbound_items SET product_id=?, expected_qty=?, received_qty=? "
+        "UPDATE inbound_items SET product_id=?, expected_qty=?, received_qty=?, accepted_qty=?, rejected_qty=?, unit_cost=? "
       + "WHERE inbound_item_id=?";
-
     // ══ InboundOrder row mapper ════════════════════════════════════
 
     private InboundOrder mapInboundOrder(ResultSet rs) throws SQLException {
@@ -143,6 +148,11 @@ public class InboundDAO {
         BigDecimal djq = rs.getBigDecimal("rejected_qty");
         rn.setRejectedQty(djq != null ? djq : BigDecimal.ZERO);
 
+        try {
+            BigDecimal uc = rs.getBigDecimal("unit_cost");
+            rn.setUnitCost(uc);
+        } catch (SQLException ignored) {}
+
         rn.setNote(rs.getString("note"));
 
         java.sql.Timestamp ra = rs.getTimestamp("received_at");
@@ -173,6 +183,32 @@ public class InboundDAO {
                     if (current != null) list.add(current);
                     current = mapInboundOrder(rs);
                     lastId = id;
+                    
+                    int itemId = rs.getInt("inbound_item_id");
+                    if (itemId > 0) {
+                        ReceiptNote item = new ReceiptNote();
+                        item.setReceiptId(itemId);
+                        item.setInboundId(id);
+                        item.setProductId(rs.getInt("product_id"));
+                        item.setSkuCode(rs.getString("sku_code"));
+                        item.setProductName(rs.getString("product_name"));
+
+                        BigDecimal eq = rs.getBigDecimal("expected_qty");
+                        item.setExpectedQty(eq != null ? eq : BigDecimal.ZERO);
+
+                        BigDecimal rq = rs.getBigDecimal("received_qty");
+                        item.setReceivedQty(rq != null ? rq : BigDecimal.ZERO);
+
+                        BigDecimal aq = rs.getBigDecimal("accepted_qty");
+                        item.setAcceptedQty(aq != null ? aq : BigDecimal.ZERO);
+
+                        BigDecimal djq = rs.getBigDecimal("rejected_qty");
+                        item.setRejectedQty(djq != null ? djq : BigDecimal.ZERO);
+
+                        try { item.setUnitCost(rs.getBigDecimal("unit_cost")); } catch (SQLException ignored) {}
+
+                        current.addItem(item);
+                    }
                 } else {
                     // Same order, add item
                     int itemId = rs.getInt("inbound_item_id");
@@ -189,8 +225,14 @@ public class InboundDAO {
 
                         BigDecimal rq = rs.getBigDecimal("received_qty");
                         item.setReceivedQty(rq != null ? rq : BigDecimal.ZERO);
-                        item.setAcceptedQty(rq != null ? rq : BigDecimal.ZERO);
-                        item.setRejectedQty(BigDecimal.ZERO);
+
+                        BigDecimal aq = rs.getBigDecimal("accepted_qty");
+                        item.setAcceptedQty(aq != null ? aq : BigDecimal.ZERO);
+
+                        BigDecimal djq = rs.getBigDecimal("rejected_qty");
+                        item.setRejectedQty(djq != null ? djq : BigDecimal.ZERO);
+
+                        try { item.setUnitCost(rs.getBigDecimal("unit_cost")); } catch (SQLException ignored) {}
 
                         current.addItem(item);
                     }
@@ -216,7 +258,14 @@ public class InboundDAO {
             ps.setInt(1, inboundId);
             try (ResultSet rs = ps.executeQuery()) {
                 if (rs.next()) {
-                    return mapInboundOrder(rs);
+                    InboundOrder order = mapInboundOrder(rs);
+                    List<ReceiptNote> items = findReceiptsByInboundId(inboundId);
+                    if (items != null) {
+                        for (ReceiptNote rn : items) {
+                            order.addItem(rn);
+                        }
+                    }
+                    return order;
                 }
             }
 
@@ -239,7 +288,14 @@ public class InboundDAO {
             ps.setString(1, status);
             try (ResultSet rs = ps.executeQuery()) {
                 while (rs.next()) {
-                    list.add(mapInboundOrder(rs));
+                    InboundOrder order = mapInboundOrder(rs);
+                    List<ReceiptNote> items = findReceiptsByInboundId(order.getInboundId());
+                    if (items != null) {
+                        for (ReceiptNote rn : items) {
+                            order.addItem(rn);
+                        }
+                    }
+                    list.add(order);
                 }
             }
 
@@ -262,7 +318,14 @@ public class InboundDAO {
             ps.setInt(1, warehouseId);
             try (ResultSet rs = ps.executeQuery()) {
                 while (rs.next()) {
-                    list.add(mapInboundOrder(rs));
+                    InboundOrder order = mapInboundOrder(rs);
+                    List<ReceiptNote> items = findReceiptsByInboundId(order.getInboundId());
+                    if (items != null) {
+                        for (ReceiptNote rn : items) {
+                            order.addItem(rn);
+                        }
+                    }
+                    list.add(order);
                 }
             }
 
@@ -421,6 +484,9 @@ public class InboundDAO {
             ps.setInt(2, receipt.getProductId());
             ps.setBigDecimal(3, receipt.getExpectedQty() != null ? receipt.getExpectedQty() : BigDecimal.ZERO);
             ps.setBigDecimal(4, receipt.getReceivedQty() != null ? receipt.getReceivedQty() : BigDecimal.ZERO);
+            ps.setBigDecimal(5, receipt.getAcceptedQty() != null ? receipt.getAcceptedQty() : BigDecimal.ZERO);
+            ps.setBigDecimal(6, receipt.getRejectedQty() != null ? receipt.getRejectedQty() : BigDecimal.ZERO);
+            ps.setBigDecimal(7, receipt.getUnitCost());
 
             int rows = ps.executeUpdate();
 
@@ -451,7 +517,10 @@ public class InboundDAO {
             ps.setInt(1, receipt.getProductId());
             ps.setBigDecimal(2, receipt.getExpectedQty() != null ? receipt.getExpectedQty() : BigDecimal.ZERO);
             ps.setBigDecimal(3, receipt.getReceivedQty() != null ? receipt.getReceivedQty() : BigDecimal.ZERO);
-            ps.setInt(4, receipt.getReceiptId());
+            ps.setBigDecimal(4, receipt.getAcceptedQty() != null ? receipt.getAcceptedQty() : BigDecimal.ZERO);
+            ps.setBigDecimal(5, receipt.getRejectedQty() != null ? receipt.getRejectedQty() : BigDecimal.ZERO);
+            ps.setBigDecimal(6, receipt.getUnitCost());
+            ps.setInt(7, receipt.getReceiptId());
 
             return ps.executeUpdate() > 0;
 
@@ -460,4 +529,68 @@ public class InboundDAO {
             return false;
         }
     }
+
+    /**
+     * Updates received_qty on the existing inbound_items row for a given (inbound_id, product_id) pair.
+     * If no row exists yet (edge case), inserts one with expected_qty=0.
+     *
+     * @param inboundId  The inbound order ID.
+     * @param productId  The product ID.
+     * @param receivedQty The actual received quantity.
+     * @return true on success.
+     */
+    public boolean updateReceivedQty(int inboundId, int productId, BigDecimal receivedQty) {
+        String sqlUpdate = "UPDATE inbound_items SET received_qty = ? " +
+                           "WHERE inbound_id = ? AND product_id = ?";
+        try (Connection conn = DBConnection.getConnection();
+             PreparedStatement ps = conn.prepareStatement(sqlUpdate)) {
+            ps.setBigDecimal(1, receivedQty != null ? receivedQty : BigDecimal.ZERO);
+            ps.setInt(2, inboundId);
+            ps.setInt(3, productId);
+            int rows = ps.executeUpdate();
+            if (rows > 0) return true;
+
+            // No existing row — insert one
+            String sqlInsert = "INSERT INTO inbound_items (inbound_id, product_id, expected_qty, received_qty) VALUES (?, ?, 0, ?)";
+            try (PreparedStatement psIns = conn.prepareStatement(sqlInsert)) {
+                psIns.setInt(1, inboundId);
+                psIns.setInt(2, productId);
+                psIns.setBigDecimal(3, receivedQty != null ? receivedQty : BigDecimal.ZERO);
+                return psIns.executeUpdate() > 0;
+            }
+        } catch (SQLException e) {
+            LOGGER.log(Level.SEVERE, "InboundDAO.updateReceivedQty: failed inboundId=" + inboundId
+                    + " productId=" + productId, e);
+            return false;
+        }
+    }
+
+    /**
+     * Updates received_qty, accepted_qty, rejected_qty, and unit_cost on inbound_items.
+     * Falls back gracefully if the new columns do not exist yet (idempotent migration).
+     */
+    public boolean updateReceivedQtys(int inboundId, int productId,
+            BigDecimal receivedQty, BigDecimal acceptedQty, BigDecimal rejectedQty,
+            BigDecimal unitCost) {
+        // Try UPDATE with all 4 columns (works when schema has been migrated)
+        String sqlUpdate = "UPDATE inbound_items SET received_qty = ?, accepted_qty = ?, rejected_qty = ?, unit_cost = ? "
+                          + "WHERE inbound_id = ? AND product_id = ?";
+        try (Connection conn = DBConnection.getConnection();
+             PreparedStatement ps = conn.prepareStatement(sqlUpdate)) {
+            ps.setBigDecimal(1, receivedQty != null ? receivedQty : BigDecimal.ZERO);
+            ps.setBigDecimal(2, acceptedQty != null ? acceptedQty : BigDecimal.ZERO);
+            ps.setBigDecimal(3, rejectedQty != null ? rejectedQty : BigDecimal.ZERO);
+            ps.setBigDecimal(4, unitCost != null ? unitCost : BigDecimal.ZERO);
+            ps.setInt(5, inboundId);
+            ps.setInt(6, productId);
+            int rows = ps.executeUpdate();
+            if (rows > 0) return true;
+        } catch (SQLException e) {
+            LOGGER.fine("updateReceivedQtys with unit_cost failed, falling back: " + e.getMessage());
+        }
+
+        // Fallback: use simpler query without unit_cost (schema not yet migrated)
+        return updateReceivedQty(inboundId, productId, receivedQty);
+    }
 }
+

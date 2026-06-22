@@ -411,6 +411,12 @@
         max-width: 1000px;
         max-height: 95vh;
     }
+    /* GRN fullscreen variant */
+    .detail-modal-grn {
+        max-width: 1400px;
+        width: 98%;
+        max-height: 98vh;
+    }
 
     .modal-hdr {
         padding: 16px 24px;

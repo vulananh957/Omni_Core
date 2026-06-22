@@ -225,6 +225,15 @@
     </servlet-mapping>
 
     <servlet>
+        <servlet-name>WarehouseInventoryServlet</servlet-name>
+        <servlet-class>com.wms.controller.warehouse.WarehouseInventoryServlet</servlet-class>
+    </servlet>
+    <servlet-mapping>
+        <servlet-name>WarehouseInventoryServlet</servlet-name>
+        <url-pattern>/warehouse/inventory</url-pattern>
+    </servlet-mapping>
+
+    <servlet>
         <servlet-name>LedgerServlet</servlet-name>
         <servlet-class>com.wms.controller.ledger.LedgerServlet</servlet-class>
     </servlet>

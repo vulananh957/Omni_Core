@@ -5,6 +5,7 @@ import com.wms.dao.LedgerDAO;
 import com.wms.model.User;
 import com.wms.service.ledger.LedgerService;
 import com.wms.util.AppConstants;
+import com.wms.util.JsonUtil;
 
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -24,6 +25,20 @@ public class LedgerServlet extends BaseController {
     @Override
     protected void doGet(HttpServletRequest req, HttpServletResponse resp)
             throws ServletException, IOException {
+
+        // AJAX: return the line items of one document as JSON (for the detail modal)
+        if ("items".equals(req.getParameter("ajax"))) {
+            resp.setContentType("application/json;charset=UTF-8");
+            String docId = req.getParameter("docId");
+            String docType = req.getParameter("docType");
+            try {
+                List<java.util.Map<String, Object>> items = ledgerService.findDocumentItems(docId, docType);
+                resp.getWriter().write(JsonUtil.toJson(items));
+            } catch (Exception e) {
+                resp.getWriter().write("[]");
+            }
+            return;
+        }
 
         try {
             List<LedgerDAO.LedgerDocument> docs = ledgerService.findAllDocuments();

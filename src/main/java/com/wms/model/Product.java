@@ -30,7 +30,18 @@ public class Product {
     private String attributesText;
     private Double weightKg;
     private Double qtyOnHand = 0.0;
+    private Double basePrice = 0.0;
+    private Double macPrice = 0.0;  // Moving Average Cost — recalculated on each inbound receipt
+    // ROP: Reorder Point — auto-calculated nightly by RopScheduler.
+    // SS = (D_max × L_max) − (D_avg × L_avg);  ROP = (D_avg × L_avg) + SS
+    private Double dAvg = 0.0;        // Average daily demand (units/day)
+    private Double dMax = 0.0;        // Maximum daily demand observed
+    private Double lAvg = 0.0;        // Average lead time in days (PO → GRN)
+    private Double lMax = 0.0;        // Maximum lead time in days observed
+    private Double safetyStock = 0.0; // Safety Stock = (D_max×L_max) − (D_avg×L_avg)
+    private Double ropCalculated = 0.0; // Reorder Point = (D_avg×L_avg) + Safety_Stock
     private List<LocationConfig> locationConfigs = new ArrayList<>();
+    private String shortDescription;  // UC-B2C09: Lazada payload (max 255 chars)
 
     public static class LocationConfig {
         private String locationId;
@@ -245,6 +256,14 @@ public class Product {
         this.locationConfigs = locationConfigs;
     }
 
+    public String getShortDescription() {
+        return shortDescription;
+    }
+
+    public void setShortDescription(String shortDescription) {
+        this.shortDescription = shortDescription;
+    }
+
     // Helper Getters for Jackson to match JSP property expectations
     @JsonProperty("id")
     public String getIdAsString() {
@@ -265,6 +284,37 @@ public class Product {
     public String getWeight() {
         return weightKg != null ? weightKg + " kg" : "N/A";
     }
+
+    public Double getBasePrice() {
+        return basePrice;
+    }
+
+    public void setBasePrice(Double basePrice) {
+        this.basePrice = basePrice != null ? basePrice : 0.0;
+    }
+
+    // Moving Average Cost: (current_on_hand × current_mac + accepted_qty × unit_cost) / (current_on_hand + accepted_qty)
+    public Double getMacPrice() {
+        return macPrice;
+    }
+
+    public void setMacPrice(Double macPrice) {
+        this.macPrice = macPrice != null ? macPrice : 0.0;
+    }
+
+    // ROP metrics — auto-calculated by RopScheduler
+    public Double getDAvg() { return dAvg; }
+    public void setDAvg(Double dAvg) { this.dAvg = dAvg != null ? dAvg : 0.0; }
+    public Double getDMax() { return dMax; }
+    public void setDMax(Double dMax) { this.dMax = dMax != null ? dMax : 0.0; }
+    public Double getLAvg() { return lAvg; }
+    public void setLAvg(Double lAvg) { this.lAvg = lAvg != null ? lAvg : 0.0; }
+    public Double getLMax() { return lMax; }
+    public void setLMax(Double lMax) { this.lMax = lMax != null ? lMax : 0.0; }
+    public Double getSafetyStock() { return safetyStock; }
+    public void setSafetyStock(Double safetyStock) { this.safetyStock = safetyStock != null ? safetyStock : 0.0; }
+    public Double getRopCalculated() { return ropCalculated; }
+    public void setRopCalculated(Double ropCalculated) { this.ropCalculated = ropCalculated != null ? ropCalculated : 0.0; }
 
     // Manager-created SKUs are always approved; kept for backward compat with
     // views that filter on approvalStatus to build "active" SKU lists.

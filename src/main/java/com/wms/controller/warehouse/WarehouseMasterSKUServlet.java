@@ -1,13 +1,15 @@
 package com.wms.controller.warehouse;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.wms.controller.BaseController;
+import com.wms.dao.InventoryDAO;
 import com.wms.model.Category;
 import com.wms.model.Product;
+import com.wms.model.User;
 import com.wms.model.Warehouse;
 import com.wms.model.Zone;
 import com.wms.service.product.ProductService;
 import com.wms.service.warehouse.WarehouseService;
+import com.wms.util.AppConstants;
 
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -21,7 +23,7 @@ import java.util.List;
  * Maps to /warehouse/master-sku.
  *
  * doGet:  loads full product list and forwards to JSP
- * doPost: read-only (warehouse staff cannot modify SKUs)
+ * doPost: warehouse staff may edit ONLY min/max stock and the zone of their own warehouse.
  */
 public class WarehouseMasterSKUServlet extends BaseController {
 
@@ -29,7 +31,7 @@ public class WarehouseMasterSKUServlet extends BaseController {
 
     private final ProductService productService = new ProductService();
     private final WarehouseService warehouseService = new WarehouseService();
-    private final ObjectMapper objectMapper = com.wms.util.JsonUtil.getMapper();
+    private final InventoryDAO inventoryDAO = new InventoryDAO();
 
     @Override
     protected void doGet(HttpServletRequest req, HttpServletResponse resp)
@@ -37,8 +39,17 @@ public class WarehouseMasterSKUServlet extends BaseController {
 
         consumeFlash(req);
 
+        int myWarehouseId = currentWarehouseId(req);
+
         try {
-            req.setAttribute("products", productService.findAll());
+            List<Product> products = productService.findAll();
+            java.util.Map<Integer, java.math.BigDecimal> stockMap =
+                    inventoryDAO.findStockByWarehouse(myWarehouseId);
+            for (Product p : products) {
+                java.math.BigDecimal qty = stockMap.get(p.getProductId());
+                p.setQtyOnHand(qty != null ? qty.doubleValue() : 0.0);
+            }
+            req.setAttribute("products", products);
         } catch (Exception e) {
             req.setAttribute("products", List.<Product>of());
         }
@@ -46,7 +57,7 @@ public class WarehouseMasterSKUServlet extends BaseController {
         try {
             List<Category> categories = productService.findAllCategories();
             req.setAttribute("categories", categories);
-            req.setAttribute("categoriesJson", objectMapper.writeValueAsString(categories));
+            setJsonAttr(req, "categoriesJson", categories);
         } catch (Exception e) {
             req.setAttribute("categories", List.<Category>of());
             req.setAttribute("categoriesJson", "[]");
@@ -55,7 +66,7 @@ public class WarehouseMasterSKUServlet extends BaseController {
         try {
             List<Warehouse> warehouses = warehouseService.findAllActive();
             req.setAttribute("warehouses", warehouses);
-            req.setAttribute("warehousesJson", objectMapper.writeValueAsString(warehouses));
+            setJsonAttr(req, "warehousesJson", warehouses);
         } catch (Exception e) {
             req.setAttribute("warehouses", List.<Warehouse>of());
             req.setAttribute("warehousesJson", "[]");
@@ -64,11 +75,13 @@ public class WarehouseMasterSKUServlet extends BaseController {
         try {
             List<Zone> allZones = warehouseService.findAllZones();
             req.setAttribute("zones", allZones);
-            req.setAttribute("zonesJson", objectMapper.writeValueAsString(allZones));
+            setJsonAttr(req, "zonesJson", allZones);
         } catch (Exception e) {
             req.setAttribute("zones", List.<Zone>of());
             req.setAttribute("zonesJson", "[]");
         }
+
+        req.setAttribute("myWarehouseId", currentWarehouseId(req));
 
         req.setAttribute("pageTitle",    "Tra cứu sản phẩm");
         req.setAttribute("pageSubtitle", "Bảng tra hình dáng / kích thước sản phẩm và phân khu vực lưu trữ tại kho của bạn");
@@ -88,18 +101,15 @@ public class WarehouseMasterSKUServlet extends BaseController {
 
         if ("edit".equals(action)) {
             try {
+                // Warehouse Staff may edit ONLY min/max stock and the zone of their own warehouse.
                 int productId = Integer.parseInt(req.getParameter("productId"));
-                Product updates = new Product();
-                updates.setProductName(req.getParameter("productName"));
-                updates.setWeightKg(parseDouble(req.getParameter("weight")));
-                updates.setMinStock(parseDouble(req.getParameter("minStock")));
-                updates.setMaxStock(parseDouble(req.getParameter("maxStock")));
-                updates.setAttributesText(req.getParameter("dimensions"));
+                int warehouseId = currentWarehouseId(req);
+                Double minStock = parseDouble(req.getParameter("minStock"));
+                Double maxStock = parseDouble(req.getParameter("maxStock"));
+                Integer zoneId = parseInteger(req.getParameter("zoneId"));
 
-                String zonesJson = req.getParameter("locationConfigsJson");
-                List<Product.LocationConfig> zones = parseLocationConfigs(zonesJson);
-
-                ProductService.UpdateResult r = productService.updateProduct(productId, updates, zones);
+                ProductService.UpdateResult r =
+                        productService.updateProductForWarehouse(productId, minStock, maxStock, warehouseId, zoneId);
                 if (!r.isSuccess()) {
                     setFlashError(req, r.getMessage());
                 } else {
@@ -111,7 +121,7 @@ public class WarehouseMasterSKUServlet extends BaseController {
         } else if (action != null && !action.isEmpty()) {
             setFlashError(req, "Warehouse staff không có quyền thực hiện thao tác này.");
         }
-        redirect(resp, CONTEXT_PATH);
+        redirect(resp, req.getContextPath() + CONTEXT_PATH);
     }
 
     private Double parseDouble(String s) {
@@ -120,13 +130,17 @@ public class WarehouseMasterSKUServlet extends BaseController {
         catch (NumberFormatException e) { return null; }
     }
 
-    private List<Product.LocationConfig> parseLocationConfigs(String json) {
-        if (json == null || json.trim().isEmpty()) return List.of();
-        try {
-            return objectMapper.readValue(json,
-                objectMapper.getTypeFactory().constructCollectionType(List.class, Product.LocationConfig.class));
-        } catch (Exception e) {
-            return List.of();
+    private Integer parseInteger(String s) {
+        if (s == null || s.trim().isEmpty()) return null;
+        try { return Integer.parseInt(s.trim()); }
+        catch (NumberFormatException e) { return null; }
+    }
+
+    private int currentWarehouseId(HttpServletRequest req) {
+        Object u = req.getSession().getAttribute(AppConstants.SESSION_USER);
+        if (u instanceof User && ((User) u).getWarehouseId() > 0) {
+            return ((User) u).getWarehouseId();
         }
+        return 1;
     }
 }

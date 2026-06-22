@@ -73,7 +73,7 @@ CREATE TABLE IF NOT EXISTS zones (
     warehouse_id INT NOT NULL,
     zone_code   VARCHAR(50)  NOT NULL,
     zone_name   VARCHAR(100) NOT NULL,
-    zone_type   ENUM('NORMAL','RETURN','DAMAGED','DESTROY') NOT NULL DEFAULT 'NORMAL',
+    zone_type   VARCHAR(30) NOT NULL DEFAULT 'NORMAL',
     description TEXT,
     active      TINYINT(1) NOT NULL DEFAULT 1,
     is_default  TINYINT(1) NOT NULL DEFAULT 0,
@@ -144,13 +144,24 @@ CREATE TABLE IF NOT EXISTS channels (
     api_key        VARCHAR(255),
     app_secret     VARCHAR(255),
     webhook_secret VARCHAR(255),
+    webhook_callback_url VARCHAR(512) DEFAULT NULL COMMENT 'URL Lazada calls on order/update events',
     buffer_stock   DECIMAL(12,3) DEFAULT 0.00,
     is_active      TINYINT(1)  DEFAULT 1,
     access_token   TEXT,
     refresh_token  TEXT,
+    token_expires_at DATETIME DEFAULT NULL COMMENT 'UTC timestamp when access_token expires. NULL = unknown/never.',
+    last_order_sync_at DATETIME DEFAULT NULL COMMENT 'Last successful order sync via scheduler.',
     created_at     DATETIME DEFAULT CURRENT_TIMESTAMP,
     updated_at     DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- Migration: add token_expires_at column for auto token refresh (UC-B2C07)
+-- Safe to re-run on existing databases — MariaDB/MySQL ignores duplicate columns
+ALTER TABLE channels
+    ADD COLUMN IF NOT EXISTS token_expires_at DATETIME DEFAULT NULL
+    COMMENT 'UTC timestamp when access_token expires. NULL = unknown/never.',
+    ADD COLUMN IF NOT EXISTS last_order_sync_at DATETIME DEFAULT NULL
+    COMMENT 'Last successful order sync via scheduler.';
 
 -- Shipping carriers (dynamic, used by Sales filters and order processing)
 CREATE TABLE IF NOT EXISTS shipping_carriers (
@@ -250,6 +261,46 @@ CREATE TABLE IF NOT EXISTS lazada_sync_log (
     FOREIGN KEY (channel_id) REFERENCES channels(channel_id) ON DELETE SET NULL,
     INDEX idx_lsl_status (status),
     INDEX idx_lsl_channel (channel_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- Maps a WMS category to one or more Lazada leaf categories. Lets sales staff
+-- pre-define which Lazada leaves each WMS category corresponds to, so the
+-- publish wizard can auto-suggest a leaf rather than forcing the user to
+-- search 2890 leaves every push.
+CREATE TABLE IF NOT EXISTS category_mappings (
+    mapping_id        INT AUTO_INCREMENT PRIMARY KEY,
+    channel_id        INT NOT NULL,
+    wms_category_id   INT NOT NULL,
+    lazada_category_id BIGINT NOT NULL,
+    lazada_name       VARCHAR(255) NOT NULL,
+    is_primary        TINYINT(1) NOT NULL DEFAULT 0,
+    created_by        INT,
+    created_at        DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at        DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    FOREIGN KEY (channel_id) REFERENCES channels(channel_id) ON DELETE CASCADE,
+    FOREIGN KEY (wms_category_id) REFERENCES categories(category_id) ON DELETE CASCADE,
+    UNIQUE KEY uk_mappings_channel_wms_lazada (channel_id, wms_category_id, lazada_category_id),
+    INDEX idx_mappings_wms (wms_category_id),
+    INDEX idx_mappings_channel (channel_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- Audit log for every stock push to Lazada (BR-02 / LazadaInventoryPushScheduler)
+CREATE TABLE IF NOT EXISTS lazada_stock_push_log (
+    log_id         INT AUTO_INCREMENT PRIMARY KEY,
+    channel_id     INT,
+    product_id     INT,
+    seller_sku     VARCHAR(100),
+    qty_on_hand    DECIMAL(12,3),
+    qty_available  DECIMAL(12,3),
+    holding        DECIMAL(12,3),
+    buffer_stock   DECIMAL(12,3),
+    push_qty       DECIMAL(12,3),
+    status         VARCHAR(20),
+    error_message  TEXT,
+    created_at     DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    INDEX idx_lspl_channel (channel_id),
+    INDEX idx_lspl_sku (seller_sku),
+    INDEX idx_lspl_created (created_at)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 -- ── NHOM 5: Inventory ───────────────────────────────────
@@ -710,29 +761,14 @@ CREATE TABLE IF NOT EXISTS transfer_details (
     INDEX idx_td_transfer (transfer_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
--- ── Seed Data ────────────────────────────────────────────
-
-INSERT IGNORE INTO warehouses (warehouse_code, warehouse_name, address)
-VALUES ('WH-01', 'Kho Ha Noi', 'So 1 Duong ABC, Ha Noi');
-
--- Default zones for warehouse 1
-INSERT IGNORE INTO zones (warehouse_id, zone_code, zone_name, zone_type, description) VALUES
-    (1, 'NORMAL', 'Khu Thuong', 'NORMAL', 'Khu vuc luu tru hang tot'),
-    (1, 'RETURN', 'Khu Tra Hang', 'RETURN', 'Khu vuc tam giu hang tra'),
-    (1, 'DAMAGED', 'Khu Hong', 'DAMAGED', 'Khu vuc hang hong'),
-    (1, 'DESTROY', 'Khu Tieu Huy', 'DESTROY', 'Khu vuc tieu huy hang loi');
-
 -- Default admin user: quanpm / Admin@123 (BCrypt hash)
 INSERT IGNORE INTO users (username, password_hash, full_name, email, phone, role)
 VALUES ('quanpm',
         '$2a$12$ezv1v4fjwnwMSYQ4DvPHN./NuNfVdwEzGbHuUvlbsabeCZqrLkzxe',
         'Phạm Minh Quân', 'pmq07072005@gmail.com', '0987654321', 'ADMIN');
 
--- Assign admin to warehouse 1
-INSERT IGNORE INTO user_warehouse_assignments (user_id, warehouse_id, is_primary)
-SELECT user_id, 1, 1 FROM users WHERE username = 'quanpm';
 
--- Categories: managed via the app UI at /business/categories
+-- Categories: managed via the app UI at /sales/categories
 
 -- ============================================================
 -- Indexes for Performance Optimization

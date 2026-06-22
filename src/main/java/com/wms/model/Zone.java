@@ -13,6 +13,7 @@ public class Zone {
     private String zoneName;
     private String zoneType; // "NORMAL" | "RETURN" | "DAMAGED" | "DESTROY"
     private String description;
+    private int capacity;
     private boolean active;
 
     @JsonProperty("isDefault")
@@ -93,6 +94,14 @@ public class Zone {
 
     public void setDescription(String description) {
         this.description = description;
+    }
+
+    public int getCapacity() {
+        return capacity;
+    }
+
+    public void setCapacity(int capacity) {
+        this.capacity = capacity;
     }
 
     public boolean isActive() {

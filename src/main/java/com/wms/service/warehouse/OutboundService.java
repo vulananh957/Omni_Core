@@ -127,6 +127,15 @@ public class OutboundService {
             if (isOmnichannelOutbound(outboundId)) {
                 OutboundOrder order = outboundDAO.findById(outboundId);
                 if (order != null) {
+                    // Guard: LedgerDAO.approveDocument has its own SHIPPED/DELIVERED guard,
+                    // but if it was called before (e.g. via LedgerServlet), the ledger entry
+                    // already exists with full qty — calling again would duplicate the entry.
+                    if ("SHIPPED".equalsIgnoreCase(order.getStatus())
+                        || "DELIVERED".equalsIgnoreCase(order.getStatus())) {
+                        log.info("Omnichannel outbound already shipped, skipping duplicate LedgerDAO call: outboundId={}", outboundId);
+                        outboundDAO.createDeliveryNote(outboundId, userId);
+                        return StatusUpdateResult.success("Đơn đã xuất kho trước đó.");
+                    }
                     String outboundCode = order.getOutboundCode();
                     if (outboundCode == null) {
                         outboundCode = "SOUT-OUT-" + outboundId;

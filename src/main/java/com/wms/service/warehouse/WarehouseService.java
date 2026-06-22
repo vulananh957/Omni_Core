@@ -1,13 +1,12 @@
 package com.wms.service.warehouse;
 
-import com.wms.dao.InventoryCheckDAO;
-import com.wms.dao.ProductDAO;
-import com.wms.dao.TransferDAO;
+import com.wms.dao.InventoryDAO;
 import com.wms.dao.UserDAO;
 import com.wms.dao.WarehouseDAO;
 import com.wms.model.User;
 import com.wms.model.Warehouse;
 import com.wms.model.Zone;
+import com.wms.model.DashboardMetrics;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -20,6 +19,7 @@ public class WarehouseService {
 
     private final WarehouseDAO warehouseDAO = new WarehouseDAO();
     private final UserDAO userDAO = new UserDAO();
+    private final InventoryDAO inventoryDAO = new InventoryDAO();
 
     public List<Warehouse> findAll() throws SQLException {
         return warehouseDAO.findAll();
@@ -56,6 +56,68 @@ public class WarehouseService {
         }
     }
 
+    // ── Zone CRUD (Warehouse Information screen) ───────────────
+
+    /** Creates one zone inside the given warehouse. */
+    public SaveResult createZone(int warehouseId, String code, String name, String type, String description) {
+        try {
+            if (name == null || name.trim().isEmpty()
+                    || type == null || type.trim().isEmpty()) {
+                return SaveResult.failure("Vui lòng nhập tên khu và loại khu.");
+            }
+            if (warehouseDAO.isZoneNameExists(warehouseId, name.trim(), null)) {
+                return SaveResult.failure("Tên khu '" + name.trim() + "' đã tồn tại trong kho này.");
+            }
+            String generatedCode = "ZONE-" + System.currentTimeMillis();
+            boolean ok = warehouseDAO.insertZone(warehouseId, generatedCode,
+                    name.trim(), type.trim().toUpperCase(),
+                    description != null ? description.trim() : null);
+            if (!ok) return SaveResult.failure("Không thể tạo phân khu.");
+            return SaveResult.success();
+        } catch (Exception e) {
+            log.error("createZone failed", e);
+            return SaveResult.failure("Lỗi khi tạo phân khu: " + e.getMessage());
+        }
+    }
+
+    /** Updates an existing zone's editable fields. */
+    public SaveResult updateZone(int zoneId, int warehouseId, String name, String type, String description) {
+        try {
+            if (warehouseDAO.isDefaultZone(zoneId, warehouseId)) {
+                return SaveResult.failure("Không thể sửa khu mặc định của hệ thống.");
+            }
+            if (name == null || name.trim().isEmpty() || type == null || type.trim().isEmpty()) {
+                return SaveResult.failure("Vui lòng nhập tên khu và loại khu.");
+            }
+            if (warehouseDAO.isZoneNameExists(warehouseId, name.trim(), zoneId)) {
+                return SaveResult.failure("Tên khu '" + name.trim() + "' đã tồn tại trong kho này.");
+            }
+            boolean ok = warehouseDAO.updateZone(zoneId, warehouseId,
+                    name.trim(), type.trim().toUpperCase(),
+                    description != null ? description.trim() : null);
+            if (!ok) return SaveResult.failure("Không thể cập nhật phân khu.");
+            return SaveResult.success();
+        } catch (Exception e) {
+            log.error("updateZone failed", e);
+            return SaveResult.failure("Lỗi khi cập nhật phân khu: " + e.getMessage());
+        }
+    }
+
+    /** Deletes a non-default zone, falls back to deactivation if deletion is blocked. */
+    public SaveResult deleteZone(int zoneId, int warehouseId) {
+        try {
+            if (warehouseDAO.isDefaultZone(zoneId, warehouseId)) {
+                return SaveResult.failure("Không thể xóa khu mặc định của hệ thống.");
+            }
+            boolean ok = warehouseDAO.deleteZone(zoneId, warehouseId);
+            if (!ok) return SaveResult.failure("Không thể xóa phân khu.");
+            return SaveResult.success();
+        } catch (Exception e) {
+            log.error("deleteZone failed", e);
+            return SaveResult.failure("Lỗi khi xóa phân khu: " + e.getMessage());
+        }
+    }
+
     public void createInventoryCheck(String checkCode, int warehouseId, int userId, String note, String itemsJson) {
         try {
             com.wms.dao.WarehouseDAO dao = new com.wms.dao.WarehouseDAO();
@@ -77,30 +139,57 @@ public class WarehouseService {
         }
     }
 
-    public void adjustInventoryFromCheck(int checkId, String adjustmentsJson, int userId) {
+    public List<com.wms.model.PhysicalInventory> findAllInventoryChecks() {
+        return warehouseDAO.findAllInventoryChecks();
+    }
+
+    public List<com.wms.model.PhysicalInventoryDetail> findPhysicalInventoryDetails(int checkId) {
+        return warehouseDAO.findPhysicalInventoryDetails(checkId);
+    }
+
+    /**
+     * Submits inventory check results for Manager approval.
+     * Previously named "adjustInventoryFromCheck", it self-inserted inventory
+     * + ledger entries, which led to double-counting when Manager also
+     * clicked approve afterwards.
+     *
+     * Now: this method ONLY updates status to PENDING_APPROVAL. All UPSERT
+     * inventory + INSERT ledger is delegated to LedgerDAO.approveDocument()
+     * when Manager clicks "Approve" in /business/ledger.
+     */
+    public void submitInventoryCheckForApproval(int checkId, String adjustmentsJson) {
         try {
             com.wms.dao.WarehouseDAO dao = new com.wms.dao.WarehouseDAO();
-            dao.applyInventoryAdjustments(checkId, adjustmentsJson, userId);
+            // 1. Ghi actual_qty / delta_qty vào physical_inventory_details
+            dao.updateInventoryCheckResults(checkId, adjustmentsJson);
+            // 2. Set the check status to PENDING_APPROVAL (waiting for Manager)
+            dao.updateInventoryCheckStatus(checkId, "PENDING_APPROVAL");
         } catch (Exception e) {
-            throw new RuntimeException("Không thể điều chỉnh tồn kho: " + e.getMessage(), e);
+            throw new RuntimeException("Không thể gửi phiếu kiểm kê chờ duyệt: " + e.getMessage(), e);
         }
+    }
+
+    /** Backward-compat alias: gọi tới submitInventoryCheckForApproval. */
+    public void adjustInventoryFromCheck(int checkId, String adjustmentsJson, int userId) {
+        submitInventoryCheckForApproval(checkId, adjustmentsJson);
     }
     public Warehouse findById(int warehouseId) throws SQLException {
         return warehouseDAO.findById(warehouseId);
     }
 
-    private final InventoryCheckDAO inventoryCheckDAO = new InventoryCheckDAO();
-
-    public List<InventoryCheckDAO.CheckHeader> findAllInventoryChecks() {
-        return inventoryCheckDAO.findAll();
-    }
-
-    public List<InventoryCheckDAO.CheckHeader> findInventoryChecksByWarehouse(int warehouseId) {
-        return inventoryCheckDAO.findByWarehouse(warehouseId);
-    }
-
-    public List<InventoryCheckDAO.CheckDetail> findInventoryCheckDetails(int checkId) {
-        return inventoryCheckDAO.findDetailsByCheckId(checkId);
+    /**
+     * Returns live operational KPIs for the warehouse information header.
+     */
+    public DashboardMetrics getDashboardMetrics(int warehouseId) {
+        try {
+            int totalSku = inventoryDAO.countDistinctSkuByWarehouse(warehouseId);
+            double totalPhysical = inventoryDAO.sumPhysicalByWarehouse(warehouseId);
+            int alertCount = inventoryDAO.countLowStockByWarehouse(warehouseId);
+            return new DashboardMetrics(totalSku, totalPhysical, alertCount);
+        } catch (Exception e) {
+            log.error("getDashboardMetrics failed for warehouseId={}", warehouseId, e);
+            return new DashboardMetrics(0, 0, 0);
+        }
     }
 
     public SaveResult saveWarehouse(Warehouse warehouse) {

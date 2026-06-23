@@ -16,7 +16,21 @@
     transition: color 0.15s, background 0.15s;
 }
 .notif-btn:hover { color: var(--navy); background: #eef1f7; }
-.notif-btn svg { width: 16px; height: 16px; }
+.notif-btn svg { width: 16px; height: 16px; transform-origin: top center; }
+
+/* Bell wiggle — fires gently every 5 seconds when there are unread notifications */
+@keyframes bell-wiggle {
+    0%,  72%, 100% { transform: rotate(0deg); }
+    74%            { transform: rotate(14deg); }
+    77%            { transform: rotate(-11deg); }
+    80%            { transform: rotate(8deg); }
+    83%            { transform: rotate(-5deg); }
+    86%            { transform: rotate(2deg); }
+    89%            { transform: rotate(0deg); }
+}
+.notif-btn--has-unread svg {
+    animation: bell-wiggle 5s ease-in-out infinite;
+}
 
 /* Badge: red circle with count — top-right corner, properly centred */
 .notif-btn__badge {

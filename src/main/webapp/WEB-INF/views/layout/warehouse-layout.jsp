@@ -474,9 +474,11 @@
         if (count > 0) {
             notifBadge.textContent = count > 99 ? '99+' : count;
             notifBadge.style.display = 'flex';
+            if (notifBtn) notifBtn.classList.add('notif-btn--has-unread');
         } else {
             notifBadge.textContent = '0';
             notifBadge.style.display = 'none';
+            if (notifBtn) notifBtn.classList.remove('notif-btn--has-unread');
         }
     }
 

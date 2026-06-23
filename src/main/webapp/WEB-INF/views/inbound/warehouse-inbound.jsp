@@ -244,12 +244,14 @@
                 <table class="grn-body-table">
                     <thead>
                         <tr style="background:#fff;">
-                            <th style="padding-left:16px;">SKU</th>
-                            <th>Sản phẩm</th>
-                            <th style="text-align:right;">Đơn giá</th>
-                            <th style="text-align:right;">Yêu cầu</th>
-                            <th style="text-align:right; padding-right:16px;">Thực nhận</th>
-                            <th style="text-align:right; padding-right:16px;">Thành tiền</th>
+                            <th style="padding-left:16px; min-width:90px;">SKU</th>
+                            <th style="min-width:140px;">Sản phẩm</th>
+                            <th style="text-align:right; width:90px; white-space:nowrap;">Đơn giá</th>
+                            <th style="text-align:right; width:70px; white-space:nowrap;">Yêu cầu</th>
+                            <th style="text-align:right; width:80px; white-space:nowrap;">Thực nhận</th>
+                            <th style="text-align:right; width:80px; white-space:nowrap; color:#047857;">Đạt chuẩn</th>
+                            <th style="text-align:right; width:80px; white-space:nowrap; color:#dc2626;">Hỏng/Lỗi</th>
+                            <th style="text-align:right; width:100px; white-space:nowrap; padding-right:16px;">Thành tiền</th>
                         </tr>
                     </thead>
                     <tbody id="detailItemsTableBody">
@@ -1262,16 +1264,24 @@ window.openDetailModal = function(grnId, event) {
     
     // Items table
     var tbody = document.getElementById('detailItemsTableBody');
+    var isCompleted = (grn.status === 'completed');
     var html = grn.items.map(function(item) {
         var priceHtml = item.price ? item.price.toLocaleString('vi-VN') + ' đ' : '—';
-        var lineTotal = (item.price && item.receivedQty) ? (item.price * item.receivedQty).toLocaleString('vi-VN') + ' đ' : '—';
+        var qtyForTotal = isCompleted ? (item.acceptedQty || 0) : (item.receivedQty || 0);
+        var lineTotal = (item.price && qtyForTotal) ? (item.price * qtyForTotal).toLocaleString('vi-VN') + ' đ' : '—';
+        var acceptedQty = (item.acceptedQty !== undefined) ? item.acceptedQty : '—';
+        var rejectedQty = (item.rejectedQty !== undefined && item.rejectedQty > 0)
+            ? '<span style="color:#dc2626; font-weight:700;">' + item.rejectedQty + '</span>'
+            : '<span style="color:rgba(16,55,92,0.3);">0</span>';
         return '<tr>' +
-            '<td><span style="font-family:monospace; color:rgba(16, 55, 92, 0.6);">' + item.skuCode + '</span></td>' +
-            '<td><span style="font-weight:600; color:var(--navy);">' + item.skuName + '</span></td>' +
-            '<td style="text-align:right; font-weight:600; color:var(--navy);">' + priceHtml + '</td>' +
-            '<td style="text-align:right; font-weight:600;">' + item.orderedQty + '</td>' +
-            '<td style="text-align:right; font-weight:600; color:#047857;">' + item.receivedQty + '</td>' +
-            '<td style="text-align:right; font-weight:700; color:var(--navy);">' + lineTotal + '</td>' +
+            '<td style="white-space:nowrap;"><span style="font-family:monospace; font-size:11px; color:rgba(16,55,92,0.6);">' + escapeHtml(item.skuCode) + '</span></td>' +
+            '<td><span style="font-weight:600; color:var(--navy);">' + escapeHtml(item.skuName) + '</span></td>' +
+            '<td style="text-align:right; font-weight:600; color:var(--navy); white-space:nowrap;">' + priceHtml + '</td>' +
+            '<td style="text-align:right; font-weight:600; white-space:nowrap;">' + item.orderedQty + '</td>' +
+            '<td style="text-align:right; font-weight:600; white-space:nowrap;">' + (item.receivedQty || 0) + '</td>' +
+            '<td style="text-align:right; font-weight:700; color:#047857; white-space:nowrap;">' + acceptedQty + '</td>' +
+            '<td style="text-align:right; white-space:nowrap;">' + rejectedQty + '</td>' +
+            '<td style="text-align:right; font-weight:700; color:var(--navy); white-space:nowrap; padding-right:16px;">' + lineTotal + '</td>' +
         '</tr>';
     }).join('');
     tbody.innerHTML = html;

@@ -334,7 +334,7 @@
         background: #fff;
         border: 1px solid var(--border);
         border-radius: var(--radius-card);
-        overflow: hidden;
+        overflow: visible;
         transition: all 0.15s;
     }
     .grn-hdr {

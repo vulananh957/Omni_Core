@@ -86,7 +86,7 @@
                     <th style="text-align: left;">Mã SKU</th>
                     <th style="text-align: left;">Tên sản phẩm</th>
                     <th style="text-align: center;">Phân loại</th>
-                    <th style="text-align: right;" title="Tồn vật lý (đếm được trên kệ)">Tồn VT</th>
+                    <th style="text-align: right;" title="Tồn vật lý (đếm được trên kệ)">Tồn vật tư</th>
                     <th style="text-align: right;" title="Đã phân bổ cho đơn đang xử lý">Tạm giữ</th>
                     <th style="text-align: right; font-weight:700;" title="On-Hand − Reserved — con số thực sự được bán">Khả dụng</th>
                     <th style="text-align: right;" title="Hàng đang về (PO đã duyệt, chờ nhận)">Nhập về</th>

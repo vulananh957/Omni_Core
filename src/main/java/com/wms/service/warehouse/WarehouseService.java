@@ -59,7 +59,7 @@ public class WarehouseService {
     // ── Zone CRUD (Warehouse Information screen) ───────────────
 
     /** Creates one zone inside the given warehouse. */
-    public SaveResult createZone(int warehouseId, String code, String name, String type, String description) {
+    public SaveResult createZone(int warehouseId, String code, String name, String type, String description, Integer capacity) {
         try {
             if (name == null || name.trim().isEmpty()
                     || type == null || type.trim().isEmpty()) {
@@ -71,7 +71,7 @@ public class WarehouseService {
             String generatedCode = "ZONE-" + System.currentTimeMillis();
             boolean ok = warehouseDAO.insertZone(warehouseId, generatedCode,
                     name.trim(), type.trim().toUpperCase(),
-                    description != null ? description.trim() : null);
+                    description != null ? description.trim() : null, capacity);
             if (!ok) return SaveResult.failure("Không thể tạo phân khu.");
             return SaveResult.success();
         } catch (Exception e) {
@@ -81,7 +81,7 @@ public class WarehouseService {
     }
 
     /** Updates an existing zone's editable fields. */
-    public SaveResult updateZone(int zoneId, int warehouseId, String name, String type, String description) {
+    public SaveResult updateZone(int zoneId, int warehouseId, String name, String type, String description, Integer capacity) {
         try {
             if (warehouseDAO.isDefaultZone(zoneId, warehouseId)) {
                 return SaveResult.failure("Không thể sửa khu mặc định của hệ thống.");
@@ -94,7 +94,7 @@ public class WarehouseService {
             }
             boolean ok = warehouseDAO.updateZone(zoneId, warehouseId,
                     name.trim(), type.trim().toUpperCase(),
-                    description != null ? description.trim() : null);
+                    description != null ? description.trim() : null, capacity);
             if (!ok) return SaveResult.failure("Không thể cập nhật phân khu.");
             return SaveResult.success();
         } catch (Exception e) {
@@ -221,13 +221,18 @@ public class WarehouseService {
 
             boolean success;
             if (warehouse.getWarehouseId() > 0) {
+                log.info("[saveWarehouse] Updating warehouseId={} code={} zones={}",
+                    warehouse.getWarehouseId(), warehouse.getWarehouseCode(),
+                    zones != null ? zones.stream().map(z -> z.getZoneCode()).collect(java.util.stream.Collectors.joining(",")) : "null");
                 success = warehouseDAO.update(warehouse, zones);
+                if (!success) {
+                    return SaveResult.failure("Không thể cập nhật thông tin kho. Vui lòng kiểm tra lại mã zone có bị trùng không.");
+                }
             } else {
                 success = warehouseDAO.insert(warehouse, zones);
-            }
-
-            if (!success) {
-                return SaveResult.failure("Không thể lưu thông tin kho. Vui lòng kiểm tra trùng mã kho.");
+                if (!success) {
+                    return SaveResult.failure("Không thể tạo kho mới. Vui lòng kiểm tra trùng mã kho.");
+                }
             }
             return SaveResult.success();
         } catch (Exception e) {

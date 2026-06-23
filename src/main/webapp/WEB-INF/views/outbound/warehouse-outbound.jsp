@@ -55,6 +55,13 @@
 </div>
 </c:if>
 
+<!-- ══ MAIN TAB NAVIGATION ══════════════════════════════════ -->
+<div class="tabs-wrap">
+    <button class="tab-btn active" id="tab-btn-orders" onclick="window.switchMainTab('orders')">Đơn xuất kho</button>
+    <button class="tab-btn" id="tab-btn-rtv" onclick="window.switchMainTab('rtv')">Trả nhà cung cấp</button>
+</div>
+
+<div id="view-orders">
 <!-- ══ SUMMARY STATS CARDS ════════════════════════════════════ -->
 <div class="outbound-stats-grid-4">
     <!-- Pending Prepare -->
@@ -156,12 +163,7 @@
         Tạo Phiếu Xuất Hủy
     </button>
     
-    <button class="btn-action-secondary">
-        <svg style="width: 14px; height: 14px;" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-            <rect x="3" y="4" width="18" height="16" rx="2"/><path d="M7 8h10M7 12h10M7 16h6"/>
-        </svg>
-        Quét mã
-    </button>
+
 </div>
 
 <!-- ══ STATUS FILTER TABS ═════════════════════════════════════ -->
@@ -172,6 +174,32 @@
 <!-- ══ OUTBOUND RECEIPTS LIST ═════════════════════════════════ -->
 <div class="outbound-list" id="outboundOrdersContainer">
     <!-- Rendered dynamically -->
+</div>
+</div>
+
+<!-- ══ VIEW 2: RTV TAB ═════════════════════════════════════════ -->
+<div id="view-rtv" style="display:none;">
+    <!-- Toolbar -->
+    <div class="toolbar" style="margin-bottom:12px;">
+        <div class="search-wrap">
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                <circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/>
+            </svg>
+            <input type="text" placeholder="Tìm mã phiếu trả hoặc nhà cung cấp..." id="rtvSearchInput" oninput="window.renderRtvList()"/>
+        </div>
+        <button class="btn-action-primary" onclick="window.openCreateRtvModal()" style="display: inline-flex; align-items: center; gap: 8px;">
+            <svg style="width: 14px; height: 14px;" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4" />
+            </svg>
+            Tạo phiếu trả NCC
+        </button>
+    </div>
+
+    <!-- RTV Status Filters -->
+    <div class="status-tabs-wrap" id="rtvStatusTabs"></div>
+
+    <!-- RTV List -->
+    <div class="outbound-list" id="rtvListContainer"></div>
 </div>
 
 
@@ -511,6 +539,100 @@
     </div>
 </div>
 
+<!-- 5. Create RTV Modal (Return to Supplier) -->
+<div class="overlay-backdrop" id="createRtvModalOverlay">
+    <div class="modal-shell modal-size-md" style="width: 700px; max-width: 95vw;">
+        <div class="modal-header-section">
+            <div>
+                <h2 class="modal-hdr-title">Tạo Phiếu Trả Nhà Cung Cấp</h2>
+                <p class="modal-hdr-desc" id="createRtvModalSubtitle">Chọn phiếu nhập → Xác nhận số lượng trả lại</p>
+            </div>
+            <button onclick="window.closeCreateRtvModal()" class="btn-modal-close-icon">&times;</button>
+        </div>
+        <div class="modal-body-section" style="display:flex; flex-direction:column; gap:14px; max-height:60vh;">
+            <div class="outbound-form-group">
+                <label class="outbound-form-label">Phiếu nhập gốc (GRN) *</label>
+                <select class="outbound-form-input" style="background:#fff; cursor:pointer;" id="rtvInboundSelect" onchange="window.onRtvInboundChange()">
+                    <option value="">— Chọn Phiếu Nhập —</option>
+                </select>
+            </div>
+            <div id="rtvInboundDetail" style="display:none; padding:12px; background:var(--alice); border-radius:6px; border:1px solid var(--border);">
+                <div style="font-size:11px; color:rgba(16,55,92,0.5); font-weight:700; text-transform:uppercase; margin-bottom:6px;">Thông tin phiếu nhập:</div>
+                <div style="display:grid; grid-template-columns: 1fr 1fr; gap:8px; font-size:12px; color:var(--navy);">
+                    <div><strong>NCC:</strong> <span id="rtvDetailSupplier">—</span></div>
+                    <div><strong>Đã nhận:</strong> <span id="rtvDetailReceived">—</span></div>
+                    <div><strong>Chấp nhận:</strong> <span id="rtvDetailAccepted">—</span></div>
+                    <div><strong>Từ chối (lỗi):</strong> <span id="rtvDetailRejected" style="color:#dc2626; font-weight:700;">—</span></div>
+                </div>
+            </div>
+            <div id="rtvItemsContainer" style="display:flex; flex-direction:column; gap:10px;">
+                <!-- Dynamic: shows items with rejected_qty > 0 -->
+            </div>
+            <div style="display:grid; grid-template-columns: 1fr 1fr; gap:12px;">
+                <div class="outbound-form-group">
+                    <label class="outbound-form-label">Mã đơn mua hàng gốc (PO No.) *</label>
+                    <input class="outbound-form-input" style="background:#fff;" type="text" id="rtvPoCodeInput" placeholder="Ví dụ: PO-2026-0512"/>
+                </div>
+                <div class="outbound-form-group">
+                    <label class="outbound-form-label">Mã nhà cung cấp *</label>
+                    <input class="outbound-form-input" style="background:#fff;" type="text" id="rtvSupplierCodeInput" placeholder="Ví dụ: NCC-XYZ01"/>
+                </div>
+            </div>
+            <div style="display:grid; grid-template-columns: 1fr 1fr; gap:12px;">
+                <div class="outbound-form-group">
+                    <label class="outbound-form-label">Người liên hệ nhà cung cấp *</label>
+                    <input class="outbound-form-input" style="background:#fff;" type="text" id="rtvContactPersonInput" placeholder="Ví dụ: Nguyễn Văn A"/>
+                </div>
+                <div class="outbound-form-group">
+                    <label class="outbound-form-label">Phương án đề xuất *</label>
+                    <select class="outbound-form-input" style="background:#fff; cursor:pointer;" id="rtvProposalSelect">
+                        <option value="Đổi hàng mới">Đổi hàng mới</option>
+                        <option value="Giảm trừ công nợ">Giảm trừ công nợ</option>
+                        <option value="Hoàn tiền">Hoàn tiền</option>
+                    </select>
+                </div>
+            </div>
+            <div class="outbound-form-group">
+                <label class="outbound-form-label">Lý do trả hàng *</label>
+                <input class="outbound-form-input" style="background:#fff;" type="text" id="rtvReasonInput" placeholder="Ví dụ: Hàng gãy gọng, lỗi sản xuất..."/>
+            </div>
+            <div class="outbound-form-group">
+                <label class="outbound-form-label">Ghi chú</label>
+                <textarea class="outbound-form-textarea" style="background:#fff; min-height:60px;" id="rtvNoteInput" placeholder="Ví dụ: Giao cho đơn vị vận chuyển hàng lỗi..."></textarea>
+            </div>
+        </div>
+        <div class="modal-footer-section">
+            <button onclick="window.closeCreateRtvModal()" class="btn-action-secondary">Hủy</button>
+            <button onclick="window.submitCreateRtv()" class="btn-action-primary" style="background:#059669;">Tạo phiếu trả hàng</button>
+        </div>
+    </div>
+</div>
+
+<!-- 6. RTV Detail Modal -->
+<div class="overlay-backdrop" id="rtvDetailModalOverlay">
+    <div class="modal-shell modal-size-md" style="width: 640px; max-width: 95vw;">
+        <div class="modal-header-section">
+            <div>
+                <h2 class="modal-hdr-title">Chi tiết Phiếu Trả Nhà Cung Cấp</h2>
+                <p class="modal-hdr-desc" id="rtvDetailModalSubtitle">RTV-XXXX</p>
+            </div>
+            <button onclick="window.closeRtvDetailModal()" class="btn-modal-close-icon">&times;</button>
+        </div>
+        <div class="modal-body-section" id="rtvDetailModalBody" style="max-height:60vh;">
+            <!-- Dynamic content -->
+        </div>
+        <div class="modal-footer-section">
+            <button onclick="window.closeRtvDetailModal()" class="btn-action-secondary">Đóng</button>
+        </div>
+    </div>
+</div>
+
+<script id="db-inbound-list-data" type="application/json">[
+<c:forEach items="${inboundList}" var="io" varStatus="s">{"inboundId":${io.inboundId},"inboundCode":"<c:out value='${io.inboundCode}'/>","supplierName":"<c:out value='${io.supplierName}'/>","warehouseName":"<c:out value='${io.warehouseName}'/>","status":"<c:out value='${io.status}'/>","createdAt":"<c:out value='${io.createdAt}'/>","items":${io.itemsJson}}${!s.last ? ',' : ''}
+</c:forEach>]
+</script>
+<script id="serverRtvData" type="application/json">${rtvListJson}</script>
+
 <!-- ══════════════════════════════════════════════════════════
      DYNAMIC JAVASCRIPT STATE CONTROLLER
      ══════════════════════════════════════════════════════════ -->
@@ -518,7 +640,8 @@
 (function() {
     // Shared WMS logged-in user profile
     window.WMS_USER = {
-        fullName: '${loggedInUser != null ? loggedInUser.fullName : "Nhân viên kho"}'
+        fullName: '${loggedInUser != null ? loggedInUser.fullName : "Nhân viên kho"}',
+        role: '${loggedInUser != null ? loggedInUser.role : ""}'
     };
 
     // Constant keys for state syncing
@@ -528,6 +651,95 @@
     var LEDGER_STORAGE_KEY = "wh_inventory_ledger";
     var PRICING_WAREHOUSE_KEY = "wh_pricing_warehouse";
     var PRICING_SALES_KEY = "wh_pricing_sales";
+
+    // RTV State & Variables
+    var rtvList = []; 
+    var rtvActiveTab = 'all'; 
+    var rtvCreateItems = [];
+    var grns = [];
+
+    // Parse RTV List from server
+    try {
+        var el = document.getElementById('serverRtvData');
+        if (el) {
+            rtvList = JSON.parse(el.textContent || '[]');
+        }
+    } catch(e) {
+        console.error("Error parsing RTV data", e);
+    }
+
+    // Parse GRN list from server
+    function safeJsonParse(rawValue, fallbackValue) {
+        if (!rawValue) return fallbackValue;
+        try { return JSON.parse(rawValue); } catch (error) { return fallbackValue; }
+    }
+
+    var serverInboundList = safeJsonParse(document.getElementById('db-inbound-list-data') && document.getElementById('db-inbound-list-data').textContent, []);
+    if (serverInboundList && serverInboundList.length > 0) {
+        grns = serverInboundList.map(function(o) {
+            var mappedStatus = o.status;
+            if (o.status === 'PENDING') mappedStatus = 'pending';
+            else if (o.status === 'IN_PROGRESS') mappedStatus = 'in_progress';
+            else if (o.status === 'RECEIVED') mappedStatus = 'completed';
+            else if (o.status === 'CANCELLED') mappedStatus = 'cancelled';
+            else mappedStatus = 'draft';
+
+            return {
+                id: o.inboundId,
+                inboundCode: o.inboundCode,
+                supplier: o.supplierName,
+                warehouseName: o.warehouseName,
+                status: mappedStatus,
+                createdAt: o.createdAt,
+                items: (o.items || []).map(function(item) {
+                    return {
+                        productId: item.productId || 0,
+                        skuCode: item.skuCode || item.sku || '',
+                        skuName: item.skuName || item.productName || '',
+                        orderedQty: parseFloat(item.orderedQty || item.expectedQty || 0),
+                        receivedQty: parseFloat(item.receivedQty || 0),
+                        acceptedQty: parseFloat(item.acceptedQty || 0),
+                        rejectedQty: parseFloat(item.rejectedQty || 0),
+                        price: parseFloat(item.price || 0)
+                    };
+                })
+            };
+        });
+    }
+
+    function escapeHtml(string) {
+        if (!string) return '';
+        var map = {
+            '&': '&amp;',
+            '<': '&lt;',
+            '>': '&gt;',
+            '"': '&quot;',
+            "'": '&#039;'
+        };
+        return string.toString().replace(/[&<>"']/g, function(m) { return map[m]; });
+    }
+
+    // Main Tab Switching
+    window.switchMainTab = function(tabId) {
+        var ordersTab = document.getElementById('tab-btn-orders');
+        var rtvTab = document.getElementById('tab-btn-rtv');
+        var ordersView = document.getElementById('view-orders');
+        var rtvView = document.getElementById('view-rtv');
+
+        if (tabId === 'rtv') {
+            ordersTab.classList.remove('active');
+            rtvTab.classList.add('active');
+            ordersView.style.display = 'none';
+            rtvView.style.display = 'block';
+            window.renderRtvList();
+        } else {
+            ordersTab.classList.add('active');
+            rtvTab.classList.remove('active');
+            ordersView.style.display = 'block';
+            rtvView.style.display = 'none';
+            renderOrders();
+        }
+    };
 
     // Products list loaded dynamically from local storage / database
     var AVAILABLE_SKUS = [];
@@ -1681,8 +1893,337 @@
         return str + " đồng chẵn";
     }
 
+    // RTV ACCORDION RENDERING & ACTIONS
+    window.renderRtvList = function() {
+        var container = document.getElementById('rtvListContainer');
+        var search = (document.getElementById('rtvSearchInput') || {}).value || '';
+        var searchLower = search.toLowerCase();
+        var filtered = rtvList.filter(function(r) {
+            var matchSearch = !search ||
+                (r.code || '').toLowerCase().indexOf(searchLower) !== -1 ||
+                (r.supplier || '').toLowerCase().indexOf(searchLower) !== -1 ||
+                (r.inboundCode || '').toLowerCase().indexOf(searchLower) !== -1;
+            var matchTab = rtvActiveTab === 'all' || r.status === rtvActiveTab;
+            return matchSearch && matchTab;
+        });
+
+        var counts = { all: rtvList.length, PENDING: 0, APPROVED: 0, COMPLETED: 0, CANCELLED: 0 };
+        rtvList.forEach(function(r) { if (counts[r.status] !== undefined) counts[r.status]++; });
+
+        var tabsHtml = [
+            { id: 'all', label: 'Tất cả', count: counts.all },
+            { id: 'PENDING', label: 'Chờ duyệt', count: counts.PENDING },
+            { id: 'APPROVED', label: 'Đã duyệt', count: counts.APPROVED },
+            { id: 'COMPLETED', label: 'Hoàn thành', count: counts.COMPLETED },
+            { id: 'CANCELLED', label: 'Đã hủy', count: counts.CANCELLED }
+        ].map(function(t) {
+            var active = t.id === rtvActiveTab ? 'active' : '';
+            return '<button class="status-tab-btn ' + active + '" onclick="window.selectRtvTab(\'' + t.id + '\')">' +
+                   t.label + ' <span class="status-tab-badge">' + t.count + '</span></button>';
+        }).join('');
+        var tabsEl = document.getElementById('rtvStatusTabs');
+        if (tabsEl) tabsEl.innerHTML = tabsHtml;
+
+        if (filtered.length === 0) {
+            container.innerHTML = '<div style="background:#fff; border: 1px solid var(--border); padding: 48px; text-align:center; color:rgba(16,55,92,0.4); font-size:13px; border-radius:var(--radius-card);">' +
+                'Không tìm thấy phiếu trả nhà cung cấp nào.' +
+            '</div>';
+            return;
+        }
+
+        var html = filtered.map(function(r) {
+            var st = statusConfigRtv(r.status);
+            var totalReturn = (r.items || []).reduce(function(s, i) { return s + (i.qtyReturn || 0); }, 0);
+            var isExpanded = expandedOrderId === ('RTV-' + r.id);
+            
+            // Action button state machine
+            var actionBtnHtml = '';
+            if (r.status === 'PENDING') {
+                if (window.WMS_USER.role === 'MANAGER') {
+                    actionBtnHtml = '<button class="btn-workflow-step green" onclick="window.approveRtv(' + r.id + ', event)">Duyệt</button>' +
+                                    '<button class="btn-workflow-step red" style="background:#dc2626; margin-left: 8px;" onclick="window.cancelRtv(' + r.id + ', event)">Hủy</button>';
+                } else {
+                    actionBtnHtml = '<span style="font-size:12.5px; color:rgba(16, 55, 92, 0.4); font-style:italic; font-weight:500;">Chờ quản lý duyệt</span>';
+                }
+            } else if (r.status === 'APPROVED') {
+                actionBtnHtml = '<button class="btn-workflow-step blue" onclick="window.completeRtv(' + r.id + ', event)">Hoàn thành xuất trả</button>';
+            }
+
+            var itemsRows = (r.items || []).map(function(item) {
+                return '<tr>' +
+                    '<td>' +
+                        '<div style="display:flex; align-items:center; gap:8px;">' +
+                            '<svg style="width:14px; height:14px; color:rgba(16, 55, 92, 0.3);" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" /></svg>' +
+                            '<span style="font-family:monospace; color:rgba(16, 55, 92, 0.6); font-size:10px;">' + escapeHtml(item.sku || '') + '</span>' +
+                        '</div>' +
+                    '</td>' +
+                    '<td><span style="font-weight:600; color:var(--navy);">' + escapeHtml(item.name || '') + '</span></td>' +
+                    '<td style="text-align:right; font-weight:800; font-size:13px; color:#dc2626;">' + item.qtyReturn + '</td>' +
+                '</tr>';
+            }).join('');
+
+            return '<div class="outbound-item ' + (isExpanded ? 'expanded' : '') + '">' +
+                '<!-- Header -->' +
+                '<div class="outbound-hdr" onclick="window.handleToggleExpandRtv(\'' + r.id + '\')">' +
+                    '<div class="outbound-channel-badge" style="background:#dc2626;">' +
+                        'RT' +
+                    '</div>' +
+                    '<div class="outbound-hdr__info">' +
+                        '<div class="outbound-meta-row">' +
+                            '<span class="outbound-id" style="color:#dc2626;">' + escapeHtml(r.code || ('RTV-' + r.id)) + '</span>' +
+                            '<span class="outbound-ref">← Phiếu nhập: ' + escapeHtml(r.inboundCode || '') + '</span>' +
+                            '<span class="pill-badge ' + r.status.toLowerCase() + '">' +
+                                '<span class="pill-badge__dot"></span>' +
+                                st.label +
+                            '</span>' +
+                        '</div>' +
+                        '<div class="outbound-courier-row">' +
+                            '<span>Nhà cung cấp: <strong style="color:var(--navy);">' + escapeHtml(r.supplier || '') + '</strong></span>' +
+                            '<span>Ngày tạo: <strong style="color:rgba(16, 55, 92, 0.7);">' + (r.createdAt || '') + '</strong></span>' +
+                            '<span>Kho: <strong style="color:rgba(16, 55, 92, 0.7);">' + escapeHtml(r.warehouseName || '') + '</strong></span>' +
+                        '</div>' +
+                    '</div>' +
+                    '<div class="outbound-actions-row">' +
+                        '<div class="outbound-stat" style="margin-right:12px;">' +
+                            '<div class="outbound-stat__lbl">Tổng trả</div>' +
+                            '<div class="outbound-stat__val" style="color:#dc2626;">' + totalReturn + '</div>' +
+                        '</div>' +
+                        actionBtnHtml +
+                        '<svg class="chevron-arrow" style="margin-left: 8px;" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">' +
+                            '<polyline points="6 9 12 15 18 9"/>' +
+                        '</svg>' +
+                    '</div>' +
+                '</div>' +
+
+                '<!-- Expanded body -->' +
+                '<div class="outbound-body">' +
+                    '<div class="outbound-address-bar">' +
+                        '<span style="font-weight:700;">Lý do trả hàng: </span>' +
+                        '<span style="flex:1;">' + escapeHtml(r.reason || 'Không có lý do') + '</span>' +
+                        (r.note ? '<span style="font-weight:700; margin-left: 16px;">Ghi chú: </span><span style="flex:1;">' + escapeHtml(r.note) + '</span>' : '') +
+                    '</div>' +
+                    '<table class="outbound-table">' +
+                        '<thead>' +
+                            '<tr>' +
+                                '<th style="text-align: left;">SKU</th>' +
+                                '<th style="text-align: left;">Tên sản phẩm</th>' +
+                                '<th style="text-align: right;">SL trả lại</th>' +
+                            '</tr>' +
+                        '</thead>' +
+                        '<tbody>' +
+                            itemsRows +
+                        '</tbody>' +
+                    '</table>' +
+                '</div>' +
+            '</div>';
+        }).join('');
+
+        container.innerHTML = html;
+    };
+
+    window.handleToggleExpandRtv = function(rtvId) {
+        var key = 'RTV-' + rtvId;
+        if (expandedOrderId === key) {
+            expandedOrderId = null;
+        } else {
+            expandedOrderId = key;
+        }
+        window.renderRtvList();
+    };
+
+    window.openCreateRtvModal = function() {
+        rtvCreateItems = [];
+        var sel = document.getElementById('rtvInboundSelect');
+        sel.innerHTML = '<option value="">— Chọn Phiếu Nhập —</option>';
+        var grnsWithRejected = grns.filter(function(g) {
+            return g.status === 'completed' && g.items && g.items.some(function(i) { return (i.rejectedQty || 0) > 0; });
+        });
+        grnsWithRejected.forEach(function(g) {
+            var totalRejected = g.items.reduce(function(s, i) { return s + (i.rejectedQty || 0); }, 0);
+            var opt = document.createElement('option');
+            opt.value = g.id;
+            opt.textContent = (g.inboundCode || g.id) + ' — ' + (g.supplier || '') + ' (Từ chối: ' + totalRejected + ' cái)';
+            sel.appendChild(opt);
+        });
+        document.getElementById('rtvInboundDetail').style.display = 'none';
+        document.getElementById('rtvItemsContainer').innerHTML = '';
+        document.getElementById('rtvReasonInput').value = 'Hàng lỗi / không đạt chất lượng';
+        document.getElementById('rtvNoteInput').value = '';
+        document.getElementById('createRtvModalOverlay').classList.add('active');
+    };
+
+    window.onRtvInboundChange = function() {
+        var grnId = document.getElementById('rtvInboundSelect').value;
+        var grn = grns.find(function(g) { return g.id == grnId; });
+        if (!grn) {
+            document.getElementById('rtvInboundDetail').style.display = 'none';
+            document.getElementById('rtvItemsContainer').innerHTML = '';
+            return;
+        }
+        document.getElementById('rtvInboundDetail').style.display = 'block';
+        document.getElementById('rtvDetailSupplier').textContent = grn.supplier || '—';
+        document.getElementById('rtvDetailReceived').textContent = grn.items.reduce(function(s, i) { return s + (i.receivedQty || 0); }, 0);
+        document.getElementById('rtvDetailAccepted').textContent = grn.items.reduce(function(s, i) { return s + (i.acceptedQty || 0); }, 0);
+        document.getElementById('rtvDetailRejected').textContent = grn.items.reduce(function(s, i) { return s + (i.rejectedQty || 0); }, 0);
+
+        rtvCreateItems = [];
+        var container = document.getElementById('rtvItemsContainer');
+        var itemsWithRejected = grn.items.filter(function(i) { return (i.rejectedQty || 0) > 0; });
+        if (itemsWithRejected.length === 0) {
+            container.innerHTML = '<div style="color:#dc2626;font-size:13px;padding:8px;text-align:center;">Phiếu nhập này không có hàng từ chối.</div>';
+            return;
+        }
+        container.innerHTML = itemsWithRejected.map(function(item) {
+            var safeId = (item.skuCode || item.id || '').replace(/[^a-zA-Z0-9]/g, '_');
+            rtvCreateItems.push({
+                productId: item.productId || 0,
+                skuCode: item.skuCode || '',
+                skuName: item.skuName || item.name || '',
+                qtyReturn: item.rejectedQty || 0,
+                unitCost: item.price || 0
+            });
+            return '<div style="display:flex;align-items:center;justify-content:space-between;gap:12px;padding:10px 12px;background:#fef2f2;border:1px solid #fca5a5;border-radius:8px;">' +
+                '<div style="flex:1;">' +
+                    '<div style="font-weight:700;font-size:13px;color:var(--navy);">' + escapeHtml(item.skuName || item.name || '') + '</div>' +
+                    '<div style="font-size:11px;color:rgba(16,55,92,0.5);font-family:monospace;">' + escapeHtml(item.skuCode || '') + '</div>' +
+                '</div>' +
+                '<div style="display:flex;align-items:center;gap:8px;">' +
+                    '<label style="font-size:11px;font-weight:700;color:#dc2626;">SL TRẢ LẠI:</label>' +
+                    '<input type="number" min="0" max="' + (item.rejectedQty || 0) + '" value="' + (item.rejectedQty || 0) + '" ' +
+                        'id="rtv-qty-' + safeId + '" ' +
+                        'class="outbound-form-input" ' +
+                        'style="width:80px;padding:6px 8px;border:1px solid #fca5a5;text-align:center;font-weight:700;background:#fff;"/>' +
+                '</div>' +
+            '</div>';
+        }).join('');
+    };
+
+    window.submitCreateRtv = function() {
+        var grnId = document.getElementById('rtvInboundSelect').value;
+        if (!grnId) { alert('Vui lòng chọn phiếu nhập gốc.'); return; }
+
+        var poCode = document.getElementById('rtvPoCodeInput').value.trim();
+        if (!poCode) { alert('Vui lòng nhập mã đơn mua hàng gốc.'); return; }
+
+        var supplierCode = document.getElementById('rtvSupplierCodeInput').value.trim();
+        if (!supplierCode) { alert('Vui lòng nhập mã nhà cung cấp.'); return; }
+
+        var contactPerson = document.getElementById('rtvContactPersonInput').value.trim();
+        if (!contactPerson) { alert('Vui lòng nhập người liên hệ nhà cung cấp.'); return; }
+
+        var proposal = document.getElementById('rtvProposalSelect').value;
+        if (!proposal) { alert('Vui lòng chọn phương án đề xuất.'); return; }
+
+        var reason = document.getElementById('rtvReasonInput').value.trim();
+        if (!reason) { alert('Vui lòng nhập lý do trả hàng.'); return; }
+
+        var note = document.getElementById('rtvNoteInput').value;
+
+        rtvCreateItems.forEach(function(item) {
+            var safeId = (item.skuCode || '').replace(/[^a-zA-Z0-9]/g, '_');
+            var input = document.getElementById('rtv-qty-' + safeId);
+            if (input) item.qtyReturn = parseInt(input.value) || 0;
+        });
+
+        var validItems = rtvCreateItems.filter(function(i) { return i.qtyReturn > 0; });
+        if (validItems.length === 0) { alert('Vui lòng nhập số lượng trả lại lớn hơn 0.'); return; }
+
+        var payload = validItems.map(function(i) {
+            return { productId: i.productId, qtyReturn: i.qtyReturn, unitCost: i.unitCost };
+        });
+
+        var formData = new FormData();
+        formData.append('action', 'createRtv');
+        formData.append('inboundId', grnId);
+        formData.append('reason', reason);
+        formData.append('note', note);
+        formData.append('poCode', poCode);
+        formData.append('supplierCode', supplierCode);
+        formData.append('contactPerson', contactPerson);
+        formData.append('proposal', proposal);
+        formData.append('itemsJson', JSON.stringify(payload));
+
+        fetch('${pageContext.request.contextPath}/warehouse/outbound', { method: 'POST', body: formData })
+            .then(function(res) { return res.json(); })
+            .then(function(data) {
+                if (data.success) {
+                    alert(data.message);
+                    window.closeCreateRtvModal();
+                    window.location.reload();
+                } else {
+                    alert('Lỗi: ' + data.message);
+                }
+            })
+            .catch(function(e) { alert('Lỗi kết nối: ' + e); });
+    };
+
+    window.closeCreateRtvModal = function() {
+        document.getElementById('createRtvModalOverlay').classList.remove('active');
+    };
+
+    window.approveRtv = function(rtvId, event) {
+        if (event) event.stopPropagation();
+        if (!confirm('Xác nhận duyệt phiếu trả nhà cung cấp này?')) return;
+        var formData = new FormData();
+        formData.append('action', 'approveRtv');
+        formData.append('rtvId', rtvId);
+        fetch('${pageContext.request.contextPath}/warehouse/outbound', { method: 'POST', body: formData })
+            .then(function(res) { return res.json(); })
+            .then(function(data) {
+                alert(data.message);
+                window.location.reload();
+            })
+            .catch(function(e) { alert('Lỗi: ' + e); });
+    };
+
+    window.completeRtv = function(rtvId, event) {
+        if (event) event.stopPropagation();
+        if (!confirm('Xác nhận đã giao hàng trả lại nhà cung cấp?')) return;
+        var formData = new FormData();
+        formData.append('action', 'completeRtv');
+        formData.append('rtvId', rtvId);
+        fetch('${pageContext.request.contextPath}/warehouse/outbound', { method: 'POST', body: formData })
+            .then(function(res) { return res.json(); })
+            .then(function(data) {
+                alert(data.message);
+                window.location.reload();
+            })
+            .catch(function(e) { alert('Lỗi: ' + e); });
+    };
+
+    window.cancelRtv = function(rtvId, event) {
+        if (event) event.stopPropagation();
+        if (!confirm('Hủy phiếu trả nhà cung cấp này?')) return;
+        var formData = new FormData();
+        formData.append('action', 'cancelRtv');
+        formData.append('rtvId', rtvId);
+        fetch('${pageContext.request.contextPath}/warehouse/outbound', { method: 'POST', body: formData })
+            .then(function(res) { return res.json(); })
+            .then(function(data) {
+                alert(data.message);
+                window.location.reload();
+            })
+            .catch(function(e) { alert('Lỗi: ' + e); });
+    };
+
+    function statusConfigRtv(status) {
+        var m = {
+            'PENDING':   { label: 'Chờ duyệt',   bg: '#eff6ff', color: '#1d4ed8' },
+            'APPROVED':  { label: 'Đã duyệt',    bg: '#fef3c7', color: '#92400e' },
+            'COMPLETED': { label: 'Hoàn thành',   bg: '#ecfdf5', color: '#047857' },
+            'CANCELLED': { label: 'Đã hủy',       bg: '#fee2e2', color: '#991b1b' }
+        };
+        return m[status] || { label: status, bg: '#f3f4f6', color: '#374151' };
+    }
+
+    window.selectRtvTab = function(tabId) {
+        rtvActiveTab = tabId;
+        window.renderRtvList();
+    };
+
     // Dismiss overlays when clicking backdrop
-    [confirmOverlay, draftOverlay, disposalOverlay, receiptDetailOverlay].forEach(function(ov) {
+    [confirmOverlay, draftOverlay, disposalOverlay, receiptDetailOverlay,
+     document.getElementById('createRtvModalOverlay'), document.getElementById('rtvDetailModalOverlay')].forEach(function(ov) {
         if (ov) {
             ov.addEventListener('click', function(e) {
                 if (e.target === ov) {

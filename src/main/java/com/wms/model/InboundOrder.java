@@ -167,6 +167,8 @@ public class InboundOrder {
               .append("\",\"orderedQty\":").append(it.getExpectedQty())
               .append(",\"expectedQty\":").append(it.getExpectedQty())
               .append(",\"receivedQty\":").append(it.getReceivedQty())
+              .append(",\"acceptedQty\":").append(it.getAcceptedQty() != null ? it.getAcceptedQty() : 0)
+              .append(",\"rejectedQty\":").append(it.getRejectedQty() != null ? it.getRejectedQty() : 0)
               .append(",\"price\":").append(it.getUnitCost() != null ? it.getUnitCost() : 0)
               .append("}");
         }

@@ -942,3 +942,32 @@
     .pill-badge.cancelled .pill-badge__dot {
         background: #ef4444 !important;
     }
+
+    /* ─── Main Tabs Navigation ─── */
+    .tabs-wrap {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        margin-bottom: 20px;
+        border-bottom: 1px solid var(--border);
+    }
+    .tab-btn {
+        padding: 10px 16px;
+        font-size: 13px;
+        font-weight: 600;
+        background: none;
+        border: none;
+        color: rgba(16, 55, 92, 0.4);
+        cursor: pointer;
+        transition: color 0.15s, border-color 0.15s;
+        border-bottom: 2px solid transparent;
+        position: relative;
+        bottom: -1px;
+    }
+    .tab-btn:hover {
+        color: rgba(16, 55, 92, 0.7);
+    }
+    .tab-btn.active {
+        color: var(--navy);
+        border-bottom-color: var(--navy);
+    }

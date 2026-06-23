@@ -75,6 +75,7 @@ CREATE TABLE IF NOT EXISTS zones (
     zone_name   VARCHAR(100) NOT NULL,
     zone_type   VARCHAR(30) NOT NULL DEFAULT 'NORMAL',
     description TEXT,
+    capacity    INT DEFAULT 0,
     active      TINYINT(1) NOT NULL DEFAULT 1,
     is_default  TINYINT(1) NOT NULL DEFAULT 0,
     FOREIGN KEY (warehouse_id) REFERENCES warehouses(warehouse_id),

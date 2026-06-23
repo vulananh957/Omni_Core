@@ -26,6 +26,7 @@ public class LedgerServlet extends BaseController {
     protected void doGet(HttpServletRequest req, HttpServletResponse resp)
             throws ServletException, IOException {
 
+        consumeFlash(req);
         // AJAX: return the line items of one document as JSON (for the detail modal)
         if ("items".equals(req.getParameter("ajax"))) {
             resp.setContentType("application/json;charset=UTF-8");
@@ -78,19 +79,35 @@ public class LedgerServlet extends BaseController {
         User currentUser = (User) req.getSession().getAttribute(AppConstants.SESSION_USER);
         int userId = currentUser != null ? currentUser.getUserId() : 1;
 
+        if (currentUser == null || !"MANAGER".equals(currentUser.getRole())) {
+            setFlashError(req, "Chỉ cấp quản lý (Manager) mới có quyền thực hiện thao tác duyệt/từ chối phiếu.");
+            resp.sendRedirect(req.getContextPath() + "/business/ledger");
+            return;
+        }
+
         try {
             if ("approve".equals(action)) {
                 String docType = req.getParameter("docType");
                 String docId = req.getParameter("docId");
-                ledgerService.approveDocument(docType, docId, userId);
+                boolean ok = ledgerService.approveDocument(docType, docId, userId);
+                if (ok) {
+                    setFlashSuccess(req, "Phê duyệt phiếu " + docId + " thành công!");
+                } else {
+                    setFlashError(req, "Phê duyệt phiếu " + docId + " thất bại.");
+                }
             } else if ("reject".equals(action)) {
                 String docType = req.getParameter("docType");
                 String docId = req.getParameter("docId");
                 String reason = req.getParameter("rejectReason");
-                ledgerService.rejectDocument(docType, docId, reason, userId);
+                boolean ok = ledgerService.rejectDocument(docType, docId, reason, userId);
+                if (ok) {
+                    setFlashSuccess(req, "Đã từ chối phiếu " + docId + ".");
+                } else {
+                    setFlashError(req, "Từ chối phiếu " + docId + " thất bại.");
+                }
             }
         } catch (Exception e) {
-            req.setAttribute("error", "Lỗi xử lý: " + e.getMessage());
+            setFlashError(req, "Lỗi xử lý: " + e.getMessage());
         }
 
         resp.sendRedirect(req.getContextPath() + "/business/ledger");

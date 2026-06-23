@@ -64,11 +64,13 @@
                                 <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
                                 <circle cx="12" cy="7" r="4"/>
                             </svg>
-                            <span class="whinfo-admin-field__lbl">Quản lý kho</span>
+                            <span class="whinfo-admin-field__lbl">Nhân viên</span>
                             <span class="whinfo-admin-field__val">
                                 <c:choose>
-                                    <c:when test="${not empty sessionScope.currentUser}">
-                                        <c:out value="${sessionScope.currentUser.fullName}"/>
+                                    <c:when test="${not empty warehouseStaff}">
+                                        <c:forEach var="s" items="${warehouseStaff}" varStatus="vs">
+                                            <c:out value="${s.fullName}"/><c:if test="${!vs.last}">, </c:if>
+                                        </c:forEach>
                                     </c:when>
                                     <c:otherwise>—</c:otherwise>
                                 </c:choose>
@@ -122,16 +124,32 @@
                             </div>
                             <div class="whinfo-kpi-card__lbl">Tồn vật lý</div>
                         </div>
-                        <a href="${pageContext.request.contextPath}/inventory/list" class="whinfo-kpi-card ${dashboardMetrics.alertCount > 0 ? 'whinfo-kpi-card--alert' : ''}">
-                            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none"
-                                 stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                                <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
-                                <line x1="12" y1="9" x2="12" y2="13"/>
-                                <line x1="12" y1="17" x2="12.01" y2="17"/>
-                            </svg>
-                            <div class="whinfo-kpi-card__num"><c:out value="${dashboardMetrics.alertCount}"/></div>
-                            <div class="whinfo-kpi-card__lbl">Cảnh báo</div>
-                        </a>
+                        <c:choose>
+                            <c:when test="${dashboardMetrics.alertCount > 0}">
+                                <a href="${pageContext.request.contextPath}/inventory/list" class="whinfo-kpi-card ${dashboardMetrics.alertCount > 0 ? 'whinfo-kpi-card--alert' : ''}">
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none"
+                                         stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                        <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
+                                        <line x1="12" y1="9" x2="12" y2="13"/>
+                                        <line x1="12" y1="17" x2="12.01" y2="17"/>
+                                    </svg>
+                                    <div class="whinfo-kpi-card__num"><c:out value="${dashboardMetrics.alertCount}"/></div>
+                                    <div class="whinfo-kpi-card__lbl">Cảnh báo</div>
+                                </a>
+                            </c:when>
+                            <c:otherwise>
+                                <div class="whinfo-kpi-card">
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none"
+                                         stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                        <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
+                                        <line x1="12" y1="9" x2="12" y2="13"/>
+                                        <line x1="12" y1="17" x2="12.01" y2="17"/>
+                                    </svg>
+                                    <div class="whinfo-kpi-card__num"><c:out value="${dashboardMetrics.alertCount}"/></div>
+                                    <div class="whinfo-kpi-card__lbl">Cảnh báo</div>
+                                </div>
+                            </c:otherwise>
+                        </c:choose>
                     </div>
                 </div>
             </div>
@@ -196,6 +214,7 @@
                                                 data-name="${fn:escapeXml(z.zoneName)}"
                                                 data-type="${z.zoneType}"
                                                 data-desc="${fn:escapeXml(z.description)}"
+                                                data-capacity="${z.capacity}"
                                                 data-default="${z['default']}"
                                                 onclick="openEditZone(this)">
                                             <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
@@ -308,7 +327,7 @@
                                             <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg>
                                         </div>
                                         <div class="zm-type-item__info">
-                                            <div class="zm-type-item__name">Khu Hàng Trả Hàng (RTV)</div>
+                                            <div class="zm-type-item__name">Khu Hàng Trả Nhà Cung Cấp</div>
                                             <div class="zm-type-item__desc">Hàng hoàn trả nhà cung cấp</div>
                                         </div>
                                         <span class="zm-type-item__badge zm-badge-return">Hoàn trả</span>
@@ -360,6 +379,11 @@
                                 <input class="zm-field__input" type="text" id="zoneFormName" name="zoneName"
                                        placeholder="VD: Khu Hàng Dự Trữ, Khu Hàng Khuyến Mãi..."
                                        required maxlength="100"/>
+                            </div>
+                            <div class="zm-field">
+                                <label class="zm-field__lbl" for="zoneFormCapacity">Sức chứa <span class="zm-field__opt">(Tùy chọn)</span></label>
+                                <input class="zm-field__input" type="number" id="zoneFormCapacity" name="capacity"
+                                       placeholder="VD: 1000" min="0" max="999999"/>
                             </div>
                             <div class="zm-field">
                                 <label class="zm-field__lbl" for="zoneFormDesc">Mô tả <span class="zm-field__opt">(Tùy chọn)</span></label>
@@ -420,6 +444,7 @@
                 document.getElementById('zoneFormId').value = '';
                 document.getElementById('zoneFormName').value = '';
                 document.getElementById('zoneFormDesc').value = '';
+                document.getElementById('zoneFormCapacity').value = '';
                 document.getElementById('zoneFormCustomType').value = '';
                 document.getElementById('customTypeWrap').style.display = 'none';
                 document.getElementById('zoneFormTypeResolved').value = 'NORMAL';
@@ -435,6 +460,7 @@
                 document.getElementById('zoneFormId').value = btn.getAttribute('data-id');
                 document.getElementById('zoneFormName').value = btn.getAttribute('data-name');
                 document.getElementById('zoneFormDesc').value = btn.getAttribute('data-desc') || '';
+                document.getElementById('zoneFormCapacity').value = btn.getAttribute('data-capacity') || '';
 
                 var rawType = btn.getAttribute('data-type') || 'NORMAL';
                 var radio;

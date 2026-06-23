@@ -14,7 +14,28 @@ public class RtvOrder {
     private String reason;
     private String note;
     private String createdAt;
+    private String poCode;
+    private String supplierCode;
+    private String contactPerson;
+    private String proposal;
+    private String evidenceLink;
     private List<RtvItem> items;
+
+    public String getPoCode() { return poCode; }
+    public void setPoCode(String poCode) { this.poCode = poCode; }
+
+    public String getSupplierCode() { return supplierCode; }
+    public void setSupplierCode(String supplierCode) { this.supplierCode = supplierCode; }
+
+    public String getContactPerson() { return contactPerson; }
+    public void setContactPerson(String contactPerson) { this.contactPerson = contactPerson; }
+
+    public String getProposal() { return proposal; }
+    public void setProposal(String proposal) { this.proposal = proposal; }
+
+    public String getEvidenceLink() { return evidenceLink; }
+    public void setEvidenceLink(String evidenceLink) { this.evidenceLink = evidenceLink; }
+
 
     // Getters and Setters
     public int getId() { return id; }

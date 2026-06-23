@@ -106,7 +106,7 @@ public class LoginServlet extends BaseController {
             case "MANAGER":
                 return "/business/dashboard";
             case "WAREHOUSE_STAFF":
-                return "/warehouse/master-sku";
+                return "/warehouse/inventory";
             case "SALES_STAFF":
                 return "/sales/orders";
             default:

@@ -8,7 +8,6 @@ import com.wms.model.Warehouse;
 import com.wms.service.product.ProductService;
 import com.wms.service.warehouse.InboundService;
 import com.wms.model.ReceiptNote;
-import com.wms.service.warehouse.RtvService;
 import com.wms.service.warehouse.WarehouseService;
 
 import jakarta.servlet.ServletException;
@@ -33,7 +32,6 @@ public class WarehouseInboundServlet extends BaseController {
     private final InboundService inboundService = new InboundService();
     private final ProductService productService = new ProductService();
     private final WarehouseService warehouseService = new WarehouseService();
-    private final RtvService rtvService = new RtvService();
 
     @Override
     protected void doGet(HttpServletRequest req, HttpServletResponse resp)
@@ -60,16 +58,6 @@ public class WarehouseInboundServlet extends BaseController {
         req.setAttribute("pageSubtitle",
                 "Xử lý hàng từ nhà cung cấp — ghi nhận tồn kho và tạo ledger entry khi xác nhận");
         req.setAttribute("currentPage", "wh-inbound");
-
-        try {
-            List<?> rtvList = rtvService.findByWarehouse(currentWarehouseId(req));
-            req.setAttribute("rtvList", rtvList);
-            setJsonAttr(req, "rtvListJson", rtvList);
-        } catch (Exception e) {
-            req.setAttribute("rtvList", List.of());
-            setJsonAttr(req, "rtvListJson", List.of());
-        }
-
         req.setAttribute("contentPage", "/WEB-INF/views/inbound/warehouse-inbound.jsp");
 
         req.getRequestDispatcher("/WEB-INF/views/layout/warehouse-layout.jsp")
@@ -240,63 +228,6 @@ public class WarehouseInboundServlet extends BaseController {
             }
             redirect(resp, "/warehouse/inbound");
             return;
-        } else if ("createRtv".equals(action)) {
-            // AJAX RTV creation
-            resp.setContentType("application/json;charset=UTF-8");
-            try {
-                int inboundId = Integer.parseInt(req.getParameter("inboundId"));
-                String reason = req.getParameter("reason");
-                String note = req.getParameter("note");
-                String itemsJson = req.getParameter("itemsJson");
-                List<RtvService.RtvItemRequest> itemRequests = null;
-                if (itemsJson != null && !itemsJson.trim().isEmpty()) {
-                    itemRequests = JsonUtil.getMapper().readValue(itemsJson,
-                            new TypeReference<List<RtvService.RtvItemRequest>>() {});
-                }
-                int uid = currentUserId != null ? currentUserId : 1;
-                RtvService.RtvResult result = rtvService.createRtv(inboundId, itemRequests, reason, note, uid);
-                resp.getWriter().write("{\"success\":" + result.isSuccess()
-                        + ",\"message\":\"" + rtvEscapeJson(result.getMessage()) + "\"}");
-            } catch (Exception e) {
-                resp.getWriter().write("{\"success\":false,\"message\":\"Lỗi: " + rtvEscapeJson(e.getMessage()) + "\"}");
-            }
-            return;
-        } else if ("approveRtv".equals(action)) {
-            resp.setContentType("application/json;charset=UTF-8");
-            try {
-                int rtvId = Integer.parseInt(req.getParameter("rtvId"));
-                int uid = currentUserId != null ? currentUserId : 1;
-                RtvService.RtvResult result = rtvService.approveRtv(rtvId, uid);
-                resp.getWriter().write("{\"success\":" + result.isSuccess()
-                        + ",\"message\":\"" + rtvEscapeJson(result.getMessage()) + "\"}");
-            } catch (Exception e) {
-                resp.getWriter().write("{\"success\":false,\"message\":\"Lỗi: " + rtvEscapeJson(e.getMessage()) + "\"}");
-            }
-            return;
-        } else if ("completeRtv".equals(action)) {
-            resp.setContentType("application/json;charset=UTF-8");
-            try {
-                int rtvId = Integer.parseInt(req.getParameter("rtvId"));
-                int uid = currentUserId != null ? currentUserId : 1;
-                RtvService.RtvResult result = rtvService.completeRtv(rtvId, uid);
-                resp.getWriter().write("{\"success\":" + result.isSuccess()
-                        + ",\"message\":\"" + rtvEscapeJson(result.getMessage()) + "\"}");
-            } catch (Exception e) {
-                resp.getWriter().write("{\"success\":false,\"message\":\"Lỗi: " + rtvEscapeJson(e.getMessage()) + "\"}");
-            }
-            return;
-        } else if ("cancelRtv".equals(action)) {
-            resp.setContentType("application/json;charset=UTF-8");
-            try {
-                int rtvId = Integer.parseInt(req.getParameter("rtvId"));
-                int uid = currentUserId != null ? currentUserId : 1;
-                RtvService.RtvResult result = rtvService.cancelRtv(rtvId, uid);
-                resp.getWriter().write("{\"success\":" + result.isSuccess()
-                        + ",\"message\":\"" + rtvEscapeJson(result.getMessage()) + "\"}");
-            } catch (Exception e) {
-                resp.getWriter().write("{\"success\":false,\"message\":\"Lỗi: " + rtvEscapeJson(e.getMessage()) + "\"}");
-            }
-            return;
         } else {
             redirect(resp, "/warehouse/inbound");
         }
@@ -333,12 +264,6 @@ public class WarehouseInboundServlet extends BaseController {
         if (val == null || val.trim().isEmpty()) return null;
         try { return new BigDecimal(val.trim()); }
         catch (NumberFormatException e) { return null; }
-    }
-
-    private String rtvEscapeJson(String s) {
-        if (s == null) return "";
-        return s.replace("\\", "\\\\").replace("\"", "\\\"")
-                .replace("\n", "\\n").replace("\r", "");
     }
 
     public static class DraftItem {

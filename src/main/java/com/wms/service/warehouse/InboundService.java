@@ -129,6 +129,14 @@ public class InboundService {
                                 accepted,
                                 unitCost);
                     }
+                    if (rejected.compareTo(BigDecimal.ZERO) > 0) {
+                        inventoryDAO.addDefectiveInventory(
+                                item.getProductId(),
+                                existing.getWarehouseId(),
+                                rejected,
+                                userId,
+                                "Hàng lỗi từ phiếu nhập " + existing.getInboundCode());
+                    }
                     successCount++;
                 } catch (Exception e) {
                     failCount++;

@@ -41,6 +41,11 @@ public class LedgerDAO {
         public String remarks;
         public String supplier;
         public String customer;
+        public String poCode;
+        public String supplierCode;
+        public String contactPerson;
+        public String proposal;
+        public String inboundCode;
         public List<Map<String, Object>> itemsList = new ArrayList<>();
     }
 
@@ -326,6 +331,52 @@ public class LedgerDAO {
             LOGGER.log(Level.WARNING, "LedgerDAO: Failed to fetch scrap documents", e);
         }
 
+        // 7. Fetch RTV Orders
+        String sqlRtv =
+            "SELECT r.rtv_id, r.rtv_code, r.supplier, r.status, r.reason, r.note, r.created_at, " +
+            "r.po_code, r.supplier_code, r.contact_person, r.proposal, io.inbound_code, " +
+            "w.warehouse_id, w.warehouse_name, u.full_name AS creator_name " +
+            "FROM rtv_orders r " +
+            "LEFT JOIN inbound_orders io ON r.inbound_id = io.inbound_id " +
+            "LEFT JOIN warehouses w ON r.warehouse_id = w.warehouse_id " +
+            "LEFT JOIN users u ON r.created_by = u.user_id " +
+            (byWh ? "WHERE r.warehouse_id = ? " : "") +
+            "ORDER BY r.created_at DESC LIMIT 100";
+        try (Connection conn = DBConnection.getConnection();
+             PreparedStatement ps = conn.prepareStatement(sqlRtv)) {
+            if (byWh) ps.setInt(1, warehouseId);
+            try (ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) {
+                    LedgerDocument d = new LedgerDocument();
+                    d.id = rs.getString("rtv_code");
+                    d.type = "Phiếu Trả Hàng NCC";
+                    
+                    Timestamp ca = rs.getTimestamp("created_at");
+                    d.date = (ca != null) ? ca.toLocalDateTime().format(DATE_FORMATTER) : "";
+                    d.warehouse = rs.getString("warehouse_name");
+                    d.warehouseId = rs.getInt("warehouse_id");
+                    
+                    String creator = rs.getString("creator_name");
+                    d.createdBy = (creator != null) ? creator : "Hệ thống";
+                    
+                    String dbStatus = rs.getString("status");
+                    d.status = mapRtvStatus(dbStatus);
+                    d.statusColor = getStatusColor(d.status);
+                    d.remarks = rs.getString("reason");
+                    d.supplier = rs.getString("supplier");
+                    d.poCode = rs.getString("po_code");
+                    d.supplierCode = rs.getString("supplier_code");
+                    d.contactPerson = rs.getString("contact_person");
+                    d.proposal = rs.getString("proposal");
+                    d.inboundCode = rs.getString("inbound_code");
+                    d.items = countRtvItems(conn, rs.getInt("rtv_id"));
+                    docs.add(d);
+                }
+            }
+        } catch (SQLException e) {
+            LOGGER.log(Level.WARNING, "LedgerDAO: Failed to fetch RTV documents", e);
+        }
+
         // Sort overall list: newest first
         docs.sort((d1, d2) -> d2.date.compareTo(d1.date));
         return docs;
@@ -512,6 +563,31 @@ public class LedgerDAO {
                             map.put("destroy", 0.0);
                             map.put("price", rs.getDouble("base_price"));
                             map.put("remark", rs.getString("return_reason"));
+                            items.add(map);
+                        }
+                    }
+                }
+            } else if ("Phiếu Trả Hàng NCC".equals(docType)) {
+                String sql = 
+                    "SELECT ri.qty_return, ri.unit_cost, p.sku_code, p.product_name, p.unit, " +
+                    "       (SELECT ii.received_qty FROM inbound_items ii WHERE ii.inbound_id = r.inbound_id AND ii.product_id = ri.product_id) AS qty_received " +
+                    "FROM rtv_items ri " +
+                    "LEFT JOIN products p ON ri.product_id = p.product_id " +
+                    "LEFT JOIN rtv_orders r ON ri.rtv_id = r.rtv_id " +
+                    "WHERE r.rtv_code = ?";
+                try (PreparedStatement ps = conn.prepareStatement(sql)) {
+                    ps.setString(1, docId);
+                    try (ResultSet rs = ps.executeQuery()) {
+                        int index = 1;
+                        while (rs.next()) {
+                            Map<String, Object> map = new HashMap<>();
+                            map.put("stt", index++);
+                            map.put("sku", rs.getString("sku_code"));
+                            map.put("name", rs.getString("product_name"));
+                            map.put("uom", rs.getString("unit"));
+                            map.put("received", rs.getDouble("qty_received"));
+                            map.put("returned", rs.getDouble("qty_return"));
+                            map.put("price", rs.getDouble("unit_cost"));
                             items.add(map);
                         }
                     }
@@ -766,6 +842,17 @@ public class LedgerDAO {
                     ps.setInt(1, checkId);
                     ps.executeUpdate();
                 }
+            } else if ("Phiếu Trả Hàng NCC".equals(docType)) {
+                String sqlUpdateStatus = "UPDATE rtv_orders SET status = 'APPROVED' WHERE rtv_code = ? AND status = 'PENDING'";
+                try (PreparedStatement ps = conn.prepareStatement(sqlUpdateStatus)) {
+                    ps.setString(1, docId);
+                    int rows = ps.executeUpdate();
+                    if (rows == 0) {
+                        conn.rollback();
+                        LOGGER.warning("approveDocument: RTV order not in PENDING state, code=" + docId);
+                        return false;
+                    }
+                }
             }
 
             conn.commit();
@@ -799,6 +886,8 @@ public class LedgerDAO {
             sql = "UPDATE stock_transfers SET status = 'CANCELLED', note = ?, approved_by = ? WHERE transfer_code = ?";
         } else if ("Phiếu Kiểm Kê".equals(docType)) {
             sql = "UPDATE physical_inventories SET status = 'DRAFT', note = ? WHERE check_code = ?"; // Rejected stocktakes go back to DRAFT or set status custom
+        } else if ("Phiếu Trả Hàng NCC".equals(docType)) {
+            sql = "UPDATE rtv_orders SET status = 'CANCELLED', note = ? WHERE rtv_code = ?";
         } else {
             return false;
         }
@@ -1011,6 +1100,25 @@ public class LedgerDAO {
         if ("RESTOCKED".equals(dbStatus)) return "Đã xử lý";
         if ("SCRAPPED".equals(dbStatus)) return "Đã xử lý";
         return dbStatus;
+    }
+
+    private String mapRtvStatus(String dbStatus) {
+        if ("PENDING".equals(dbStatus)) return "Chờ duyệt";
+        if ("APPROVED".equals(dbStatus)) return "Đã duyệt";
+        if ("COMPLETED".equals(dbStatus)) return "Hoàn thành";
+        if ("CANCELLED".equals(dbStatus)) return "Từ chối";
+        return dbStatus;
+    }
+
+    private int countRtvItems(Connection conn, int id) throws SQLException {
+        String sql = "SELECT COUNT(*) FROM rtv_items WHERE rtv_id = ?";
+        try (PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setInt(1, id);
+            try (ResultSet rs = ps.executeQuery()) {
+                if (rs.next()) return rs.getInt(1);
+            }
+        }
+        return 0;
     }
 
     private String getStatusColor(String status) {

@@ -44,7 +44,8 @@ public class RtvService {
      * Create a new RTV order tied to an inbound order.
      */
     public RtvResult createRtv(int inboundId, List<RtvItemRequest> itemRequests,
-                                String reason, String note, int createdBy) {
+                                String reason, String note, int createdBy,
+                                String poCode, String supplierCode, String contactPerson, String proposal) {
         InboundOrder inbound = inboundDAO.findById(inboundId);
         if (inbound == null) {
             log.warn("createRtv failed: inbound not found id={}", inboundId);
@@ -62,6 +63,10 @@ public class RtvService {
         rtv.setStatus("PENDING");
         rtv.setReason(reason != null ? reason.trim() : null);
         rtv.setNote(note != null ? note.trim() : null);
+        rtv.setPoCode(poCode != null ? poCode.trim() : null);
+        rtv.setSupplierCode(supplierCode != null ? supplierCode.trim() : null);
+        rtv.setContactPerson(contactPerson != null ? contactPerson.trim() : null);
+        rtv.setProposal(proposal != null ? proposal.trim() : null);
 
         List<RtvItem> items = new ArrayList<>();
         for (RtvItemRequest req : itemRequests) {
@@ -124,6 +129,20 @@ public class RtvService {
         if (!ok) {
             return RtvResult.failure("Không thể hoàn thành phiếu RTV. Vui lòng thử lại.");
         }
+
+        // Deduct defective inventory
+        if (rtv.getItems() != null) {
+            com.wms.dao.InventoryDAO inventoryDAO = new com.wms.dao.InventoryDAO();
+            for (RtvItem item : rtv.getItems()) {
+                boolean deducted = inventoryDAO.deductDefectiveInventory(
+                    item.getProductId(), rtv.getWarehouseId(), item.getQtyReturn(), userId, "Xuất trả NCC (" + rtv.getCode() + ")");
+                if (!deducted) {
+                    log.warn("Failed to deduct defective inventory for product ID={} in warehouse ID={}", 
+                        item.getProductId(), rtv.getWarehouseId());
+                }
+            }
+        }
+
         log.info("RTV completed: rtvId={} by={}", rtvId, userId);
         return RtvResult.success("Hoàn thành phiếu trả hàng " + rtv.getCode() + "!");
     }

@@ -269,18 +269,18 @@ public class WarehouseDAO extends BaseDAO {
 
     // ── Single-zone CRUD (Warehouse Information screen) ──────────
 
-    public boolean insertZone(int warehouseId, String code, String name, String type, String description) {
+    public boolean insertZone(int warehouseId, String code, String name, String type, String description, Integer capacity) {
         return update(LOGGER,
-            "INSERT INTO zones (warehouse_id, zone_code, zone_name, zone_type, description, active, is_default) "
-          + "VALUES (?, ?, ?, ?, ?, 1, 0)",
-            warehouseId, code, name, type, description) > 0;
+            "INSERT INTO zones (warehouse_id, zone_code, zone_name, zone_type, description, capacity, active, is_default) "
+          + "VALUES (?, ?, ?, ?, ?, ?, 1, 0)",
+            warehouseId, code, name, type, description, capacity) > 0;
     }
 
-    public boolean updateZone(int zoneId, int warehouseId, String name, String type, String description) {
+    public boolean updateZone(int zoneId, int warehouseId, String name, String type, String description, Integer capacity) {
         return update(LOGGER,
-            "UPDATE zones SET zone_name = ?, zone_type = ?, description = ? "
+            "UPDATE zones SET zone_name = ?, zone_type = ?, description = ?, capacity = ? "
           + "WHERE zone_id = ? AND warehouse_id = ?",
-            name, type, description, zoneId, warehouseId) > 0;
+            name, type, description, capacity, zoneId, warehouseId) > 0;
     }
 
     /** Deletes a non-default zone; falls back to deactivation if the delete is blocked. */

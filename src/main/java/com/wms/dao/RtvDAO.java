@@ -32,12 +32,17 @@ public class RtvDAO {
                     + "rtv_code VARCHAR(50) NOT NULL UNIQUE,"
                     + "inbound_id INT NOT NULL,"
                     + "warehouse_id INT NOT NULL,"
-                    + "supplier_name VARCHAR(100),"
-                    + "status ENUM('PENDING','APPROVED','COMPLETED','CANCELLED') NOT NULL DEFAULT 'PENDING',"
-                    + "reason VARCHAR(255),"
-                    + "note VARCHAR(255),"
-                    + "created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,"
-                    + "created_by INT"
+                    + "supplier VARCHAR(255) NOT NULL,"
+                    + "status VARCHAR(30) NOT NULL DEFAULT 'PENDING',"
+                    + "reason TEXT,"
+                    + "note TEXT,"
+                    + "created_by INT,"
+                    + "created_at DATETIME DEFAULT CURRENT_TIMESTAMP,"
+                    + "po_code VARCHAR(50),"
+                    + "supplier_code VARCHAR(50),"
+                    + "contact_person VARCHAR(100),"
+                    + "proposal VARCHAR(100),"
+                    + "evidence_link VARCHAR(255)"
                     + ") ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
 
             stmt.executeUpdate("CREATE TABLE IF NOT EXISTS rtv_items ("
@@ -57,7 +62,8 @@ public class RtvDAO {
     public List<RtvOrder> findByWarehouse(int warehouseId) {
         List<RtvOrder> list = new ArrayList<>();
         String sql = "SELECT r.rtv_id, r.rtv_code, r.inbound_id, io.inbound_code, r.warehouse_id, w.warehouse_name,"
-                + " r.supplier_name, r.status, r.reason, r.note, r.created_at,"
+                + " r.supplier, r.status, r.reason, r.note, r.created_at,"
+                + " r.po_code, r.supplier_code, r.contact_person, r.proposal, r.evidence_link,"
                 + " ri.product_id, p.sku_code, p.product_name, ri.qty_return, ri.unit_cost"
                 + " FROM rtv_orders r"
                 + " LEFT JOIN inbound_orders io ON r.inbound_id = io.inbound_id"
@@ -85,10 +91,15 @@ public class RtvDAO {
                         current.setInboundCode(rs.getString("inbound_code"));
                         current.setWarehouseId(rs.getInt("warehouse_id"));
                         current.setWarehouseName(rs.getString("warehouse_name"));
-                        current.setSupplier(rs.getString("supplier_name"));
+                        current.setSupplier(rs.getString("supplier"));
                         current.setStatus(rs.getString("status"));
                         current.setReason(rs.getString("reason"));
                         current.setNote(rs.getString("note"));
+                        current.setPoCode(rs.getString("po_code"));
+                        current.setSupplierCode(rs.getString("supplier_code"));
+                        current.setContactPerson(rs.getString("contact_person"));
+                        current.setProposal(rs.getString("proposal"));
+                        current.setEvidenceLink(rs.getString("evidence_link"));
                         
                         Timestamp ca = rs.getTimestamp("created_at");
                         if (ca != null) {
@@ -120,7 +131,8 @@ public class RtvDAO {
 
     public RtvOrder findById(int rtvId) {
         String sql = "SELECT r.rtv_id, r.rtv_code, r.inbound_id, io.inbound_code, r.warehouse_id, w.warehouse_name,"
-                + " r.supplier_name, r.status, r.reason, r.note, r.created_at,"
+                + " r.supplier, r.status, r.reason, r.note, r.created_at,"
+                + " r.po_code, r.supplier_code, r.contact_person, r.proposal, r.evidence_link,"
                 + " ri.product_id, p.sku_code, p.product_name, ri.qty_return, ri.unit_cost"
                 + " FROM rtv_orders r"
                 + " LEFT JOIN inbound_orders io ON r.inbound_id = io.inbound_id"
@@ -143,10 +155,15 @@ public class RtvDAO {
                         current.setInboundCode(rs.getString("inbound_code"));
                         current.setWarehouseId(rs.getInt("warehouse_id"));
                         current.setWarehouseName(rs.getString("warehouse_name"));
-                        current.setSupplier(rs.getString("supplier_name"));
+                        current.setSupplier(rs.getString("supplier"));
                         current.setStatus(rs.getString("status"));
                         current.setReason(rs.getString("reason"));
                         current.setNote(rs.getString("note"));
+                        current.setPoCode(rs.getString("po_code"));
+                        current.setSupplierCode(rs.getString("supplier_code"));
+                        current.setContactPerson(rs.getString("contact_person"));
+                        current.setProposal(rs.getString("proposal"));
+                        current.setEvidenceLink(rs.getString("evidence_link"));
                         
                         Timestamp ca = rs.getTimestamp("created_at");
                         if (ca != null) {
@@ -175,8 +192,8 @@ public class RtvDAO {
     }
 
     public int insert(RtvOrder rtv) {
-        String sqlOrder = "INSERT INTO rtv_orders (rtv_code, inbound_id, warehouse_id, supplier_name, status, reason, note, created_by) "
-                + "VALUES (?, ?, ?, ?, ?, ?, ?, ?)";
+        String sqlOrder = "INSERT INTO rtv_orders (rtv_code, inbound_id, warehouse_id, supplier, status, reason, note, created_by, po_code, supplier_code, contact_person, proposal, evidence_link) "
+                + "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
         
         try (Connection conn = DBConnection.getConnection()) {
             conn.setAutoCommit(false);
@@ -202,6 +219,11 @@ public class RtvDAO {
                     ps.setString(6, rtv.getReason());
                     ps.setString(7, rtv.getNote());
                     ps.setInt(8, 1); // Default created_by
+                    ps.setString(9, rtv.getPoCode());
+                    ps.setString(10, rtv.getSupplierCode());
+                    ps.setString(11, rtv.getContactPerson());
+                    ps.setString(12, rtv.getProposal());
+                    ps.setString(13, rtv.getEvidenceLink());
                     
                     ps.executeUpdate();
                     try (ResultSet keys = ps.getGeneratedKeys()) {

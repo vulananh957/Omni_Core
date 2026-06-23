@@ -474,11 +474,29 @@
 
             var generatedZones = [];
 
-            // Add standard default zones if checked
+            // Add standard default zones if checked.
+            // IMPORTANT: suffix convention must match WarehouseService.java which uses
+            // zoneType.substring(0,4).toUpperCase() → NORM, DAMA, RETU
+            // When editing an existing warehouse, prefer the real zone code from DB to avoid
+            // mis-match that causes a false "duplicate code" SQL error.
+            var existingNormalCode  = null;
+            var existingDefectCode  = null;
+            var existingDisputeCode = null;
+            if (editingWarehouseId) {
+                var whData = window.WMS_WAREHOUSE_DATA.find(function(w) { return w.id === parseInt(editingWarehouseId); });
+                if (whData && whData.zones) {
+                    whData.zones.forEach(function(z) {
+                        var nl = z.name.toLowerCase();
+                        if (nl.indexOf('normal') !== -1 || nl.indexOf('thường') !== -1) existingNormalCode  = z.code;
+                        else if (nl.indexOf('defect') !== -1 || nl.indexOf('hỏng') !== -1)  existingDefectCode  = z.code;
+                        else if (nl.indexOf('dispute') !== -1 || nl.indexOf('khiếu nại') !== -1) existingDisputeCode = z.code;
+                    });
+                }
+            }
             if (chkNormal.checked) {
                 generatedZones.push({
                     id: 0,
-                    code: codeVal + '-NORM',
+                    code: existingNormalCode  || (codeVal + '-NORM'),
                     name: "Khu Hàng Thường (Normal Zone)",
                     zoneType: "NORMAL",
                     isDefault: true
@@ -487,7 +505,7 @@
             if (chkDefect.checked) {
                 generatedZones.push({
                     id: 0,
-                    code: codeVal + '-DEFC',
+                    code: existingDefectCode  || (codeVal + '-DAMA'),
                     name: "Khu Hàng Hỏng (Defect Zone)",
                     zoneType: "DAMAGED",
                     isDefault: true
@@ -496,7 +514,7 @@
             if (chkDispute.checked) {
                 generatedZones.push({
                     id: 0,
-                    code: codeVal + '-DISP',
+                    code: existingDisputeCode || (codeVal + '-RETU'),
                     name: "Khu Hàng Khiếu Nại (Dispute Zone)",
                     zoneType: "RETURN",
                     isDefault: true

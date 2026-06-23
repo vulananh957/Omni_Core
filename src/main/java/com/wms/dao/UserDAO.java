@@ -106,6 +106,27 @@ public class UserDAO {
         return users;
     }
 
+    private static final String SQL_FIND_BY_WAREHOUSE =
+        "SELECT u.*, r.role_id FROM users u "
+      + "LEFT JOIN roles r ON u.role = r.role_name "
+      + "WHERE u.warehouse_id = ? AND u.active = 1 "
+      + "AND u.role = 'WAREHOUSE_STAFF' "
+      + "ORDER BY u.full_name ASC";
+
+    public List<User> findByWarehouseId(int warehouseId) throws SQLException {
+        List<User> users = new ArrayList<>();
+        try (Connection conn = DBConnection.getConnection();
+                PreparedStatement ps = conn.prepareStatement(SQL_FIND_BY_WAREHOUSE)) {
+            ps.setInt(1, warehouseId);
+            try (ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) {
+                    users.add(mapRow(rs));
+                }
+            }
+        }
+        return users;
+    }
+
     public List<User> findFiltered(String search, String role, String status) throws SQLException {
         List<User> users = new ArrayList<>();
         StringBuilder sql = new StringBuilder(

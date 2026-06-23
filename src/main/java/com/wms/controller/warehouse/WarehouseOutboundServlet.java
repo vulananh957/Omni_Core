@@ -7,9 +7,13 @@ import com.wms.model.OutboundOrder;
 import com.wms.model.User;
 import com.wms.model.Warehouse;
 import com.wms.service.product.ProductService;
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.wms.service.warehouse.InboundService;
 import com.wms.service.warehouse.OutboundService;
+import com.wms.service.warehouse.RtvService;
 import com.wms.service.warehouse.WarehouseService;
 import com.wms.util.AppConstants;
+import com.wms.util.JsonUtil;
 
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -32,6 +36,8 @@ public class WarehouseOutboundServlet extends BaseController {
     private final WarehouseService warehouseService = new WarehouseService();
     private final FulfillmentRequestDAO fulfillmentDAO = new FulfillmentRequestDAO();
     private final ProductService productService = new ProductService();
+    private final InboundService inboundService = new InboundService();
+    private final RtvService rtvService = new RtvService();
 
     @Override
     protected void doGet(HttpServletRequest req, HttpServletResponse resp)
@@ -59,6 +65,13 @@ public class WarehouseOutboundServlet extends BaseController {
             setJsonAttr(req, "fulfillmentRequestsJson", fulfillmentRequests);
 
             setJsonAttr(req, "productsJson", productService.findAll());
+
+            List<com.wms.model.InboundOrder> inboundList = inboundService.findAll();
+            req.setAttribute("inboundList", inboundList);
+
+            List<?> rtvList = rtvService.findByWarehouse(myWarehouseId);
+            req.setAttribute("rtvList", rtvList);
+            setJsonAttr(req, "rtvListJson", rtvList);
         } catch (Exception e) {
             outboundOrders = List.of();
             req.setAttribute("warehouses", List.<Warehouse>of());
@@ -66,6 +79,9 @@ public class WarehouseOutboundServlet extends BaseController {
             req.setAttribute("fulfillmentRequests", List.<FulfillmentRequest>of());
             req.setAttribute("fulfillmentRequestsJson", "[]");
             req.setAttribute("productsJson", "[]");
+            req.setAttribute("inboundList", List.of());
+            req.setAttribute("rtvList", List.of());
+            setJsonAttr(req, "rtvListJson", "[]");
         }
 
         req.setAttribute("outboundOrders", outboundOrders);
@@ -107,6 +123,26 @@ public class WarehouseOutboundServlet extends BaseController {
 
         if ("disposal".equals(action)) {
             handleDisposal(req, resp);
+            return;
+        }
+
+        if ("createRtv".equals(action)) {
+            handleCreateRtv(req, resp);
+            return;
+        }
+
+        if ("approveRtv".equals(action)) {
+            handleApproveRtv(req, resp);
+            return;
+        }
+
+        if ("completeRtv".equals(action)) {
+            handleCompleteRtv(req, resp);
+            return;
+        }
+
+        if ("cancelRtv".equals(action)) {
+            handleCancelRtv(req, resp);
             return;
         }
 
@@ -250,5 +286,105 @@ public class WarehouseOutboundServlet extends BaseController {
             return ((User) u).getWarehouseId();
         }
         return 1;
+    }
+
+    private void handleCreateRtv(HttpServletRequest req, HttpServletResponse resp) throws IOException {
+        resp.setContentType("application/json;charset=UTF-8");
+        try {
+            int inboundId = Integer.parseInt(req.getParameter("inboundId"));
+            String reason = req.getParameter("reason");
+            String note = req.getParameter("note");
+            String poCode = req.getParameter("poCode");
+            String supplierCode = req.getParameter("supplierCode");
+            String contactPerson = req.getParameter("contactPerson");
+            String proposal = req.getParameter("proposal");
+            String itemsJson = req.getParameter("itemsJson");
+            List<RtvService.RtvItemRequest> itemRequests = null;
+            if (itemsJson != null && !itemsJson.trim().isEmpty()) {
+                itemRequests = JsonUtil.getMapper().readValue(itemsJson,
+                        new TypeReference<List<RtvService.RtvItemRequest>>() {});
+            }
+            Integer currentUserId = currentUserId(req);
+            int uid = currentUserId != null ? currentUserId : 1;
+            RtvService.RtvResult result = rtvService.createRtv(inboundId, itemRequests, reason, note, uid, poCode, supplierCode, contactPerson, proposal);
+            resp.getWriter().write("{\"success\":" + result.isSuccess()
+                    + ",\"message\":\"" + rtvEscapeJson(result.getMessage()) + "\"}");
+        } catch (Exception e) {
+            resp.getWriter().write("{\"success\":false,\"message\":\"Lỗi: " + rtvEscapeJson(e.getMessage()) + "\"}");
+        }
+    }
+
+    private void handleApproveRtv(HttpServletRequest req, HttpServletResponse resp) throws IOException {
+        resp.setContentType("application/json;charset=UTF-8");
+        try {
+            int rtvId = Integer.parseInt(req.getParameter("rtvId"));
+            Integer currentUserId = currentUserId(req);
+            int uid = currentUserId != null ? currentUserId : 1;
+
+            Object u = req.getSession().getAttribute(AppConstants.SESSION_USER);
+            if (u instanceof User) {
+                User user = (User) u;
+                if (!"MANAGER".equals(user.getRole())) {
+                    resp.getWriter().write("{\"success\":false,\"message\":\"Chỉ cấp quản lý (Manager) mới có quyền duyệt phiếu trả hàng NCC.\"}");
+                    return;
+                }
+            } else {
+                resp.getWriter().write("{\"success\":false,\"message\":\"Yêu cầu đăng nhập.\"}");
+                return;
+            }
+
+            RtvService.RtvResult result = rtvService.approveRtv(rtvId, uid);
+            resp.getWriter().write("{\"success\":" + result.isSuccess()
+                    + ",\"message\":\"" + rtvEscapeJson(result.getMessage()) + "\"}");
+        } catch (Exception e) {
+            resp.getWriter().write("{\"success\":false,\"message\":\"Lỗi: " + rtvEscapeJson(e.getMessage()) + "\"}");
+        }
+    }
+
+    private void handleCompleteRtv(HttpServletRequest req, HttpServletResponse resp) throws IOException {
+        resp.setContentType("application/json;charset=UTF-8");
+        try {
+            int rtvId = Integer.parseInt(req.getParameter("rtvId"));
+            Integer currentUserId = currentUserId(req);
+            int uid = currentUserId != null ? currentUserId : 1;
+            RtvService.RtvResult result = rtvService.completeRtv(rtvId, uid);
+            resp.getWriter().write("{\"success\":" + result.isSuccess()
+                    + ",\"message\":\"" + rtvEscapeJson(result.getMessage()) + "\"}");
+        } catch (Exception e) {
+            resp.getWriter().write("{\"success\":false,\"message\":\"Lỗi: " + rtvEscapeJson(e.getMessage()) + "\"}");
+        }
+    }
+
+    private void handleCancelRtv(HttpServletRequest req, HttpServletResponse resp) throws IOException {
+        resp.setContentType("application/json;charset=UTF-8");
+        try {
+            int rtvId = Integer.parseInt(req.getParameter("rtvId"));
+            Integer currentUserId = currentUserId(req);
+            int uid = currentUserId != null ? currentUserId : 1;
+
+            Object u = req.getSession().getAttribute(AppConstants.SESSION_USER);
+            if (u instanceof User) {
+                User user = (User) u;
+                if (!"MANAGER".equals(user.getRole())) {
+                    resp.getWriter().write("{\"success\":false,\"message\":\"Chỉ cấp quản lý (Manager) mới có quyền hủy phiếu trả hàng NCC.\"}");
+                    return;
+                }
+            } else {
+                resp.getWriter().write("{\"success\":false,\"message\":\"Yêu cầu đăng nhập.\"}");
+                return;
+            }
+
+            RtvService.RtvResult result = rtvService.cancelRtv(rtvId, uid);
+            resp.getWriter().write("{\"success\":" + result.isSuccess()
+                    + ",\"message\":\"" + rtvEscapeJson(result.getMessage()) + "\"}");
+        } catch (Exception e) {
+            resp.getWriter().write("{\"success\":false,\"message\":\"Lỗi: " + rtvEscapeJson(e.getMessage()) + "\"}");
+        }
+    }
+
+    private String rtvEscapeJson(String s) {
+        if (s == null) return "";
+        return s.replace("\\", "\\\\").replace("\"", "\\\"")
+                .replace("\n", "\\n").replace("\r", "");
     }
 }

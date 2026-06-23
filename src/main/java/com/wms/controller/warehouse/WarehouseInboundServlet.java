@@ -9,8 +9,6 @@ import com.wms.service.product.ProductService;
 import com.wms.service.warehouse.InboundService;
 import com.wms.model.ReceiptNote;
 import com.wms.service.warehouse.WarehouseService;
-import com.wms.service.warehouse.RtvService;
-import com.wms.model.RtvOrder;
 import com.wms.service.NotificationService;
 
 import jakarta.servlet.ServletException;
@@ -35,7 +33,6 @@ public class WarehouseInboundServlet extends BaseController {
     private final InboundService inboundService = new InboundService();
     private final ProductService productService = new ProductService();
     private final WarehouseService warehouseService = new WarehouseService();
-    private final RtvService rtvService = new RtvService();
     private final NotificationService notificationService = new NotificationService();
 
     @Override
@@ -52,8 +49,6 @@ public class WarehouseInboundServlet extends BaseController {
             req.setAttribute("products", products);
             setJsonAttr(req, "productsJson", products);
             req.setAttribute("warehouses", warehouses);
-            List<RtvOrder> rtvList = rtvService.findByWarehouse(myWarehouseId);
-            setJsonAttr(req, "rtvListJson", rtvList);
             req.setAttribute("myWarehouseId", currentWarehouseId(req));
         } catch (Exception e) {
             req.setAttribute("inboundList", List.of());

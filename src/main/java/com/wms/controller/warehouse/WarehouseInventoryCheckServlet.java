@@ -246,8 +246,7 @@ public class WarehouseInventoryCheckServlet extends BaseController {
         } catch (Exception e) {
             whName = String.valueOf(myWarehouseId);
         }
-        notificationService.notifyInventoryCheckPending(myWarehouseId, whName, checkId,
-                check != null ? check.getCheckCode() : String.valueOf(checkId));
+        notificationService.notifyInventoryCheckPending(myWarehouseId, whName, checkId, check.getCheckCode());
     }
 
     private void handleAdjust(java.util.Map<String, Object> payload, int userId, int myWarehouseId) throws Exception {

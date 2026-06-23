@@ -66,7 +66,7 @@ public class WarehouseOutboundServlet extends BaseController {
 
             setJsonAttr(req, "productsJson", productService.findAll());
 
-            List<com.wms.model.InboundOrder> inboundList = inboundService.findAll();
+            List<com.wms.model.InboundOrder> inboundList = inboundService.findByWarehouse(myWarehouseId);
             req.setAttribute("inboundList", inboundList);
 
             List<?> rtvList = rtvService.findByWarehouse(myWarehouseId);

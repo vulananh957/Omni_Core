@@ -39,7 +39,8 @@ public class WarehouseInboundServlet extends BaseController {
 
         consumeFlash(req);
         try {
-            List<InboundOrder> inboundList = inboundService.findAll();
+            int myWarehouseId = currentWarehouseId(req);
+            List<InboundOrder> inboundList = inboundService.findByWarehouse(myWarehouseId);
             List<Product> products = productService.findAll();
             List<Warehouse> warehouses = warehouseService.findAllActive();
             req.setAttribute("inboundList", inboundList);

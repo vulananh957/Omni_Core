@@ -26,6 +26,10 @@ public class InboundService {
         return inboundDAO.findAll();
     }
 
+    public List<InboundOrder> findByWarehouse(int warehouseId) {
+        return inboundDAO.findByWarehouse(warehouseId);
+    }
+
     public List<InboundOrder> findByStatus(String status) {
         return inboundDAO.findByStatus(status);
     }

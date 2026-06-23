@@ -30,6 +30,10 @@ public class TransferService {
         return transferDAO.findAll();
     }
 
+    public List<TransferDAO.Transfer> findByWarehouseId(int warehouseId) throws SQLException {
+        return transferDAO.findByWarehouseId(warehouseId);
+    }
+
     public TransferDAO.Transfer findById(int transferId) throws SQLException {
         return transferDAO.findById(transferId);
     }

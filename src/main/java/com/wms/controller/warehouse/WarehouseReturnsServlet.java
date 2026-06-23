@@ -4,8 +4,11 @@ import com.wms.controller.BaseController;
 import com.wms.model.Channel;
 import com.wms.model.ReturnItem;
 import com.wms.model.ReturnOrder;
+import com.wms.model.Warehouse;
 import com.wms.service.sales.ChannelService;
 import com.wms.service.warehouse.ReturnService;
+import com.wms.service.NotificationService;
+import com.wms.service.warehouse.WarehouseService;
 
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -23,6 +26,7 @@ public class WarehouseReturnsServlet extends BaseController {
     private static final String CONTEXT_PATH = "/warehouse/returns";
     private final ReturnService returnService = new ReturnService();
     private final ChannelService channelService = new ChannelService();
+    private final NotificationService notificationService = new NotificationService();
 
     @Override
     protected void doGet(HttpServletRequest req, HttpServletResponse resp)
@@ -30,9 +34,10 @@ public class WarehouseReturnsServlet extends BaseController {
 
         consumeFlash(req);
 
+        int warehouseId = currentWarehouseId(req);
         try {
             List<?> products = returnService.findApprovedProducts();
-            List<?> returns = returnService.findAll();
+            List<?> returns = returnService.findByWarehouse(warehouseId);
             List<?> channels = channelService.findAll();
             System.out.println("[WarehouseReturns] DEBUG: products=" + products.size() + ", returns=" + returns.size() + ", channels=" + channels.size());
             req.setAttribute("products", products);
@@ -94,8 +99,18 @@ public class WarehouseReturnsServlet extends BaseController {
                         break;
                     }
 
-                    boolean success = returnService.createReturn(soRef, customer, phone, items, warehouseId);
-                    if (success) {
+                    int returnId = returnService.createReturn(soRef, customer, phone, items, warehouseId);
+                    if (returnId > 0) {
+                        // Notify warehouse staff of new return order
+                        String whName;
+                        try {
+                            WarehouseService ws = new WarehouseService();
+                            Warehouse wh = ws.findById(warehouseId);
+                            whName = wh != null ? wh.getWarehouseName() : String.valueOf(warehouseId);
+                        } catch (Exception e) {
+                            whName = String.valueOf(warehouseId);
+                        }
+                        notificationService.notifyNewReturn(warehouseId, whName, returnId, soRef);
                         setFlashSuccess(req, "Tạo phiếu hàng hoàn cho đơn hàng " + soRef + " thành công!");
                     } else {
                         setFlashError(req, "Không thể tạo phiếu hàng hoàn. Vui lòng kiểm tra mã SO gốc.");
@@ -113,11 +128,25 @@ public class WarehouseReturnsServlet extends BaseController {
                     }
 
                     int returnId = Integer.parseInt(returnIdStr.trim());
+                    if (returnService.getWarehouseIdForReturn(returnId) != warehouseId) {
+                        setFlashError(req, "Bạn không có quyền cập nhật QC cho phiếu hàng hoàn thuộc kho khác.");
+                        break;
+                    }
                     List<ReturnItem> items = parseJson(itemsJson,
                         new com.fasterxml.jackson.core.type.TypeReference<List<ReturnItem>>() {});
                     boolean success = returnService.saveQC(returnId, items, userId);
                     if (success) {
-                        setFlashSuccess(req, "Cập nhật kết quả QC cho phiếu #" + returnId + " thành công.");
+                        // Notify managers: return QC pending approval
+                        String whName;
+                        try {
+                            WarehouseService ws = new WarehouseService();
+                            Warehouse wh = ws.findById(warehouseId);
+                            whName = wh != null ? wh.getWarehouseName() : String.valueOf(warehouseId);
+                        } catch (Exception e) {
+                            whName = String.valueOf(warehouseId);
+                        }
+                        notificationService.notifyReturnPending(warehouseId, whName, returnId, String.valueOf(returnId));
+                        setFlashSuccess(req, "Cập nhật kết quả QC cho phiếu #" + returnId + " thành công. Đã gửi duyệt.");
                     } else {
                         setFlashError(req, "Lưu kết quả QC thất bại.");
                     }
@@ -132,6 +161,10 @@ public class WarehouseReturnsServlet extends BaseController {
                     }
 
                     int returnId = Integer.parseInt(returnIdStr.trim());
+                    if (returnService.getWarehouseIdForReturn(returnId) != warehouseId) {
+                        setFlashError(req, "Bạn không có quyền áp dụng phiếu hàng hoàn thuộc kho khác.");
+                        break;
+                    }
 
                     // Validate: block apply if any items are still pending QC
                     if (!returnService.isQCComplete(returnId)) {
@@ -141,6 +174,20 @@ public class WarehouseReturnsServlet extends BaseController {
 
                     boolean success = returnService.applyRestock(returnId, userId);
                     if (success) {
+                        // Notify managers: return restock applied
+                        String whName;
+                        try {
+                            WarehouseService ws = new WarehouseService();
+                            Warehouse wh = ws.findById(warehouseId);
+                            whName = wh != null ? wh.getWarehouseName() : String.valueOf(warehouseId);
+                        } catch (Exception e) {
+                            whName = String.valueOf(warehouseId);
+                        }
+                        notificationService.notifyManagers(
+                                "Phiếu hoàn hàng đã xử lý",
+                                "Kho " + whName + " đã áp dụng kết quả QC cho phiếu #" + returnId + ". Tồn kho đã cập nhật.",
+                                "RMA", (long) returnId,
+                                com.wms.model.Notification.PRIORITY_NORMAL);
                         setFlashSuccess(req, "Áp dụng kết quả hàng hoàn, cập nhật tồn kho thành công!");
                     } else {
                         setFlashError(req, "Áp dụng kết quả hàng hoàn thất bại.");

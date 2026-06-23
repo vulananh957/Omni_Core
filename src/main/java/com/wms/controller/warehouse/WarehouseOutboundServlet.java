@@ -6,12 +6,14 @@ import com.wms.model.FulfillmentRequest;
 import com.wms.model.OutboundOrder;
 import com.wms.model.User;
 import com.wms.model.Warehouse;
+import com.wms.model.RtvOrder;
 import com.wms.service.product.ProductService;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.wms.service.warehouse.InboundService;
 import com.wms.service.warehouse.OutboundService;
 import com.wms.service.warehouse.RtvService;
 import com.wms.service.warehouse.WarehouseService;
+import com.wms.service.NotificationService;
 import com.wms.util.AppConstants;
 import com.wms.util.JsonUtil;
 
@@ -38,6 +40,7 @@ public class WarehouseOutboundServlet extends BaseController {
     private final ProductService productService = new ProductService();
     private final InboundService inboundService = new InboundService();
     private final RtvService rtvService = new RtvService();
+    private final NotificationService notificationService = new NotificationService();
 
     @Override
     protected void doGet(HttpServletRequest req, HttpServletResponse resp)
@@ -198,6 +201,13 @@ public class WarehouseOutboundServlet extends BaseController {
 
         try {
             int outboundId = Integer.parseInt(outboundIdStr.trim());
+            OutboundOrder oo = outboundService.findById(outboundId);
+            int myWarehouseId = currentWarehouseId(req);
+            if (oo == null || oo.getWarehouseId() != myWarehouseId) {
+                setFlashError(req, "Bạn không có quyền cập nhật trạng thái phiếu xuất thuộc kho khác.");
+                redirect(resp, req.getContextPath() + CONTEXT_PATH);
+                return;
+            }
             OutboundService.StatusUpdateResult result = outboundService.updateStatus(outboundId, newStatus, currentUserId(req));
             if (result.isSuccess()) {
                 setFlashSuccess(req, result.getMessage());
@@ -222,6 +232,13 @@ public class WarehouseOutboundServlet extends BaseController {
 
         try {
             int outboundId = Integer.parseInt(outboundIdStr.trim());
+            OutboundOrder oo = outboundService.findById(outboundId);
+            int myWarehouseId = currentWarehouseId(req);
+            if (oo == null || oo.getWarehouseId() != myWarehouseId) {
+                setFlashError(req, "Bạn không có quyền hủy phiếu xuất thuộc kho khác.");
+                redirect(resp, req.getContextPath() + CONTEXT_PATH);
+                return;
+            }
             OutboundService.CancelResult result = outboundService.cancel(outboundId);
             if (result.isSuccess()) {
                 setFlashSuccess(req, result.getMessage());
@@ -240,6 +257,12 @@ public class WarehouseOutboundServlet extends BaseController {
         resp.setContentType("application/json;charset=UTF-8");
         try {
             int outboundId = Integer.parseInt(req.getParameter("outboundId").trim());
+            OutboundOrder oo = outboundService.findById(outboundId);
+            int myWarehouseId = currentWarehouseId(req);
+            if (oo == null || oo.getWarehouseId() != myWarehouseId) {
+                resp.getWriter().write("{\"success\":false,\"message\":\"Bạn không có quyền pick hàng cho phiếu xuất thuộc kho khác.\"}");
+                return;
+            }
             int productId = Integer.parseInt(req.getParameter("productId").trim());
             boolean picked = "true".equalsIgnoreCase(req.getParameter("picked"));
             boolean ok = outboundService.updateItemPicked(outboundId, productId, picked);
@@ -280,18 +303,16 @@ public class WarehouseOutboundServlet extends BaseController {
         return null;
     }
 
-    private int currentWarehouseId(HttpServletRequest req) {
-        Object u = req.getSession().getAttribute(AppConstants.SESSION_USER);
-        if (u instanceof User && ((User) u).getWarehouseId() > 0) {
-            return ((User) u).getWarehouseId();
-        }
-        return 1;
-    }
-
     private void handleCreateRtv(HttpServletRequest req, HttpServletResponse resp) throws IOException {
         resp.setContentType("application/json;charset=UTF-8");
         try {
             int inboundId = Integer.parseInt(req.getParameter("inboundId"));
+            com.wms.model.InboundOrder io = inboundService.findById(inboundId);
+            int myWarehouseId = currentWarehouseId(req);
+            if (io == null || io.getWarehouseId() != myWarehouseId) {
+                resp.getWriter().write("{\"success\":false,\"message\":\"Bạn không có quyền tạo phiếu trả hàng NCC từ phiếu nhập thuộc kho khác.\"}");
+                return;
+            }
             String reason = req.getParameter("reason");
             String note = req.getParameter("note");
             String poCode = req.getParameter("poCode");
@@ -307,6 +328,16 @@ public class WarehouseOutboundServlet extends BaseController {
             Integer currentUserId = currentUserId(req);
             int uid = currentUserId != null ? currentUserId : 1;
             RtvService.RtvResult result = rtvService.createRtv(inboundId, itemRequests, reason, note, uid, poCode, supplierCode, contactPerson, proposal);
+            if (result.isSuccess() && result.getRtvId() > 0) {
+                // Notify managers: new RTV needs approval
+                String whName = io.getWarehouseName();
+                notificationService.notifyManagers(
+                        "Phiếu trả hàng NCC (RTV) mới",
+                        "Kho " + (whName != null ? whName : io.getWarehouseId()) +
+                        " tạo phiếu RTV #" + result.getRtvId() + " cần phê duyệt.",
+                        "RTV", (long) result.getRtvId(),
+                        com.wms.model.Notification.PRIORITY_HIGH);
+            }
             resp.getWriter().write("{\"success\":" + result.isSuccess()
                     + ",\"message\":\"" + rtvEscapeJson(result.getMessage()) + "\"}");
         } catch (Exception e) {
@@ -318,6 +349,12 @@ public class WarehouseOutboundServlet extends BaseController {
         resp.setContentType("application/json;charset=UTF-8");
         try {
             int rtvId = Integer.parseInt(req.getParameter("rtvId"));
+            RtvOrder rtv = rtvService.findById(rtvId);
+            int myWarehouseId = currentWarehouseId(req);
+            if (rtv == null || rtv.getWarehouseId() != myWarehouseId) {
+                resp.getWriter().write("{\"success\":false,\"message\":\"Bạn không có quyền duyệt phiếu trả hàng NCC thuộc kho khác.\"}");
+                return;
+            }
             Integer currentUserId = currentUserId(req);
             int uid = currentUserId != null ? currentUserId : 1;
 
@@ -345,6 +382,12 @@ public class WarehouseOutboundServlet extends BaseController {
         resp.setContentType("application/json;charset=UTF-8");
         try {
             int rtvId = Integer.parseInt(req.getParameter("rtvId"));
+            RtvOrder rtv = rtvService.findById(rtvId);
+            int myWarehouseId = currentWarehouseId(req);
+            if (rtv == null || rtv.getWarehouseId() != myWarehouseId) {
+                resp.getWriter().write("{\"success\":false,\"message\":\"Bạn không có quyền hoàn thành phiếu trả hàng NCC thuộc kho khác.\"}");
+                return;
+            }
             Integer currentUserId = currentUserId(req);
             int uid = currentUserId != null ? currentUserId : 1;
             RtvService.RtvResult result = rtvService.completeRtv(rtvId, uid);
@@ -359,6 +402,12 @@ public class WarehouseOutboundServlet extends BaseController {
         resp.setContentType("application/json;charset=UTF-8");
         try {
             int rtvId = Integer.parseInt(req.getParameter("rtvId"));
+            RtvOrder rtv = rtvService.findById(rtvId);
+            int myWarehouseId = currentWarehouseId(req);
+            if (rtv == null || rtv.getWarehouseId() != myWarehouseId) {
+                resp.getWriter().write("{\"success\":false,\"message\":\"Bạn không có quyền hủy phiếu trả hàng NCC thuộc kho khác.\"}");
+                return;
+            }
             Integer currentUserId = currentUserId(req);
             int uid = currentUserId != null ? currentUserId : 1;
 

@@ -2,13 +2,20 @@
 <%@ taglib prefix="c" uri="jakarta.tags.core" %>
 
 <link rel="stylesheet" href="${pageContext.request.contextPath}/assets/css/inbound--warehouse-inbound.css?v=2"/>
+<script id="serverRtvData" type="application/json">${rtvListJson}</script>
 <style>
     .draft-row {
         grid-template-columns: 1.2fr 1.6fr 110px 110px 40px !important;
     }
 </style>
 
-<!-- ══ RECEIPTS TAB ══════════════════════════════════ -->
+<!-- ══ MAIN TAB NAVIGATION ══════════════════════════════════ -->
+<div class="tabs-wrap">
+    <button class="tab-btn active" id="tab-btn-receipts" onclick="switchMainTab('receipts')">Phiếu nhập kho</button>
+    <button class="tab-btn" id="tab-btn-rtv" onclick="switchMainTab('rtv')">Trả NCC (RTV)</button>
+</div>
+
+<!-- ══ VIEW 1: RECEIPTS TAB ══════════════════════════════════ -->
 <div id="view-receipts">
     <!-- Summary Cards -->
     <div class="inbound-stats-grid-4">
@@ -77,6 +84,101 @@
     <div class="grn-list" id="grnListContainer"></div>
 </div>
 
+<!-- ══ VIEW 2: RTV TAB ═════════════════════════════════════════ -->
+<div id="view-rtv" style="display:none;">
+    <!-- Toolbar -->
+    <div class="toolbar" style="margin-bottom:12px;">
+        <div class="search-wrap">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"></svg>
+            <input type="text" placeholder="Tìm mã RTV hoặc nhà cung cấp..." id="rtvSearchInput" oninput="renderRtvList()"/>
+        </div>
+        <button class="btn-create" onclick="openCreateRtvModal()">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+            Tạo RTV
+        </button>
+    </div>
+
+    <!-- RTV Status Filters -->
+    <div class="status-tabs" id="rtvStatusTabs"></div>
+
+    <!-- RTV List -->
+    <div class="grn-list" id="rtvListContainer"></div>
+</div>
+
+<!-- ══ MODAL: CREATE RTV ══════════════════════════════════════ -->
+<div class="modal-overlay" id="createRtvModalOverlay">
+    <div class="modal-box" style="max-width:700px;">
+        <div class="modal-hdr">
+            <div>
+                <h2 class="modal-title">Tạo Phiếu Trả Nhà Cung Cấp</h2>
+                <p class="modal-subtitle" id="createRtvModalSubtitle">Chọn GRN → Xác nhận số lượng trả lại</p>
+            </div>
+            <button class="modal-close" onclick="closeCreateRtvModal()">&times;</button>
+        </div>
+        <div class="modal-body">
+            <div class="form-group">
+                <label class="form-label">GRN gốc (chọn một)</label>
+                <select class="form-input" style="background:#fff;" id="rtvInboundSelect" onchange="onRtvInboundChange()">
+                    <option value="">— Chọn GRN —</option>
+                </select>
+            </div>
+            <div id="rtvInboundDetail" style="display:none; margin-bottom:12px; padding:12px; background:#f8fafc; border-radius:8px; border:1px solid #e2e8f0;">
+                <div style="font-size:12px; color:rgba(16,55,92,0.6); margin-bottom:6px;">Thông tin GRN:</div>
+                <div style="display:flex;gap:16px;font-size:13px;">
+                    <div><strong>NCC:</strong> <span id="rtvDetailSupplier">—</span></div>
+                    <div><strong>Đã nhận:</strong> <span id="rtvDetailReceived">—</span></div>
+                    <div><strong>Đã chấp nhận:</strong> <span id="rtvDetailAccepted">—</span></div>
+                    <div><strong>Đã từ chối:</strong> <span id="rtvDetailRejected" style="color:#dc2626;font-weight:700;">—</span></div>
+                </div>
+            </div>
+            <div id="rtvItemsContainer" style="display:flex; flex-direction:column; gap:10px; margin-bottom:12px;">
+                <!-- Dynamic: shows items with rejected_qty > 0 -->
+            </div>
+            <div style="display:grid; grid-template-columns: 1.5fr 1fr; gap:12px; margin-bottom:12px;">
+                <div class="form-group">
+                    <label class="form-label">Tên nhà cung cấp *</label>
+                    <input class="form-input" style="background:#e2e8f0; color:#475569;" type="text" id="rtvSupplierInput" readonly placeholder="Chọn GRN để tự động điền..."/>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Phương án đề xuất *</label>
+                    <select class="form-input" style="background:#fff; cursor:pointer;" id="rtvProposalSelect">
+                        <option value="Đổi hàng mới">Đổi hàng mới</option>
+                        <option value="Giảm trừ công nợ">Giảm trừ công nợ</option>
+                        <option value="Hoàn tiền">Hoàn tiền</option>
+                    </select>
+                </div>
+            </div>
+            <div class="form-group">
+                <label class="form-label">Lý do trả hàng *</label>
+                <input class="form-input" style="background:#fff;" type="text" id="rtvReasonInput" placeholder="VD: Hàng gãy gọng, lỗi sản xuất..."/>
+            </div>
+            <div class="form-group">
+                <label class="form-label">Ghi chú</label>
+                <textarea class="form-input" style="background:#fff;resize:vertical;min-height:60px;" id="rtvNoteInput" placeholder="VD: Gửi qua GHTK mã vận đơn..."></textarea>
+            </div>
+        </div>
+        <div class="modal-ftr">
+            <button class="modal-btn-cancel" onclick="closeCreateRtvModal()">Hủy</button>
+            <button class="modal-btn-submit modal-btn-emerald" onclick="submitCreateRtv()">Tạo phiếu RTV</button>
+        </div>
+    </div>
+</div>
+
+<!-- ══ MODAL: RTV DETAIL ══════════════════════════════════════ -->
+<div class="modal-overlay" id="rtvDetailModalOverlay">
+    <div class="modal-box" style="max-width:640px;">
+        <div class="modal-hdr">
+            <div>
+                <h2 class="modal-title">Chi tiết Phiếu Trả NCC (RTV)</h2>
+                <p class="modal-subtitle" id="rtvDetailModalSubtitle">RTV-XXXX</p>
+            </div>
+            <button class="modal-close" onclick="closeRtvDetailModal()">&times;</button>
+        </div>
+        <div class="modal-body" id="rtvDetailModalBody">
+            <!-- Dynamic content -->
+        </div>
+    </div>
+</div>
 
 <!-- ══ MODAL: CREATE / DUPLICATE DRAFT GRN ════════════════════ -->
 <div class="modal-overlay" id="draftModalOverlay">
@@ -233,7 +335,7 @@
                 <div><strong>Nhà cung cấp:</strong> <span id="detail-supplier">NCC</span></div>
                 <div><strong>Trạng thái:</strong> <span id="detail-status-badge">Badge</span></div>
                 <div><strong>Ngày tạo:</strong> <span id="detail-created-at">Date</span></div>
-                <div><strong id="detail-date-label">Ngày dự kiến nhận:</strong> <span id="detail-expected-date">Date</span></div>
+                <div><strong>Ngày nhận hàng:</strong> <span id="detail-expected-date">Date</span></div>
             </div>
             <div class="draft-items-box">
                 <div class="draft-items-hdr" style="background:var(--alice);">
@@ -269,7 +371,7 @@
 <script id="db-page-flags-data" type="application/json">{"hasInboundList": ${not empty inboundList ? 'true' : 'false'}}</script>
 <script id="db-user-data" type="application/json">{"fullName":"<c:out value='${loggedInUser.fullName}'/>","role":"<c:out value='${loggedInUser.role}'/>"}</script>
 <script id="db-inbound-list-data" type="application/json">[
-<c:forEach items="${inboundList}" var="io" varStatus="s">{"inboundId":${io.inboundId},"inboundCode":"<c:out value='${io.inboundCode}'/>","supplierName":"<c:out value='${io.supplierName}'/>","warehouseName":"<c:out value='${io.warehouseName}'/>","status":"<c:out value='${io.status}'/>","createdAt":"<c:out value='${io.createdAt}'/>","expectedDate":"<c:out value='${io.expectedDate}'/>","receivedDate":"<c:out value='${io.receivedDate}'/>","items":${io.itemsJson}}${!s.last ? ',' : ''}
+<c:forEach items="${inboundList}" var="io" varStatus="s">{"inboundId":${io.inboundId},"inboundCode":"<c:out value='${io.inboundCode}'/>","supplierName":"<c:out value='${io.supplierName}'/>","warehouseName":"<c:out value='${io.warehouseName}'/>","status":"<c:out value='${io.status}'/>","createdAt":"<c:out value='${io.createdAt}'/>","items":${io.itemsJson}}${!s.last ? ',' : ''}
 </c:forEach>]
 </script>
 
@@ -286,6 +388,18 @@ function safeJsonParse(rawValue, fallbackValue) {
     } catch (error) {
         return fallbackValue;
     }
+}
+
+function escapeHtml(string) {
+    if (!string) return '';
+    var map = {
+        '&': '&amp;',
+        '<': '&lt;',
+        '>': '&gt;',
+        '"': '&quot;',
+        "'": '&#039;'
+    };
+    return string.toString().replace(/[&<>"']/g, function(m) { return map[m]; });
 }
 
 var WMS_USER_DATA = safeJsonParse(document.getElementById('db-user-data') && document.getElementById('db-user-data').textContent, {});
@@ -339,8 +453,6 @@ if (serverInboundList && serverInboundList.length > 0) {
             warehouseName: o.warehouseName,
             status: mappedStatus,
             createdAt: o.createdAt,
-            expectedDate: o.expectedDate || '',
-            receivedDate: o.receivedDate || '',
             items: (o.items || []).map(function(item) {
                 return {
                     productId: item.productId || 0,
@@ -403,7 +515,338 @@ var draftForm = {
     items: []
 };
 
+// RTV State
+var rtvList = []; // loaded from server
+var rtvActiveTab = 'all'; // 'all', 'PENDING', 'APPROVED', 'COMPLETED', 'CANCELLED'
+var rtvCreateItems = []; // items selected for RTV creation
 
+// ─── TABS SWITCHING ───
+window.switchMainTab = function(tabId) {
+    var receiptsTab = document.getElementById('tab-btn-receipts');
+    var rtvTab = document.getElementById('tab-btn-rtv');
+    var receiptsView = document.getElementById('view-receipts');
+    var rtvView = document.getElementById('view-rtv');
+
+    if (tabId === 'rtv') {
+        receiptsTab.classList.remove('active');
+        rtvTab.classList.add('active');
+        receiptsView.style.display = 'none';
+        rtvView.style.display = 'block';
+        renderRtvList();
+    } else {
+        receiptsTab.classList.add('active');
+        rtvTab.classList.remove('active');
+        receiptsView.style.display = 'block';
+        rtvView.style.display = 'none';
+    renderReceipts();
+    }
+};
+
+// ═══════════════════════════════════════════════════════════════════
+// RTV FUNCTIONS
+// ═══════════════════════════════════════════════════════════════════
+
+function renderRtvList() {
+    var container = document.getElementById('rtvListContainer');
+    var search = (document.getElementById('rtvSearchInput') || {}).value || '';
+    var searchLower = search.toLowerCase();
+    var filtered = rtvList.filter(function(r) {
+        var matchSearch = !search ||
+            (r.code || '').toLowerCase().indexOf(searchLower) !== -1 ||
+            (r.supplier || '').toLowerCase().indexOf(searchLower) !== -1 ||
+            (r.inboundCode || '').toLowerCase().indexOf(searchLower) !== -1;
+        var matchTab = rtvActiveTab === 'all' || r.status === rtvActiveTab;
+        return matchSearch && matchTab;
+    });
+
+    var counts = { all: rtvList.length, PENDING: 0, APPROVED: 0, COMPLETED: 0, CANCELLED: 0 };
+    rtvList.forEach(function(r) { if (counts[r.status] !== undefined) counts[r.status]++; });
+
+    var tabsHtml = [
+        { id: 'all', label: 'Tất cả', count: counts.all },
+        { id: 'PENDING', label: 'Chờ duyệt', count: counts.PENDING },
+        { id: 'APPROVED', label: 'Đã duyệt', count: counts.APPROVED },
+        { id: 'COMPLETED', label: 'Hoàn thành', count: counts.COMPLETED },
+        { id: 'CANCELLED', label: 'Đã hủy', count: counts.CANCELLED }
+    ].map(function(t) {
+        var active = t.id === rtvActiveTab ? 'active' : '';
+        return '<button class="status-tab-btn ' + active + '" onclick="selectRtvTab(\'' + t.id + '\')">' +
+               t.label + ' <span class="status-tab-badge">' + t.count + '</span></button>';
+    }).join('');
+    var tabsEl = document.getElementById('rtvStatusTabs');
+    if (tabsEl) tabsEl.innerHTML = tabsHtml;
+
+    if (filtered.length === 0) {
+        container.innerHTML = '<div style="text-align:center;padding:48px;color:rgba(16,55,92,0.4);font-size:14px;">Không có phiếu RTV nào.</div>';
+        return;
+    }
+
+    var html = filtered.map(function(r) {
+        var st = statusConfigRtv(r.status);
+        var totalReturn = (r.items || []).reduce(function(s, i) { return s + (i.qtyReturn || 0); }, 0);
+        var actions = '';
+        if (r.status === 'PENDING') {
+            actions = '<button class="btn-action-grn" onclick="window.approveRtv(' + r.id + ', event)">Duyệt</button>' +
+                      '<button class="btn-action-grn btn-action-red" onclick="window.cancelRtv(' + r.id + ', event)">Hủy</button>';
+        } else if (r.status === 'APPROVED') {
+            actions = '<button class="btn-action-grn btn-action-emerald" onclick="window.completeRtv(' + r.id + ', event)">Hoàn thành trả hàng</button>';
+        }
+        return '<div class="grn-card" style="cursor:pointer;" onclick="window.viewRtvDetail(' + r.id + ', event)">' +
+            '<div class="grn-card__main">' +
+                '<div class="grn-card__left">' +
+                    '<div class="grn-code" style="color:#dc2626;">' + escapeHtml(r.code || r.id) + '</div>' +
+                    '<div class="grn-meta">Từ GRN: ' + escapeHtml(r.inboundCode || '') + ' · NCC: ' + escapeHtml(r.supplier || '') + '</div>' +
+                    '<div class="grn-meta">Kho: ' + escapeHtml(r.warehouseName || '') + '</div>' +
+                '</div>' +
+                '<div class="grn-card__right">' +
+                    '<span class="pill-badge" style="background:' + st.bg + ';color:' + st.color + ';">' + st.label + '</span>' +
+                    '<div style="font-size:12px;color:#dc2626;font-weight:700;margin-top:4px;">Trả lại: ' + totalReturn + ' cái</div>' +
+                    '<div class="grn-meta" style="margin-top:4px;">' + (r.createdAt || '') + '</div>' +
+                '</div>' +
+            '</div>' +
+            '<div class="grn-card__actions" onclick="event.stopPropagation()">' + actions + '</div>' +
+        '</div>';
+    }).join('');
+    container.innerHTML = html;
+}
+
+function statusConfigRtv(status) {
+    var m = {
+        'PENDING':   { label: 'Chờ duyệt',   bg: '#eff6ff', color: '#1d4ed8' },
+        'APPROVED':  { label: 'Đã duyệt',    bg: '#fef3c7', color: '#92400e' },
+        'COMPLETED': { label: 'Hoàn thành',   bg: '#ecfdf5', color: '#047857' },
+        'CANCELLED': { label: 'Đã hủy',       bg: '#fee2e2', color: '#991b1b' }
+    };
+    return m[status] || { label: status, bg: '#f3f4f6', color: '#374151' };
+}
+
+window.selectRtvTab = function(tabId) {
+    rtvActiveTab = tabId;
+    renderRtvList();
+};
+
+window.viewRtvDetail = function(rtvId, event) {
+    if (event) event.stopPropagation();
+    var rtv = rtvList.find(function(r) { return r.id == rtvId; });
+    if (!rtv) return;
+    document.getElementById('rtvDetailModalSubtitle').textContent = rtv.code || rtv.id;
+    var st = statusConfigRtv(rtv.status);
+    var totalReturn = (rtv.items || []).reduce(function(s, i) { return s + (i.qtyReturn || 0); }, 0);
+    var itemsHtml = (rtv.items || []).map(function(it) {
+        return '<tr>' +
+            '<td style="border:1px solid rgba(16,55,92,0.12);padding:8px 12px;">' + escapeHtml(it.sku || '') + '</td>' +
+            '<td style="border:1px solid rgba(16,55,92,0.12);padding:8px 12px;font-weight:600;">' + escapeHtml(it.name || '') + '</td>' +
+            '<td style="border:1px solid rgba(16,55,92,0.12);padding:8px 12px;text-align:center;font-weight:700;color:#dc2626;">' + it.qtyReturn + '</td>' +
+        '</tr>';
+    }).join('');
+    var body = document.getElementById('rtvDetailModalBody');
+    body.innerHTML = '<div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px;">' +
+        '<div><label style="font-size:11px;font-weight:700;color:rgba(16,55,92,0.5);text-transform:uppercase;margin-bottom:4px;display:block;">Trạng thái</label>' +
+        '<span style="display:inline-block;padding:4px 10px;font-size:12px;font-weight:700;border-radius:20px;background:' + st.bg + ';color:' + st.color + ';">' + st.label + '</span></div>' +
+        '<div><label style="font-size:11px;font-weight:700;color:rgba(16,55,92,0.5);text-transform:uppercase;margin-bottom:4px;display:block;">Tổng trả lại</label>' +
+        '<span style="font-size:20px;font-weight:800;color:#dc2626;">' + totalReturn + '</span> cái</div>' +
+        '<div><label style="font-size:11px;font-weight:700;color:rgba(16,55,92,0.5);text-transform:uppercase;margin-bottom:4px;display:block;">GRN gốc</label><span style="font-weight:600;">' + escapeHtml(rtv.inboundCode || '') + '</span></div>' +
+        '<div><label style="font-size:11px;font-weight:700;color:rgba(16,55,92,0.5);text-transform:uppercase;margin-bottom:4px;display:block;">Nhà cung cấp</label><span style="font-weight:600;">' + escapeHtml(rtv.supplier || '') + '</span></div>' +
+        '<div><label style="font-size:11px;font-weight:700;color:rgba(16,55,92,0.5);text-transform:uppercase;margin-bottom:4px;display:block;">Lý do</label><span>' + escapeHtml(rtv.reason || '—') + '</span></div>' +
+        '<div><label style="font-size:11px;font-weight:700;color:rgba(16,55,92,0.5);text-transform:uppercase;margin-bottom:4px;display:block;">Ghi chú</label><span>' + escapeHtml(rtv.note || '—') + '</span></div>' +
+    '</div>' +
+    '<table style="width:100%;border-collapse:collapse;">' +
+        '<thead><tr style="background:#f8fafc;">' +
+            '<th style="border:1px solid rgba(16,55,92,0.12);padding:8px 12px;font-size:11px;font-weight:700;color:rgba(16,55,92,0.5);text-transform:uppercase;">Mã SKU</th>' +
+            '<th style="border:1px solid rgba(16,55,92,0.12);padding:8px 12px;font-size:11px;font-weight:700;color:rgba(16,55,92,0.5);text-transform:uppercase;">Sản phẩm</th>' +
+            '<th style="border:1px solid rgba(16,55,92,0.12);padding:8px 12px;font-size:11px;font-weight:700;color:rgba(16,55,92,0.5);text-transform:uppercase;">SL Trả</th>' +
+        '</tr></thead>' +
+        '<tbody>' + itemsHtml + '</tbody>' +
+    '</table>';
+    document.getElementById('rtvDetailModalOverlay').classList.add('active');
+};
+
+window.closeRtvDetailModal = function() {
+    document.getElementById('rtvDetailModalOverlay').classList.remove('active');
+};
+
+window.openCreateRtvModal = function() {
+    rtvCreateItems = [];
+    var sel = document.getElementById('rtvInboundSelect');
+    sel.innerHTML = '<option value="">— Chọn GRN —</option>';
+    var grnsWithRejected = grns.filter(function(g) {
+        return g.status === 'completed' && g.items && g.items.some(function(i) { return (i.rejectedQty || 0) > 0; });
+    });
+    grnsWithRejected.forEach(function(g) {
+        var totalRejected = g.items.reduce(function(s, i) { return s + (i.rejectedQty || 0); }, 0);
+        var opt = document.createElement('option');
+        opt.value = g.id;
+        opt.textContent = (g.inboundCode || g.id) + ' — ' + (g.supplier || '') + ' (Từ chối: ' + totalRejected + ' cái)';
+        sel.appendChild(opt);
+    });
+    document.getElementById('rtvInboundDetail').style.display = 'none';
+    document.getElementById('rtvItemsContainer').innerHTML = '';
+    document.getElementById('rtvReasonInput').value = 'Hàng lỗi / không đạt chất lượng';
+    document.getElementById('rtvNoteInput').value = '';
+    var supInp = document.getElementById('rtvSupplierInput');
+    if (supInp) supInp.value = '';
+    document.getElementById('createRtvModalOverlay').classList.add('active');
+};
+
+window.onRtvInboundChange = function() {
+    var grnId = document.getElementById('rtvInboundSelect').value;
+    var grn = grns.find(function(g) { return g.id == grnId; });
+    if (!grn) {
+        document.getElementById('rtvInboundDetail').style.display = 'none';
+        document.getElementById('rtvItemsContainer').innerHTML = '';
+        return;
+    }
+    document.getElementById('rtvInboundDetail').style.display = 'block';
+    document.getElementById('rtvDetailSupplier').textContent = grn.supplier || '—';
+    var supInp = document.getElementById('rtvSupplierInput');
+    if (supInp) supInp.value = grn.supplier || '';
+    document.getElementById('rtvDetailReceived').textContent = grn.items.reduce(function(s, i) { return s + (i.receivedQty || 0); }, 0);
+    document.getElementById('rtvDetailAccepted').textContent = grn.items.reduce(function(s, i) { return s + (i.acceptedQty || 0); }, 0);
+    document.getElementById('rtvDetailRejected').textContent = grn.items.reduce(function(s, i) { return s + (i.rejectedQty || 0); }, 0);
+
+    rtvCreateItems = [];
+    var container = document.getElementById('rtvItemsContainer');
+    var itemsWithRejected = grn.items.filter(function(i) { return (i.rejectedQty || 0) > 0; });
+    if (itemsWithRejected.length === 0) {
+        container.innerHTML = '<div style="color:#dc2626;font-size:13px;padding:8px;text-align:center;">GRN này không có hàng từ chối.</div>';
+        return;
+    }
+    container.innerHTML = itemsWithRejected.map(function(item) {
+        var safeId = (item.skuCode || item.id || '').replace(/[^a-zA-Z0-9]/g, '_');
+        rtvCreateItems.push({
+            productId: item.productId || 0,
+            skuCode: item.skuCode || '',
+            skuName: item.skuName || item.name || '',
+            qtyReturn: item.rejectedQty || 0,
+            unitCost: item.price || 0
+        });
+        return '<div style="display:flex;align-items:center;gap:12px;padding:10px 12px;background:#fef2f2;border:1px solid #fca5a5;border-radius:8px;">' +
+            '<div style="flex:1;">' +
+                '<div style="font-weight:700;font-size:13px;color:var(--navy);">' + escapeHtml(item.skuName || item.name || '') + '</div>' +
+                '<div style="font-size:11px;color:rgba(16,55,92,0.5);font-family:monospace;">' + escapeHtml(item.skuCode || '') + '</div>' +
+            '</div>' +
+            '<div style="display:flex;align-items:center;gap:8px;">' +
+                '<label style="font-size:11px;font-weight:700;color:#dc2626;">SL TRẢ LẠI:</label>' +
+                '<input type="number" min="0" max="' + (item.rejectedQty || 0) + '" value="' + (item.rejectedQty || 0) + '" ' +
+                    'id="rtv-qty-' + safeId + '" ' +
+                    'style="width:80px;padding:6px 8px;border:1px solid #fca5a5;border-radius:6px;text-align:center;font-weight:700;"/>' +
+            '</div>' +
+        '</div>';
+    }).join('');
+};
+
+window.submitCreateRtv = function() {
+    var grnId = document.getElementById('rtvInboundSelect').value;
+    if (!grnId) { alert('Vui lòng chọn GRN gốc.'); return; }
+    
+    var grn = grns.find(function(g) { return g.id == grnId; });
+    var grnCode = grn ? grn.inboundCode : '';
+
+    var supplierName = document.getElementById('rtvSupplierInput').value.trim();
+    if (!supplierName) { alert('Vui lòng chọn phiếu nhập để tự động điền tên nhà cung cấp.'); return; }
+
+    var proposal = document.getElementById('rtvProposalSelect').value;
+    if (!proposal) { alert('Vui lòng chọn phương án đề xuất.'); return; }
+
+    var reason = document.getElementById('rtvReasonInput').value.trim();
+    if (!reason) { alert('Vui lòng nhập lý do trả hàng.'); return; }
+
+    var note = document.getElementById('rtvNoteInput').value;
+
+    rtvCreateItems.forEach(function(item) {
+        var safeId = (item.skuCode || '').replace(/[^a-zA-Z0-9]/g, '_');
+        var input = document.getElementById('rtv-qty-' + safeId);
+        if (input) item.qtyReturn = parseInt(input.value) || 0;
+    });
+
+    var validItems = rtvCreateItems.filter(function(i) { return i.qtyReturn > 0; });
+    if (validItems.length === 0) { alert('Vui lòng nhập số lượng trả lại lớn hơn 0.'); return; }
+
+    var payload = validItems.map(function(i) {
+        return { productId: i.productId, qtyReturn: i.qtyReturn, unitCost: i.unitCost };
+    });
+
+    var formData = new FormData();
+    formData.append('action', 'createRtv');
+    formData.append('inboundId', grnId);
+    formData.append('reason', reason);
+    formData.append('note', note);
+    formData.append('poCode', grnCode);
+    formData.append('supplierCode', '');
+    formData.append('contactPerson', '');
+    formData.append('proposal', proposal);
+    formData.append('itemsJson', JSON.stringify(payload));
+
+    fetch('${pageContext.request.contextPath}/warehouse/outbound', { method: 'POST', body: formData })
+        .then(function(res) { return res.json(); })
+        .then(function(data) {
+            if (data.success) {
+                alert(data.message);
+                closeCreateRtvModal();
+                window.location.reload();
+            } else {
+                alert('Lỗi: ' + data.message);
+            }
+        })
+        .catch(function(e) { alert('Lỗi kết nối: ' + e); });
+};
+
+window.closeCreateRtvModal = function() {
+    document.getElementById('createRtvModalOverlay').classList.remove('active');
+};
+
+window.approveRtv = function(rtvId, event) {
+    if (event) event.stopPropagation();
+    if (!confirm('Xác nhận duyệt phiếu RTV này?')) return;
+    var formData = new FormData();
+    formData.append('action', 'approveRtv');
+    formData.append('rtvId', rtvId);
+    fetch('${pageContext.request.contextPath}/warehouse/outbound', { method: 'POST', body: formData })
+        .then(function(res) { return res.json(); })
+        .then(function(data) {
+            alert(data.message);
+            window.location.reload();
+        })
+        .catch(function(e) { alert('Lỗi: ' + e); });
+};
+
+window.completeRtv = function(rtvId, event) {
+    if (event) event.stopPropagation();
+    if (!confirm('Xác nhận đã giao hàng trả lại NCC? Tồn kho lỗi sẽ về 0.')) return;
+    var formData = new FormData();
+    formData.append('action', 'completeRtv');
+    formData.append('rtvId', rtvId);
+    fetch('${pageContext.request.contextPath}/warehouse/outbound', { method: 'POST', body: formData })
+        .then(function(res) { return res.json(); })
+        .then(function(data) {
+            alert(data.message);
+            window.location.reload();
+        })
+        .catch(function(e) { alert('Lỗi: ' + e); });
+};
+
+window.cancelRtv = function(rtvId, event) {
+    if (event) event.stopPropagation();
+    if (!confirm('Hủy phiếu RTV này?')) return;
+    var formData = new FormData();
+    formData.append('action', 'cancelRtv');
+    formData.append('rtvId', rtvId);
+    fetch('${pageContext.request.contextPath}/warehouse/outbound', { method: 'POST', body: formData })
+        .then(function(res) { return res.json(); })
+        .then(function(data) {
+            alert(data.message);
+            window.location.reload();
+        })
+        .catch(function(e) { alert('Lỗi: ' + e); });
+};
+
+// Load RTV from server-side attribute
+(function() {
+    var el = document.getElementById('serverRtvData');
+    if (el) {
+        try { rtvList = JSON.parse(el.textContent || '[]'); } catch(e) { rtvList = []; }
+    }
+})();
 
 // ─── VIEW 1: RECEIPTS LOGIC ───
 // Search handler
@@ -1233,15 +1676,7 @@ window.openDetailModal = function(grnId, event) {
     document.getElementById('detailModalSubtitle').textContent = grn.inboundCode || grn.id;
     document.getElementById('detail-supplier').textContent = grn.supplier;
     document.getElementById('detail-created-at').textContent = grn.createdAt;
-    
-    var dateLabel = document.getElementById('detail-date-label');
-    if (grn.status === 'completed') {
-        if (dateLabel) dateLabel.textContent = 'Ngày nhận hàng:';
-        document.getElementById('detail-expected-date').textContent = grn.receivedDate || '—';
-    } else {
-        if (dateLabel) dateLabel.textContent = 'Ngày dự kiến nhận:';
-        document.getElementById('detail-expected-date').textContent = grn.expectedDate || '—';
-    }
+    document.getElementById('detail-expected-date').textContent = grn.expectedDate;
     
     // Status badge
     var sc = getStatusConfig(grn.status);

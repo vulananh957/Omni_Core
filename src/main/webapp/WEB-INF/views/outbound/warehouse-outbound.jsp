@@ -568,20 +568,10 @@
             <div id="rtvItemsContainer" style="display:flex; flex-direction:column; gap:10px;">
                 <!-- Dynamic: shows items with rejected_qty > 0 -->
             </div>
-            <div style="display:grid; grid-template-columns: 1fr 1fr; gap:12px;">
+            <div style="display:grid; grid-template-columns: 1.5fr 1fr; gap:12px;">
                 <div class="outbound-form-group">
-                    <label class="outbound-form-label">Mã đơn mua hàng gốc (PO No.) *</label>
-                    <input class="outbound-form-input" style="background:#fff;" type="text" id="rtvPoCodeInput" placeholder="Ví dụ: PO-2026-0512"/>
-                </div>
-                <div class="outbound-form-group">
-                    <label class="outbound-form-label">Mã nhà cung cấp *</label>
-                    <input class="outbound-form-input" style="background:#fff;" type="text" id="rtvSupplierCodeInput" placeholder="Ví dụ: NCC-XYZ01"/>
-                </div>
-            </div>
-            <div style="display:grid; grid-template-columns: 1fr 1fr; gap:12px;">
-                <div class="outbound-form-group">
-                    <label class="outbound-form-label">Người liên hệ nhà cung cấp *</label>
-                    <input class="outbound-form-input" style="background:#fff;" type="text" id="rtvContactPersonInput" placeholder="Ví dụ: Nguyễn Văn A"/>
+                    <label class="outbound-form-label">Tên nhà cung cấp *</label>
+                    <input class="outbound-form-input" style="background:#e2e8f0; color:#475569;" type="text" id="rtvSupplierInput" readonly placeholder="Chọn phiếu nhập gốc để tự động điền..."/>
                 </div>
                 <div class="outbound-form-group">
                     <label class="outbound-form-label">Phương án đề xuất *</label>
@@ -2049,6 +2039,8 @@
         document.getElementById('rtvItemsContainer').innerHTML = '';
         document.getElementById('rtvReasonInput').value = 'Hàng lỗi / không đạt chất lượng';
         document.getElementById('rtvNoteInput').value = '';
+        var supInp = document.getElementById('rtvSupplierInput');
+        if (supInp) supInp.value = '';
         document.getElementById('createRtvModalOverlay').classList.add('active');
     };
 
@@ -2062,6 +2054,7 @@
         }
         document.getElementById('rtvInboundDetail').style.display = 'block';
         document.getElementById('rtvDetailSupplier').textContent = grn.supplier || '—';
+        document.getElementById('rtvSupplierInput').value = grn.supplier || '';
         document.getElementById('rtvDetailReceived').textContent = grn.items.reduce(function(s, i) { return s + (i.receivedQty || 0); }, 0);
         document.getElementById('rtvDetailAccepted').textContent = grn.items.reduce(function(s, i) { return s + (i.acceptedQty || 0); }, 0);
         document.getElementById('rtvDetailRejected').textContent = grn.items.reduce(function(s, i) { return s + (i.rejectedQty || 0); }, 0);
@@ -2102,14 +2095,11 @@
         var grnId = document.getElementById('rtvInboundSelect').value;
         if (!grnId) { alert('Vui lòng chọn phiếu nhập gốc.'); return; }
 
-        var poCode = document.getElementById('rtvPoCodeInput').value.trim();
-        if (!poCode) { alert('Vui lòng nhập mã đơn mua hàng gốc.'); return; }
+        var grn = grns.find(function(g) { return g.id == grnId; });
+        var grnCode = grn ? grn.inboundCode : '';
 
-        var supplierCode = document.getElementById('rtvSupplierCodeInput').value.trim();
-        if (!supplierCode) { alert('Vui lòng nhập mã nhà cung cấp.'); return; }
-
-        var contactPerson = document.getElementById('rtvContactPersonInput').value.trim();
-        if (!contactPerson) { alert('Vui lòng nhập người liên hệ nhà cung cấp.'); return; }
+        var supplierName = document.getElementById('rtvSupplierInput').value.trim();
+        if (!supplierName) { alert('Vui lòng chọn phiếu nhập để tự động điền tên nhà cung cấp.'); return; }
 
         var proposal = document.getElementById('rtvProposalSelect').value;
         if (!proposal) { alert('Vui lòng chọn phương án đề xuất.'); return; }
@@ -2137,9 +2127,9 @@
         formData.append('inboundId', grnId);
         formData.append('reason', reason);
         formData.append('note', note);
-        formData.append('poCode', poCode);
-        formData.append('supplierCode', supplierCode);
-        formData.append('contactPerson', contactPerson);
+        formData.append('poCode', grnCode);
+        formData.append('supplierCode', '');
+        formData.append('contactPerson', '');
         formData.append('proposal', proposal);
         formData.append('itemsJson', JSON.stringify(payload));
 

@@ -34,7 +34,12 @@ public class WarehouseDocumentsServlet extends BaseController {
             resp.setContentType("application/json;charset=UTF-8");
             String docId = req.getParameter("docId");
             String docType = req.getParameter("docType");
+            int myWarehouseId = currentWarehouseId(req);
             try {
+                if (!ledgerService.verifyDocumentBelongsToWarehouse(docId, docType, myWarehouseId)) {
+                    resp.getWriter().write("[]");
+                    return;
+                }
                 List<java.util.Map<String, Object>> items = ledgerService.findDocumentItems(docId, docType);
                 resp.getWriter().write(JsonUtil.toJson(items));
             } catch (Exception e) {
@@ -68,13 +73,5 @@ public class WarehouseDocumentsServlet extends BaseController {
 
         req.getRequestDispatcher("/WEB-INF/views/layout/warehouse-layout.jsp")
            .forward(req, resp);
-    }
-
-    private int currentWarehouseId(HttpServletRequest req) {
-        Object u = req.getSession().getAttribute(AppConstants.SESSION_USER);
-        if (u instanceof User && ((User) u).getWarehouseId() > 0) {
-            return ((User) u).getWarehouseId();
-        }
-        return 1;
     }
 }

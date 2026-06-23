@@ -382,6 +382,93 @@ public class LedgerDAO {
         return docs;
     }
 
+    public boolean verifyDocumentBelongsToWarehouse(String docId, String docType, int warehouseId) {
+        String sql = null;
+        
+        switch (docType) {
+            case "Phiếu Nhập Kho":
+                sql = "SELECT warehouse_id FROM inbound_orders WHERE inbound_code = ?";
+                break;
+            case "Phiếu Xuất Kho":
+                sql = "SELECT warehouse_id FROM outbound_orders WHERE outbound_code = ?";
+                // Fallback if ID is used
+                if (docId.startsWith("SOUT-OUT-")) {
+                    sql = "SELECT warehouse_id FROM outbound_orders WHERE outbound_id = ?";
+                    try {
+                        int obId = Integer.parseInt(docId.substring(9));
+                        try (Connection conn = DBConnection.getConnection();
+                             PreparedStatement ps = conn.prepareStatement(sql)) {
+                            ps.setInt(1, obId);
+                            try (ResultSet rs = ps.executeQuery()) {
+                                if (rs.next()) {
+                                    return rs.getInt("warehouse_id") == warehouseId;
+                                }
+                            }
+                        }
+                    } catch (Exception ignored) {}
+                    return false;
+                }
+                break;
+            case "Phiếu Chuyển Kho":
+                sql = "SELECT from_warehouse_id, to_warehouse_id FROM stock_transfers WHERE transfer_code = ?";
+                try (Connection conn = DBConnection.getConnection();
+                     PreparedStatement ps = conn.prepareStatement(sql)) {
+                    ps.setString(1, docId);
+                    try (ResultSet rs = ps.executeQuery()) {
+                        if (rs.next()) {
+                            return rs.getInt("from_warehouse_id") == warehouseId || rs.getInt("to_warehouse_id") == warehouseId;
+                        }
+                    }
+                } catch (SQLException e) {
+                    LOGGER.log(Level.WARNING, "verifyDocumentBelongsToWarehouse failed for Stock Transfer", e);
+                }
+                return false;
+            case "Phiếu Kiểm Kê":
+                sql = "SELECT warehouse_id FROM physical_inventories WHERE check_code = ?";
+                break;
+            case "Phiếu Hoàn Hàng":
+                if (docId.startsWith("RMA-")) {
+                    sql = "SELECT warehouse_id FROM return_orders WHERE return_id = ?";
+                    try {
+                        int rId = Integer.parseInt(docId.substring(4));
+                        try (Connection conn = DBConnection.getConnection();
+                             PreparedStatement ps = conn.prepareStatement(sql)) {
+                            ps.setInt(1, rId);
+                            try (ResultSet rs = ps.executeQuery()) {
+                                if (rs.next()) {
+                                    return rs.getInt("warehouse_id") == warehouseId;
+                                }
+                            }
+                        }
+                    } catch (Exception ignored) {}
+                }
+                return false;
+            case "Phiếu Xuất Hủy":
+                sql = "SELECT warehouse_id FROM warehouse_issues WHERE issue_code = ?";
+                break;
+            case "Phiếu Trả Hàng NCC":
+                sql = "SELECT warehouse_id FROM rtv_orders WHERE rtv_code = ?";
+                break;
+            default:
+                return false;
+        }
+
+        if (sql != null) {
+            try (Connection conn = DBConnection.getConnection();
+                 PreparedStatement ps = conn.prepareStatement(sql)) {
+                ps.setString(1, docId);
+                try (ResultSet rs = ps.executeQuery()) {
+                    if (rs.next()) {
+                        return rs.getInt("warehouse_id") == warehouseId;
+                    }
+                }
+            } catch (SQLException e) {
+                LOGGER.log(Level.WARNING, "verifyDocumentBelongsToWarehouse failed for docType=" + docType, e);
+            }
+        }
+        return false;
+    }
+
     /**
      * Fetch all global ledger history records.
      */

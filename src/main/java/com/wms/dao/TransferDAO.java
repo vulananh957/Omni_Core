@@ -87,6 +87,56 @@ public class TransferDAO {
         return list;
     }
 
+    public List<Transfer> findByWarehouseId(int warehouseId) {
+        List<Transfer> list = new ArrayList<>();
+        String sql = "SELECT st.transfer_id, st.transfer_code, "
+                   + "st.from_warehouse_id, fw.warehouse_name AS from_warehouse_name, "
+                   + "st.to_warehouse_id,   tw.warehouse_name AS to_warehouse_name, "
+                   + "st.created_by, creator.full_name AS creator_name, "
+                   + "st.approved_by, approver.full_name AS approver_name, "
+                   + "st.status, st.note, st.created_at, st.completed_at "
+                   + "FROM stock_transfers st "
+                   + "LEFT JOIN warehouses fw ON st.from_warehouse_id = fw.warehouse_id "
+                   + "LEFT JOIN warehouses tw ON st.to_warehouse_id   = tw.warehouse_id "
+                   + "LEFT JOIN users creator ON st.created_by   = creator.user_id "
+                   + "LEFT JOIN users approver ON st.approved_by = approver.user_id "
+                   + "WHERE st.from_warehouse_id = ? OR st.to_warehouse_id = ? "
+                   + "ORDER BY st.created_at DESC LIMIT 200";
+
+        try (Connection conn = DBConnection.getConnection();
+             PreparedStatement ps = conn.prepareStatement(sql)) {
+
+            ps.setInt(1, warehouseId);
+            ps.setInt(2, warehouseId);
+            try (ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) {
+                    Transfer t = new Transfer();
+                    t.setTransferId(rs.getInt("transfer_id"));
+                    t.setTransferCode(rs.getString("transfer_code"));
+                    t.setFromWarehouseId(rs.getInt("from_warehouse_id"));
+                    t.setFromWarehouseName(rs.getString("from_warehouse_name"));
+                    t.setToWarehouseId(rs.getInt("to_warehouse_id"));
+                    t.setToWarehouseName(rs.getString("to_warehouse_name"));
+                    t.setCreatedBy(rs.getInt("created_by"));
+                    try { t.setCreatorName(rs.getString("creator_name")); } catch (SQLException ignored) {}
+                    t.setApprovedBy(rs.getObject("approved_by") != null ? rs.getInt("approved_by") : null);
+                    try { t.setApproverName(rs.getString("approver_name")); } catch (SQLException ignored) {}
+                    t.setStatus(rs.getString("status"));
+                    t.setNote(rs.getString("note"));
+                    java.sql.Timestamp ca = rs.getTimestamp("created_at");
+                    if (ca != null) t.setCreatedAt(ca.toLocalDateTime());
+                    java.sql.Timestamp cma = rs.getTimestamp("completed_at");
+                    if (cma != null) t.setCompletedAt(cma.toLocalDateTime());
+                    list.add(t);
+                }
+            }
+
+        } catch (SQLException e) {
+            LOGGER.log(Level.WARNING, "TransferDAO.findByWarehouseId: failed for warehouseId=" + warehouseId, e);
+        }
+        return list;
+    }
+
     /**
      * Returns a single transfer by ID.
      */

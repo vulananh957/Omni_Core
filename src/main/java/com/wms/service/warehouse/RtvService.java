@@ -90,7 +90,7 @@ public class RtvService {
 
         log.info("RTV created: rtvId={} inboundId={} warehouseId={} by={}",
                 newId, inboundId, inbound.getWarehouseId(), createdBy);
-        return RtvResult.success("Tạo phiếu trả hàng thành công! Mã: " + rtv.getCode());
+        return RtvResult.success("Tạo phiếu trả hàng thành công! Mã: " + rtv.getCode(), newId);
     }
 
     /**
@@ -110,7 +110,7 @@ public class RtvService {
             return RtvResult.failure("Không thể duyệt phiếu RTV. Vui lòng thử lại.");
         }
         log.info("RTV approved: rtvId={} by={}", rtvId, userId);
-        return RtvResult.success("Duyệt phiếu trả hàng " + rtv.getCode() + " thành công!");
+        return RtvResult.success("Duyệt phiếu trả hàng " + rtv.getCode() + " thành công!", rtvId);
     }
 
     /**
@@ -144,7 +144,7 @@ public class RtvService {
         }
 
         log.info("RTV completed: rtvId={} by={}", rtvId, userId);
-        return RtvResult.success("Hoàn thành phiếu trả hàng " + rtv.getCode() + "!");
+        return RtvResult.success("Hoàn thành phiếu trả hàng " + rtv.getCode() + "!", rtvId);
     }
 
     /**
@@ -163,7 +163,7 @@ public class RtvService {
             return RtvResult.failure("Không thể hủy phiếu RTV. Vui lòng thử lại.");
         }
         log.info("RTV cancelled: rtvId={} by={}", rtvId, userId);
-        return RtvResult.success("Đã hủy phiếu trả hàng " + rtv.getCode() + ".");
+        return RtvResult.success("Đã hủy phiếu trả hàng " + rtv.getCode() + ".", rtvId);
     }
 
     // -----------------------------------------------------------------------
@@ -191,21 +191,24 @@ public class RtvService {
     public static class RtvResult {
         private final boolean success;
         private final String message;
+        private final int rtvId;
 
-        private RtvResult(boolean success, String message) {
+        private RtvResult(boolean success, String message, int rtvId) {
             this.success = success;
             this.message = message;
+            this.rtvId = rtvId;
         }
 
-        public static RtvResult success(String message) {
-            return new RtvResult(true, message);
+        public static RtvResult success(String message, int rtvId) {
+            return new RtvResult(true, message, rtvId);
         }
 
         public static RtvResult failure(String message) {
-            return new RtvResult(false, message);
+            return new RtvResult(false, message, 0);
         }
 
         public boolean isSuccess() { return success; }
         public String getMessage() { return message; }
+        public int getRtvId() { return rtvId; }
     }
 }

@@ -6,6 +6,7 @@ import com.wms.model.Product;
 import com.wms.model.User;
 import com.wms.model.Warehouse;
 import com.wms.service.warehouse.TransferService;
+import com.wms.service.NotificationService;
 import com.wms.util.AppConstants;
 import com.wms.util.JsonUtil;
 
@@ -26,13 +27,16 @@ import java.util.Map;
 public class WarehouseTransferServlet extends BaseController {
 
     private final TransferService transferService = new TransferService();
+    private final NotificationService notificationService = new NotificationService();
 
     @Override
     protected void doGet(HttpServletRequest req, HttpServletResponse resp)
             throws ServletException, IOException {
 
+        int myWarehouseId = currentWarehouseId(req);
+        req.setAttribute("MY_WAREHOUSE_ID", myWarehouseId);
         try {
-            List<TransferDAO.Transfer> transfers = transferService.findAll();
+            List<TransferDAO.Transfer> transfers = transferService.findByWarehouseId(myWarehouseId);
             req.setAttribute("transfers", transfers);
 
             Map<Integer, List<TransferDAO.TransferItem>> transferItemsMap = new HashMap<>();
@@ -75,16 +79,29 @@ public class WarehouseTransferServlet extends BaseController {
             if ("create".equals(action)) {
                 int fromWarehouseId = body.get("fromWarehouseId").asInt();
                 int toWarehouseId   = body.get("toWarehouseId").asInt();
+                int myWarehouseId = currentWarehouseId(req);
+                if (fromWarehouseId != myWarehouseId) {
+                    resp.getWriter().write("{\"success\":false,\"message\":\"Bạn chỉ được phép tạo phiếu điều chuyển từ kho của mình.\"}");
+                    return;
+                }
                 String sku  = body.get("sku").asText();
                 int qty     = body.get("qty").asInt();
                 String note = body.has("note") ? body.get("note").asText() : "";
-
+ 
                 User currentUser = (User) req.getSession().getAttribute(AppConstants.SESSION_USER);
                 int creatorId = currentUser != null ? currentUser.getUserId() : 1;
-
+ 
                 TransferDAO.Transfer created =
                     transferService.createTransfer(fromWarehouseId, toWarehouseId,
                             creatorId, note, sku, BigDecimal.valueOf(qty));
+
+                // Notify destination warehouse staff: incoming transfer
+                String toWhName = transferService.findAllWarehouses().stream()
+                        .filter(w -> w.getWarehouseId() == toWarehouseId)
+                        .findFirst().map(Warehouse::getWarehouseName).orElse(String.valueOf(toWarehouseId));
+                notificationService.notifyIncomingTransfer(toWarehouseId,
+                        toWhName,
+                        created.getTransferId(), created.getTransferCode(), 1);
 
                 Map<String, Object> result = new HashMap<>();
                 result.put("success", true);
@@ -94,7 +111,25 @@ public class WarehouseTransferServlet extends BaseController {
 
             } else if ("receive".equals(action)) {
                 int transferId = body.get("transferId").asInt();
-                transferService.markReceived(transferId);
+                TransferDAO.Transfer t = transferService.findById(transferId);
+                int myWarehouseId = currentWarehouseId(req);
+                if (t == null) {
+                    resp.getWriter().write("{\"success\":false,\"message\":\"Không tìm thấy phiếu điều chuyển.\"}");
+                    return;
+                }
+                if (t.getToWarehouseId() != myWarehouseId) {
+                    resp.getWriter().write("{\"success\":false,\"message\":\"Bạn không thể xác nhận nhận hàng cho kho khác.\"}");
+                    return;
+                }
+                User currentUser = (User) req.getSession().getAttribute(AppConstants.SESSION_USER);
+                int userId = currentUser != null ? currentUser.getUserId() : 1;
+                transferService.markReceived(transferId, userId);
+                // Notify managers: transfer completed
+                notificationService.notifyManagers(
+                        "Phiếu chuyển kho đã nhận",
+                        "Phiếu chuyển kho #" + t.getTransferId() + " (" + t.getTransferCode() + ") đã được kho đích xác nhận nhận hàng.",
+                        "TRANSFER", (long) transferId,
+                        com.wms.model.Notification.PRIORITY_NORMAL);
                 resp.getWriter().write("{\"success\":true}");
 
             } else {

@@ -54,12 +54,4 @@ public class WarehouseInventoryServlet extends BaseController {
         req.getRequestDispatcher("/WEB-INF/views/layout/warehouse-layout.jsp")
            .forward(req, resp);
     }
-
-    private int currentWarehouseId(HttpServletRequest req) {
-        Object u = req.getSession().getAttribute(AppConstants.SESSION_USER);
-        if (u instanceof com.wms.model.User && ((com.wms.model.User) u).getWarehouseId() > 0) {
-            return ((com.wms.model.User) u).getWarehouseId();
-        }
-        return 1;
-    }
 }

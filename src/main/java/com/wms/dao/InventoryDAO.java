@@ -223,6 +223,35 @@ public class InventoryDAO {
     }
 
     /**
+     * Returns the total qty_available for a product across ALL warehouses
+     * and ALL stock types (NORMAL + DEFECTIVE), since the Lazada push
+     * uses the grand-total system inventory.
+     *
+     * <p>Used by {@link com.wms.service.marketplace.MarketplaceSyncService} to compute
+     * Push_Qty = sumAvailable - bufferStock for each SKU after an inbound receipt.</p>
+     *
+     * @param productId The internal product ID.
+     * @return Total available quantity across all warehouses, or 0 if none.
+     */
+    public BigDecimal sumAvailableByProductId(int productId) {
+        String sql = "SELECT COALESCE(SUM(qty_available), 0) AS total_available "
+                   + "FROM inventory WHERE product_id = ?";
+        try (Connection conn = DBConnection.getConnection();
+             PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setInt(1, productId);
+            try (ResultSet rs = ps.executeQuery()) {
+                if (rs.next()) {
+                    return rs.getBigDecimal("total_available");
+                }
+            }
+        } catch (SQLException e) {
+            LOGGER.log(Level.WARNING,
+                "InventoryDAO.sumAvailableByProductId: failed productId=" + productId, e);
+        }
+        return BigDecimal.ZERO;
+    }
+
+    /**
      * Load current inventory across all warehouses (joined with product + warehouse).
      * Includes soft-allocation columns (on_hand, holding, qty_available) and
      * inbound quantities from pending/in-progress PO.

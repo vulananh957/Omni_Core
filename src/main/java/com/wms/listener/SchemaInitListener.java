@@ -499,15 +499,24 @@ public class SchemaInitListener implements ServletContextListener {
 
     private void ensureLazadaStockPushLogTable() throws SQLException {
         try (Connection conn = DBConnection.getConnection()) {
+            DatabaseMetaData md = conn.getMetaData();
             createTableIfNotExists(conn, "lazada_stock_push_log",
                 "CREATE TABLE lazada_stock_push_log ("
                 + "log_id INT AUTO_INCREMENT PRIMARY KEY, "
                 + "channel_id INT, product_id INT, seller_sku VARCHAR(100), "
                 + "qty_on_hand DECIMAL(12,3), qty_available DECIMAL(12,3), "
                 + "holding DECIMAL(12,3), buffer_stock DECIMAL(12,3), push_qty DECIMAL(12,3), "
-                + "status VARCHAR(20), error_message TEXT, "
+                + "status VARCHAR(20), error_code VARCHAR(50), error_message TEXT, "
+                + "inbound_receipt_code VARCHAR(50), pushed_at DATETIME, "
                 + "created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP"
                 + ") ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+            // Idempotent migration: add new columns if they were missing from a prior version
+            addColumnIfMissing(conn, md, "lazada_stock_push_log", "error_code",
+                "VARCHAR(50) DEFAULT NULL COMMENT 'Lazada error code (e.g. E501, E901)'");
+            addColumnIfMissing(conn, md, "lazada_stock_push_log", "inbound_receipt_code",
+                "VARCHAR(50) DEFAULT NULL COMMENT 'Inbound receipt that triggered this push'");
+            addColumnIfMissing(conn, md, "lazada_stock_push_log", "pushed_at",
+                "DATETIME DEFAULT NULL COMMENT 'Timestamp when push was attempted'");
         }
     }
 

@@ -129,6 +129,17 @@
         <dispatcher>REQUEST</dispatcher>
     </filter-mapping>
 
+    <!-- DefectiveStockFilter: injects defective stock notification data for warehouse bell -->
+    <filter>
+        <filter-name>DefectiveStockFilter</filter-name>
+        <filter-class>com.wms.filter.DefectiveStockFilter</filter-class>
+    </filter>
+    <filter-mapping>
+        <filter-name>DefectiveStockFilter</filter-name>
+        <url-pattern>/warehouse/*</url-pattern>
+        <dispatcher>REQUEST</dispatcher>
+    </filter-mapping>
+
     <!-- ======================================================
          SERVLETS
     ====================================================== -->
@@ -375,6 +386,20 @@
     <servlet-mapping>
         <servlet-name>PendingTrackingServlet</servlet-name>
         <url-pattern>/warehouse/pending-tracking</url-pattern>
+    </servlet-mapping>
+
+    <!-- Notification API -->
+    <servlet>
+        <servlet-name>NotificationServlet</servlet-name>
+        <servlet-class>com.wms.controller.NotificationServlet</servlet-class>
+    </servlet>
+    <servlet-mapping>
+        <servlet-name>NotificationServlet</servlet-name>
+        <url-pattern>/api/notifications</url-pattern>
+    </servlet-mapping>
+    <servlet-mapping>
+        <servlet-name>NotificationServlet</servlet-name>
+        <url-pattern>/api/notifications/*</url-pattern>
     </servlet-mapping>
 
     <!-- ROP API (Manager/Admin only) -->

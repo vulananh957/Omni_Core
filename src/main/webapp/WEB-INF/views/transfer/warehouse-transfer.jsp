@@ -330,6 +330,13 @@
     buildWhOption(fSrcWH, '— Chọn kho xuất —');
     buildWhOption(fDstWH, '— Chọn kho nhập —');
 
+    // Pre-select and lock the source warehouse to the logged-in user's warehouse
+    var myWarehouseId = "${MY_WAREHOUSE_ID}";
+    if (myWarehouseId) {
+        fSrcWH.value = myWarehouseId;
+        fSrcWH.disabled = true;
+    }
+
     if (DB_PRODUCTS.length > 0) {
         fSku.innerHTML = '<option value="">— Chọn sản phẩm —</option>';
         DB_PRODUCTS.forEach(function (p) {

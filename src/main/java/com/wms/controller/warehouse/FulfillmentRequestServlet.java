@@ -30,7 +30,8 @@ public class FulfillmentRequestServlet extends BaseController {
     protected void doGet(HttpServletRequest req, HttpServletResponse resp)
             throws ServletException, IOException {
 
-        List<FulfillmentRequest> list = dao.findPending();
+        int warehouseId = currentWarehouseId(req);
+        List<FulfillmentRequest> list = dao.findPendingByWarehouse(warehouseId);
         Map<String, Object> response = new HashMap<>();
         response.put("success", true);
         response.put("data", list);
@@ -72,6 +73,13 @@ public class FulfillmentRequestServlet extends BaseController {
             if (fr == null) {
                 response.put("success", false);
                 response.put("message", "Không tìm thấy yêu cầu xuất hàng: " + requestId);
+                writeJson(resp, JsonUtil.toJson(response));
+                return;
+            }
+            int warehouseId = currentWarehouseId(req);
+            if (fr.getWarehouseId() != warehouseId) {
+                response.put("success", false);
+                response.put("message", "Bạn không có quyền chuyển đổi yêu cầu xuất hàng của kho khác.");
                 writeJson(resp, JsonUtil.toJson(response));
                 return;
             }

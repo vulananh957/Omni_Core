@@ -17,6 +17,10 @@ public class ReturnService {
         return returnDAO.findAll();
     }
 
+    public List<ReturnOrder> findByWarehouse(int warehouseId) {
+        return returnDAO.findByWarehouse(warehouseId);
+    }
+
     public List<Product> findApprovedProducts() {
         return productDAO.findAll();
     }
@@ -37,7 +41,11 @@ public class ReturnService {
         return ValidationResult.success();
     }
 
-    public boolean createReturn(String soRef, String customer, String phone,
+    /**
+     * Creates a new return order and inserts it into the database.
+     * @return the generated return_id, or 0 on failure
+     */
+    public int createReturn(String soRef, String customer, String phone,
                                 List<ReturnItem> items, int warehouseId) {
         ReturnOrder order = new ReturnOrder();
         order.setOrderCode(soRef.trim());
@@ -46,7 +54,13 @@ public class ReturnService {
         order.setReason("Yêu cầu trả hàng hoàn tiền");
         order.setWarehouseId(warehouseId);
         order.setItems(items);
-        return returnDAO.insert(order);
+        boolean ok = returnDAO.insert(order);
+        if (ok) {
+            // Retrieve the generated id from the DAO
+            Integer newId = returnDAO.getLastInsertedId();
+            return newId != null ? newId : 0;
+        }
+        return 0;
     }
 
     public boolean saveQC(int returnId, List<ReturnItem> items, int userId) {
@@ -63,6 +77,10 @@ public class ReturnService {
      */
     public boolean isQCComplete(int returnId) {
         return returnDAO.isQCComplete(returnId);
+    }
+
+    public int getWarehouseIdForReturn(int returnId) {
+        return returnDAO.getWarehouseIdForReturn(returnId);
     }
 
     public static class ValidationResult {

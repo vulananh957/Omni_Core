@@ -64,7 +64,8 @@ public class WarehouseMasterSKUServlet extends BaseController {
         }
 
         try {
-            List<Warehouse> warehouses = warehouseService.findAllActive();
+            Warehouse myWh = warehouseService.findById(myWarehouseId);
+            List<Warehouse> warehouses = (myWh != null) ? List.of(myWh) : List.of();
             req.setAttribute("warehouses", warehouses);
             setJsonAttr(req, "warehousesJson", warehouses);
         } catch (Exception e) {
@@ -73,9 +74,9 @@ public class WarehouseMasterSKUServlet extends BaseController {
         }
 
         try {
-            List<Zone> allZones = warehouseService.findAllZones();
-            req.setAttribute("zones", allZones);
-            setJsonAttr(req, "zonesJson", allZones);
+            List<Zone> myZones = warehouseService.findZonesByWarehouseId(myWarehouseId);
+            req.setAttribute("zones", myZones);
+            setJsonAttr(req, "zonesJson", myZones);
         } catch (Exception e) {
             req.setAttribute("zones", List.<Zone>of());
             req.setAttribute("zonesJson", "[]");
@@ -134,13 +135,5 @@ public class WarehouseMasterSKUServlet extends BaseController {
         if (s == null || s.trim().isEmpty()) return null;
         try { return Integer.parseInt(s.trim()); }
         catch (NumberFormatException e) { return null; }
-    }
-
-    private int currentWarehouseId(HttpServletRequest req) {
-        Object u = req.getSession().getAttribute(AppConstants.SESSION_USER);
-        if (u instanceof User && ((User) u).getWarehouseId() > 0) {
-            return ((User) u).getWarehouseId();
-        }
-        return 1;
     }
 }

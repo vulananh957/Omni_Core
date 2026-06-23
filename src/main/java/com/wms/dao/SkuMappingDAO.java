@@ -339,6 +339,58 @@ public class SkuMappingDAO {
     }
 
     /**
+     * Finds all active (SYNCED) SKU mappings for a list of product IDs on a given channel,
+     * enriched with Lazada identifiers from channel_products.
+     *
+     * Used by MarketplaceSyncService to resolve which SKUs need stock pushed to Lazada
+     * after an inbound receipt is confirmed.
+     *
+     * @param productIds List of internal product IDs to look up.
+     * @param channelId The marketplace channel to filter on.
+     * @return List of matching SkuMapping objects with enriched Lazada fields.
+     */
+    public List<SkuMapping> findActiveMappingsByProductIds(List<Integer> productIds, int channelId) {
+        List<SkuMapping> list = new ArrayList<>();
+        if (productIds == null || productIds.isEmpty()) return list;
+
+        String placeholders = String.join(",", java.util.Collections.nCopies(productIds.size(), "?"));
+        String sql = "SELECT sm.mapping_id, sm.sku_id, sm.channel_id, sm.external_sku, "
+                   + "sm.seller_sku, sm.sync_status, sm.last_sync_at, sm.created_at, sm.updated_at, "
+                   + "c.channel_name, c.platform, s.sku_code, s.product_name, "
+                   + "cp.channel_item_id, cp.lazada_sku_id "
+                   + "FROM sku_mappings sm "
+                   + "LEFT JOIN channels c ON sm.channel_id = c.channel_id "
+                   + "LEFT JOIN products s ON sm.sku_id = s.product_id "
+                   + "LEFT JOIN channel_products cp ON sm.sku_id = cp.product_id AND sm.channel_id = cp.channel_id "
+                   + "WHERE sm.sku_id IN (" + placeholders + ") "
+                   + "  AND sm.channel_id = ? "
+                   + "  AND sm.sync_status = 'SYNCED' "
+                   + "  AND cp.lazada_sku_id IS NOT NULL AND cp.lazada_sku_id != '' "
+                   + "  AND cp.status = 'ACTIVE'";
+
+        try (Connection conn = DBConnection.getConnection();
+             PreparedStatement ps = conn.prepareStatement(sql)) {
+            int idx = 1;
+            for (Integer pid : productIds) {
+                ps.setInt(idx++, pid);
+            }
+            ps.setInt(idx, channelId);
+            try (ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) {
+                    SkuMapping m = mapResultSetToSkuMapping(rs);
+                    m.setChannelItemId(rs.getString("channel_item_id"));
+                    m.setLazadaSkuId(rs.getString("lazada_sku_id"));
+                    list.add(m);
+                }
+            }
+        } catch (SQLException e) {
+            LOGGER.log(Level.WARNING,
+                "SkuMappingDAO.findActiveMappingsByProductIds: failed channelId=" + channelId, e);
+        }
+        return list;
+    }
+
+    /**
      * Logs an exception when an SKU mapping is missing.
      * Feeds the "Mapping Exception Management" page used by Sales staff.
      */

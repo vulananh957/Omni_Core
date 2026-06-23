@@ -7,6 +7,7 @@ import com.wms.model.Product;
 import com.wms.model.User;
 import com.wms.service.product.ProductService;
 import com.wms.service.warehouse.WarehouseService;
+import com.wms.service.NotificationService;
 import com.wms.util.AppConstants;
 
 import jakarta.servlet.ServletException;
@@ -36,6 +37,7 @@ public class WarehouseInventoryCheckServlet extends BaseController {
     private static final Logger LOGGER = Logger.getLogger(WarehouseInventoryCheckServlet.class.getName());
     private final ProductService productService = new ProductService();
     private final WarehouseService warehouseService = new WarehouseService();
+    private final NotificationService notificationService = new NotificationService();
 
     @Override
     protected void doGet(HttpServletRequest req, HttpServletResponse resp)
@@ -49,17 +51,21 @@ public class WarehouseInventoryCheckServlet extends BaseController {
             return;
         }
 
+        int myWarehouseId = currentWarehouseId(req);
         try {
-            req.setAttribute("warehouses", warehouseService.findAll());
-            setJsonAttr(req, "warehousesJson", warehouseService.findAll());
+            com.wms.model.Warehouse myWh = warehouseService.findById(myWarehouseId);
+            List<com.wms.model.Warehouse> whs = myWh != null ? List.of(myWh) : List.of();
+            req.setAttribute("warehouses", whs);
+            setJsonAttr(req, "warehousesJson", whs);
         } catch (Exception e) {
             req.setAttribute("warehouses", List.of());
             req.setAttribute("warehousesJson", "[]");
         }
 
         try {
-            req.setAttribute("zones", warehouseService.findAllZones());
-            setJsonAttr(req, "zonesJson", warehouseService.findAllZones());
+            List<com.wms.model.Zone> myZones = warehouseService.findZonesByWarehouseId(myWarehouseId);
+            req.setAttribute("zones", myZones);
+            setJsonAttr(req, "zonesJson", myZones);
         } catch (Exception e) {
             req.setAttribute("zones", List.of());
             req.setAttribute("zonesJson", "[]");
@@ -67,7 +73,10 @@ public class WarehouseInventoryCheckServlet extends BaseController {
 
         try {
             List<User> staff = warehouseService.findByRoles("WAREHOUSE_STAFF");
-            req.setAttribute("staffMembers", staff);
+            List<User> myStaff = staff.stream()
+                .filter(u -> u.getWarehouseId() == myWarehouseId)
+                .collect(java.util.stream.Collectors.toList());
+            req.setAttribute("staffMembers", myStaff);
         } catch (Exception e) {
             req.setAttribute("staffMembers", List.of());
         }
@@ -99,8 +108,9 @@ public class WarehouseInventoryCheckServlet extends BaseController {
 
     private void handleAjax(HttpServletRequest req, HttpServletResponse resp) throws IOException {
         String action = req.getParameter("action");
+        int myWarehouseId = currentWarehouseId(req);
         if ("checks".equals(action)) {
-            List<com.wms.model.PhysicalInventory> checks = warehouseService.findAllInventoryChecks();
+            List<com.wms.model.PhysicalInventory> checks = warehouseService.findInventoryChecksByWarehouse(myWarehouseId);
             writeJson(resp, com.wms.util.JsonUtil.toJson(checks));
         } else if ("checkDetails".equals(action)) {
             String checkIdStr = req.getParameter("checkId");
@@ -139,15 +149,16 @@ public class WarehouseInventoryCheckServlet extends BaseController {
             @SuppressWarnings("unchecked")
             java.util.Map<String, Object> payload = parseJson(body, java.util.Map.class);
             String action = (String) payload.get("action");
+            int myWarehouseId = currentWarehouseId(req);
 
             if ("create".equals(action)) {
-                handleCreate(payload, userId);
+                handleCreate(payload, userId, myWarehouseId);
                 writeJson(resp, "{\"success\":true}");
             } else if ("submit".equals(action)) {
-                handleSubmit(payload, userId);
+                handleSubmit(payload, userId, myWarehouseId);
                 writeJson(resp, "{\"success\":true}");
             } else if ("adjust".equals(action)) {
-                handleAdjust(payload, userId);
+                handleAdjust(payload, userId, myWarehouseId);
                 writeJson(resp, "{\"success\":true}");
             } else {
                 writeJson(resp, "{\"success\":false,\"message\":\"Hành động không hợp lệ: " + action + "\"}");
@@ -160,9 +171,8 @@ public class WarehouseInventoryCheckServlet extends BaseController {
         }
     }
 
-    private void handleCreate(java.util.Map<String, Object> payload, int userId) throws Exception {
+    private void handleCreate(java.util.Map<String, Object> payload, int userId, int myWarehouseId) throws Exception {
         String title = (String) payload.get("title");
-        Number warehouseIdNum = (Number) payload.get("warehouseId");
         String note = (String) payload.get("note");
         String scopeType = (String) payload.get("scopeType");
         String scopeValue = (String) payload.get("scopeValue");
@@ -170,10 +180,7 @@ public class WarehouseInventoryCheckServlet extends BaseController {
         if (title == null || title.trim().isEmpty()) {
             throw new IllegalArgumentException("Vui lòng nhập Tiêu đề phiếu.");
         }
-        if (warehouseIdNum == null) {
-            throw new IllegalArgumentException("Vui lòng chọn chi nhánh kho.");
-        }
-        int warehouseId = warehouseIdNum.intValue();
+        int warehouseId = myWarehouseId;
 
         // Build checkCode: PK-YYYYMMDD-NNNN
         java.time.LocalDate today = java.time.LocalDate.now();
@@ -207,10 +214,15 @@ public class WarehouseInventoryCheckServlet extends BaseController {
         warehouseService.createInventoryCheck(checkCode, warehouseId, userId, note, itemsJson);
     }
 
-    private void handleSubmit(java.util.Map<String, Object> payload, int userId) throws Exception {
+    private void handleSubmit(java.util.Map<String, Object> payload, int userId, int myWarehouseId) throws Exception {
         Number checkIdNum = (Number) payload.get("checkId");
         if (checkIdNum == null) throw new IllegalArgumentException("Thiếu ID phiếu kiểm kê.");
         int checkId = checkIdNum.intValue();
+
+        com.wms.model.PhysicalInventory check = warehouseService.findInventoryCheckById(checkId);
+        if (check == null || check.getWarehouseId() != myWarehouseId) {
+            throw new IllegalArgumentException("Bạn không có quyền thực hiện trên phiếu kiểm kê thuộc kho khác.");
+        }
 
         String resultsJson = (String) payload.get("resultsJson");
         if (resultsJson == null) throw new IllegalArgumentException("Thiếu dữ liệu kết quả kiểm đếm.");
@@ -226,12 +238,27 @@ public class WarehouseInventoryCheckServlet extends BaseController {
         resultsJson = com.wms.util.JsonUtil.toJson(updatedList);
         
         warehouseService.submitInventoryCheckResults(checkId, resultsJson);
+        // Notify managers: inventory check submitted — pending approval
+        String whName;
+        try {
+            com.wms.model.Warehouse wh = warehouseService.findById(myWarehouseId);
+            whName = wh != null ? wh.getWarehouseName() : String.valueOf(myWarehouseId);
+        } catch (Exception e) {
+            whName = String.valueOf(myWarehouseId);
+        }
+        notificationService.notifyInventoryCheckPending(myWarehouseId, whName, checkId,
+                check != null ? check.getCheckCode() : String.valueOf(checkId));
     }
 
-    private void handleAdjust(java.util.Map<String, Object> payload, int userId) throws Exception {
+    private void handleAdjust(java.util.Map<String, Object> payload, int userId, int myWarehouseId) throws Exception {
         Number checkIdNum = (Number) payload.get("checkId");
         if (checkIdNum == null) throw new IllegalArgumentException("Thiếu ID phiếu kiểm kê.");
         int checkId = checkIdNum.intValue();
+
+        com.wms.model.PhysicalInventory check = warehouseService.findInventoryCheckById(checkId);
+        if (check == null || check.getWarehouseId() != myWarehouseId) {
+            throw new IllegalArgumentException("Bạn không có quyền điều chỉnh phiếu kiểm kê thuộc kho khác.");
+        }
 
         String adjustmentsJson = (String) payload.get("adjustmentsJson");
         if (adjustmentsJson == null) throw new IllegalArgumentException("Thiếu dữ liệu điều chỉnh.");

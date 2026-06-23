@@ -455,6 +455,81 @@ public class WarehouseDAO extends BaseDAO {
         });
     }
 
+    public List<com.wms.model.PhysicalInventory> findInventoryChecksByWarehouse(int warehouseId) {
+        String sql = "SELECT pi.inventory_check_id AS checkId, "
+                   + "       pi.check_code AS checkCode, "
+                   + "       pi.warehouse_id AS warehouseId, "
+                   + "       w.warehouse_name AS warehouseName, "
+                   + "       pi.status AS status, "
+                   + "       pi.note AS note, "
+                   + "       u.full_name AS creatorName, "
+                   + "       pi.created_at AS createdAt, "
+                   + "       (SELECT COUNT(*) FROM physical_inventory_details pid WHERE pid.inventory_check_id = pi.inventory_check_id) AS totalItems, "
+                   + "       (SELECT COUNT(*) FROM physical_inventory_details pid WHERE pid.inventory_check_id = pi.inventory_check_id AND pid.actual_qty IS NOT NULL) AS countedItems, "
+                   + "       COALESCE((SELECT SUM(COALESCE(pid.delta_qty, pid.actual_qty - pid.system_qty, 0)) FROM physical_inventory_details pid WHERE pid.inventory_check_id = pi.inventory_check_id AND pid.actual_qty IS NOT NULL), 0) AS totalDelta "
+                   + "FROM physical_inventories pi "
+                   + "LEFT JOIN warehouses w ON pi.warehouse_id = w.warehouse_id "
+                   + "LEFT JOIN users u ON pi.created_by = u.user_id "
+                   + "WHERE pi.warehouse_id = ? "
+                   + "ORDER BY pi.created_at DESC";
+        
+        return queryList(LOGGER, sql, rs -> {
+            com.wms.model.PhysicalInventory pi = new com.wms.model.PhysicalInventory();
+            pi.setCheckId(rs.getInt("checkId"));
+            pi.setCheckCode(rs.getString("checkCode"));
+            pi.setWarehouseId(rs.getInt("warehouseId"));
+            pi.setWarehouseName(rs.getString("warehouseName"));
+            pi.setStatus(rs.getString("status"));
+            pi.setNote(rs.getString("note"));
+            pi.setCreatorName(rs.getString("creatorName"));
+            Timestamp ts = rs.getTimestamp("createdAt");
+            if (ts != null) {
+                pi.setCreatedAt(ts.toLocalDateTime());
+            }
+            pi.setTotalItems(rs.getInt("totalItems"));
+            pi.setCountedItems(rs.getInt("countedItems"));
+            pi.setTotalDelta(rs.getDouble("totalDelta"));
+            return pi;
+        }, warehouseId);
+    }
+
+    public com.wms.model.PhysicalInventory findInventoryCheckById(int checkId) {
+        String sql = "SELECT pi.inventory_check_id AS checkId, "
+                   + "       pi.check_code AS checkCode, "
+                   + "       pi.warehouse_id AS warehouseId, "
+                   + "       w.warehouse_name AS warehouseName, "
+                   + "       pi.status AS status, "
+                   + "       pi.note AS note, "
+                   + "       u.full_name AS creatorName, "
+                   + "       pi.created_at AS createdAt, "
+                   + "       (SELECT COUNT(*) FROM physical_inventory_details pid WHERE pid.inventory_check_id = pi.inventory_check_id) AS totalItems, "
+                   + "       (SELECT COUNT(*) FROM physical_inventory_details pid WHERE pid.inventory_check_id = pi.inventory_check_id AND pid.actual_qty IS NOT NULL) AS countedItems, "
+                   + "       COALESCE((SELECT SUM(COALESCE(pid.delta_qty, pid.actual_qty - pid.system_qty, 0)) FROM physical_inventory_details pid WHERE pid.inventory_check_id = pi.inventory_check_id AND pid.actual_qty IS NOT NULL), 0) AS totalDelta "
+                   + "FROM physical_inventories pi "
+                   + "LEFT JOIN warehouses w ON pi.warehouse_id = w.warehouse_id "
+                   + "LEFT JOIN users u ON pi.created_by = u.user_id "
+                   + "WHERE pi.inventory_check_id = ?";
+        
+        return queryOne(LOGGER, sql, rs -> {
+            com.wms.model.PhysicalInventory pi = new com.wms.model.PhysicalInventory();
+            pi.setCheckId(rs.getInt("checkId"));
+            pi.setCheckCode(rs.getString("checkCode"));
+            pi.setWarehouseId(rs.getInt("warehouseId"));
+            pi.setWarehouseName(rs.getString("warehouseName"));
+            pi.setStatus(rs.getString("status"));
+            pi.setNote(rs.getString("note"));
+            pi.setCreatorName(rs.getString("creatorName"));
+            Timestamp ts = rs.getTimestamp("createdAt");
+            if (ts != null) {
+                pi.setCreatedAt(ts.toLocalDateTime());
+            }
+            pi.setTotalItems(rs.getInt("totalItems"));
+            pi.setCountedItems(rs.getInt("countedItems"));
+            pi.setTotalDelta(rs.getDouble("totalDelta"));
+            return pi;
+        }, checkId);
+    }
+
     public List<com.wms.model.PhysicalInventoryDetail> findPhysicalInventoryDetails(int checkId) {
         String sql = "SELECT pid.check_detail_id AS checkDetailId, "
                    + "       p.sku_code AS skuCode, "

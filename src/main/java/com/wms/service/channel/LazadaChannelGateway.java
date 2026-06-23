@@ -2,6 +2,7 @@ package com.wms.service.channel;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.wms.model.Channel;
+import com.wms.model.StockPushItem;
 import com.wms.service.lazada.LazadaHttpClient;
 
 import java.util.HashMap;
@@ -117,6 +118,58 @@ public class LazadaChannelGateway implements ChannelGateway {
         } catch (Exception e) {
             throw new RuntimeException("Failed to serialize stock batch", e);
         }
+    }
+
+    /**
+     * UC-B2C10 / BR-02: Pushes sellable quantity to Lazada using
+     * {@code POST /product/stock/sellable/update}.
+     *
+     * <p>Unlike {@link #updateProductStockBatch} which sends only
+     * {@code seller_sku + qty} in JSON, this method uses Lazada's
+     * XML {@code <payload>} format and includes all required identifiers
+     * ({@code item_id}, {@code sku_id}, {@code seller_sku}) so the
+     * stock is correctly mapped at the SKU level.</p>
+     *
+     * <p>This method handles rate-limit errors (E901) with exponential
+     * backoff retry (max 3 attempts). All other errors are returned
+     * as-is for the caller to interpret.</p>
+     *
+     * @param channel Lazada channel credentials
+     * @param items  List of SKU items to push (max recommended: 20)
+     * @return Raw Lazada JSON response
+     */
+    public String updateSellableQuantity(Channel channel, List<StockPushItem> items) {
+        if (items == null || items.isEmpty()) {
+            return "{\"code\":\"0\",\"data\":{}}";
+        }
+
+        // Build XML payload as required by /product/stock/sellable/update
+        StringBuilder xml = new StringBuilder();
+        xml.append("<?xml version=\"1.0\" encoding=\"UTF-8\"?>");
+        xml.append("<Request>");
+        xml.append("<Product>");
+        xml.append("<Skus>");
+        for (StockPushItem item : items) {
+            xml.append("<Sku>");
+            xml.append("<ItemId>").append(nullSafe(item.getChannelItemId())).append("</ItemId>");
+            xml.append("<SkuId>").append(nullSafe(item.getLazadaSkuId())).append("</SkuId>");
+            xml.append("<SellerSku>").append(nullSafe(item.getSellerSku())).append("</SellerSku>");
+            int qty = item.getPushQty() != null ? item.getPushQty().intValue() : 0;
+            xml.append("<SellableQuantity>").append(Math.max(qty, 0)).append("</SellableQuantity>");
+            xml.append("</Sku>");
+        }
+        xml.append("</Skus>");
+        xml.append("</Product>");
+        xml.append("</Request>");
+
+        Map<String, String> params = new HashMap<>();
+        params.put("payload", xml.toString());
+
+        return http.executePost("/product/stock/sellable/update", params, channel);
+    }
+
+    private static String nullSafe(String s) {
+        return s == null ? "" : s;
     }
 
     // ── Orders ───────────────────────────────────────────────

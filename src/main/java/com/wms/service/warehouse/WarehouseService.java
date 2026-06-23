@@ -143,6 +143,14 @@ public class WarehouseService {
         return warehouseDAO.findAllInventoryChecks();
     }
 
+    public List<com.wms.model.PhysicalInventory> findInventoryChecksByWarehouse(int warehouseId) {
+        return warehouseDAO.findInventoryChecksByWarehouse(warehouseId);
+    }
+
+    public com.wms.model.PhysicalInventory findInventoryCheckById(int checkId) {
+        return warehouseDAO.findInventoryCheckById(checkId);
+    }
+
     public List<com.wms.model.PhysicalInventoryDetail> findPhysicalInventoryDetails(int checkId) {
         return warehouseDAO.findPhysicalInventoryDetails(checkId);
     }

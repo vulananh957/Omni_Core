@@ -23,6 +23,11 @@ import java.util.logging.Logger;
 public class ReturnDAO {
 
     private static final Logger LOGGER = Logger.getLogger(ReturnDAO.class.getName());
+    private Integer lastInsertedId;
+
+    public Integer getLastInsertedId() {
+        return lastInsertedId;
+    }
 
     /**
      * Retrieves all return orders with joined details and items.
@@ -117,6 +122,96 @@ public class ReturnDAO {
         return list;
     }
 
+    public List<ReturnOrder> findByWarehouse(int warehouseId) {
+        List<ReturnOrder> list = new ArrayList<>();
+        String sqlOrders = "SELECT ro.return_id, ro.return_code, ro.order_id, o.order_code, ro.outbound_id, ro.customer_name, ro.customer_phone, "
+                + "ro.reason, ro.status, ro.warehouse_id, ro.created_at, ro.updated_at, o.channel "
+                + "FROM return_orders ro "
+                + "LEFT JOIN orders o ON ro.order_id = o.order_id "
+                + "WHERE ro.warehouse_id = ? "
+                + "ORDER BY ro.created_at DESC LIMIT 100";
+
+        String sqlItems = "SELECT ri.return_item_id, ri.return_id, ri.product_id, ri.quantity, ri.return_reason, "
+                + "p.sku_code, p.product_name, qr.decision, qr.qc_notes "
+                + "FROM return_items ri "
+                + "JOIN products p ON ri.product_id = p.product_id "
+                + "LEFT JOIN qc_records qr ON (ri.return_id = qr.return_id AND ri.product_id = qr.product_id) "
+                + "WHERE ri.return_id = ?";
+
+        System.out.println("[ReturnDAO] DEBUG: Executing findByWarehouse(" + warehouseId + ")...");
+        try (Connection conn = DBConnection.getConnection();
+                PreparedStatement psOrders = conn.prepareStatement(sqlOrders)) {
+
+            psOrders.setInt(1, warehouseId);
+            try (ResultSet rsOrders = psOrders.executeQuery();
+                    PreparedStatement psItems = conn.prepareStatement(sqlItems)) {
+                while (rsOrders.next()) {
+                    ReturnOrder ro = new ReturnOrder();
+                    int returnId = rsOrders.getInt("return_id");
+                    ro.setReturnId(returnId);
+                    ro.setReturnCode(rsOrders.getString("return_code"));
+
+                    int orderId = rsOrders.getInt("order_id");
+                    ro.setOrderId(rsOrders.wasNull() ? null : orderId);
+                    ro.setOrderCode(rsOrders.getString("order_code"));
+
+                    int outboundId = rsOrders.getInt("outbound_id");
+                    ro.setOutboundId(rsOrders.wasNull() ? null : outboundId);
+
+                    ro.setCustomerName(rsOrders.getString("customer_name"));
+                    ro.setCustomerPhone(rsOrders.getString("customer_phone"));
+                    ro.setReason(rsOrders.getString("reason"));
+                    ro.setStatus(rsOrders.getString("status"));
+                    ro.setWarehouseId(rsOrders.getInt("warehouse_id"));
+                    ro.setChannel(rsOrders.getString("channel"));
+
+                    Timestamp ca = rsOrders.getTimestamp("created_at");
+                    if (ca != null) {
+                        ro.setCreatedAt(ca.toLocalDateTime());
+                    }
+                    Timestamp ua = rsOrders.getTimestamp("updated_at");
+                    if (ua != null) {
+                        ro.setUpdatedAt(ua.toLocalDateTime());
+                    }
+
+                    // Query and set items
+                    psItems.setInt(1, returnId);
+                    try (ResultSet rsItems = psItems.executeQuery()) {
+                        List<ReturnItem> items = new ArrayList<>();
+                        while (rsItems.next()) {
+                            ReturnItem item = new ReturnItem();
+                            item.setReturnItemId(rsItems.getInt("return_item_id"));
+                            item.setReturnId(rsItems.getInt("return_id"));
+                            item.setProductId(rsItems.getInt("product_id"));
+                            item.setQty(rsItems.getBigDecimal("quantity"));
+                            item.setReturnReason(rsItems.getString("return_reason"));
+                            item.setSkuCode(rsItems.getString("sku_code"));
+                            item.setSkuName(rsItems.getString("product_name"));
+
+                            String dec = rsItems.getString("decision");
+                            if (dec != null) {
+                                item.setQcDecision("PASS".equalsIgnoreCase(dec) ? "resalable" : "defective");
+                            } else {
+                                item.setQcDecision("pending");
+                            }
+                            item.setQcNote(rsItems.getString("qc_notes"));
+                            items.add(item);
+                        }
+                        ro.setItems(items);
+                    }
+                    list.add(ro);
+                }
+            }
+
+        } catch (SQLException e) {
+            LOGGER.log(Level.WARNING, "ReturnDAO: Failed to retrieve return orders by warehouse", e);
+            System.out.println("[ReturnDAO] SQL ERROR: " + e.getMessage());
+            e.printStackTrace();
+        }
+        System.out.println("[ReturnDAO] DEBUG: Returning " + list.size() + " return orders for warehouse " + warehouseId);
+        return list;
+    }
+
     /**
      * Inserts a return order and its items in a transaction.
      */
@@ -183,6 +278,7 @@ public class ReturnDAO {
                 try (ResultSet rsKeys = psOrder.getGeneratedKeys()) {
                     if (rsKeys.next()) {
                         returnId = rsKeys.getInt(1);
+                        this.lastInsertedId = returnId;
                     }
                 }
             }
@@ -533,6 +629,22 @@ public class ReturnDAO {
                 try { conn.setAutoCommit(true); conn.close(); } catch (SQLException ignored) {}
             }
         }
+    }
+
+    public int getWarehouseIdForReturn(int returnId) {
+        String sql = "SELECT warehouse_id FROM return_orders WHERE return_id = ?";
+        try (Connection conn = DBConnection.getConnection();
+             PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setInt(1, returnId);
+            try (ResultSet rs = ps.executeQuery()) {
+                if (rs.next()) {
+                    return rs.getInt("warehouse_id");
+                }
+            }
+        } catch (SQLException e) {
+            LOGGER.log(Level.WARNING, "Failed to get warehouse_id for return_id=" + returnId, e);
+        }
+        return -1;
     }
 
     /**

@@ -225,4 +225,12 @@ public abstract class BaseController extends HttpServlet {
             return null;
         }
     }
+
+    protected int currentWarehouseId(HttpServletRequest req) {
+        Object u = req.getSession().getAttribute(AppConstants.SESSION_USER);
+        if (u instanceof com.wms.model.User && ((com.wms.model.User) u).getWarehouseId() > 0) {
+            return ((com.wms.model.User) u).getWarehouseId();
+        }
+        return 1;
+    }
 }

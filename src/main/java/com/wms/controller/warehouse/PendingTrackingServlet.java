@@ -95,14 +95,6 @@ public class PendingTrackingServlet extends BaseController {
         }
     }
 
-    private int currentWarehouseId(HttpServletRequest req) {
-        Object u = req.getSession().getAttribute(AppConstants.SESSION_USER);
-        if (u instanceof User && ((User) u).getWarehouseId() > 0) {
-            return ((User) u).getWarehouseId();
-        }
-        return 1;
-    }
-
     private String jsonError(String message) {
         if (message == null) return "{\"success\":false,\"message\":\"Lỗi không xác định\"}";
         String safe = message

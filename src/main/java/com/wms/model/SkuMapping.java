@@ -143,4 +143,25 @@ public class SkuMapping {
     public void setProductName(String productName) {
         this.productName = productName;
     }
+
+    // ── Enriched Lazada fields (populated by findActiveMappingsByProductIds) ──
+
+    private String lazadaSkuId;
+    private String channelItemId;
+
+    public String getLazadaSkuId() {
+        return lazadaSkuId;
+    }
+
+    public void setLazadaSkuId(String lazadaSkuId) {
+        this.lazadaSkuId = lazadaSkuId;
+    }
+
+    public String getChannelItemId() {
+        return channelItemId;
+    }
+
+    public void setChannelItemId(String channelItemId) {
+        this.channelItemId = channelItemId;
+    }
 }

@@ -28,6 +28,10 @@ public class LedgerService {
         return ledgerDAO.findDocumentItems(docId, docType);
     }
 
+    public boolean verifyDocumentBelongsToWarehouse(String docId, String docType, int warehouseId) {
+        return ledgerDAO.verifyDocumentBelongsToWarehouse(docId, docType, warehouseId);
+    }
+
     public boolean approveDocument(String docType, String docId, int approvedBy) {
         boolean ok = ledgerDAO.approveDocument(docId, docType, approvedBy);
         if (ok) {

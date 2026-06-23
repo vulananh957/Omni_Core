@@ -806,3 +806,25 @@ CREATE INDEX idx_pdz_product
 -- channels: quick lookup by platform (Lazada/Shopee filter)
 CREATE INDEX idx_channels_platform
     ON channels (platform);
+
+-- ── NHOM 12: Notifications ─────────────────────────────
+
+CREATE TABLE IF NOT EXISTS notifications (
+    id                 BIGINT AUTO_INCREMENT PRIMARY KEY,
+    recipient_user_id  INT NOT NULL DEFAULT 0 COMMENT '0 = role broadcast (all users with that role)',
+    recipient_role     VARCHAR(50) NOT NULL,
+    warehouse_id       INT DEFAULT NULL COMMENT 'NULL = all warehouses; set for WH-staff scoped alerts',
+    notification_type  VARCHAR(50) NOT NULL COMMENT 'INBOUND, OUTBOUND, TRANSFER, RETURN, DEFECTIVE, INVENTORY, ORDER, APPROVAL, SYSTEM',
+    title              VARCHAR(255) NOT NULL,
+    message            TEXT NOT NULL,
+    reference_type     VARCHAR(50) DEFAULT NULL COMMENT 'GRN, GI, KK, TR, RMA, ORDER',
+    reference_id       BIGINT DEFAULT NULL,
+    priority           VARCHAR(20) NOT NULL DEFAULT 'NORMAL' COMMENT 'LOW, NORMAL, HIGH, URGENT',
+    is_read            TINYINT(1) NOT NULL DEFAULT 0,
+    created_at         DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    read_at           DATETIME DEFAULT NULL,
+    INDEX idx_notif_recipient (recipient_user_id, recipient_role),
+    INDEX idx_notif_warehouse (warehouse_id),
+    INDEX idx_notif_unread (recipient_user_id, is_read),
+    INDEX idx_notif_created (created_at DESC)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;

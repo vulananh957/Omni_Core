@@ -5,6 +5,7 @@ import com.wms.dao.InventoryDAO;
 import com.wms.dao.ProductDAO;
 import com.wms.model.InboundOrder;
 import com.wms.model.ReceiptNote;
+import com.wms.service.marketplace.MarketplaceSyncService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -13,6 +14,7 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.CompletableFuture;
 
 public class InboundService {
 
@@ -21,6 +23,7 @@ public class InboundService {
     private final InboundDAO inboundDAO = new InboundDAO();
     private final InventoryDAO inventoryDAO = new InventoryDAO();
     private final ProductDAO productDAO = new ProductDAO();
+    private final MarketplaceSyncService marketplaceSyncService = new MarketplaceSyncService();
 
     public List<InboundOrder> findAll() {
         return inboundDAO.findAll();
@@ -153,6 +156,28 @@ public class InboundService {
         inboundDAO.updateStatus(inboundId, InboundOrder.STATUS_RECEIVED);
         log.info("Goods received: inboundId={} warehouseId={} userId={} success={} failed={}",
                 inboundId, existing.getWarehouseId(), userId, successCount, failCount);
+
+        // Trigger real-time marketplace stock sync (async — does not block the HTTP response)
+        // Push_Qty = SUM(qty_available all warehouses) - bufferStock, batched 20 SKU/call
+        if (successCount > 0) {
+            List<Integer> receivedProductIds = receiptItems.stream()
+                    .filter(item -> item.getAcceptedQty() != null
+                            && item.getAcceptedQty().compareTo(BigDecimal.ZERO) > 0)
+                    .map(item -> item.getProductId())
+                    .distinct()
+                    .toList();
+            if (!receivedProductIds.isEmpty()) {
+                String finalInboundCode = existing.getInboundCode();
+                CompletableFuture.runAsync(() -> {
+                    try {
+                        marketplaceSyncService.triggerStockSyncAfterInbound(receivedProductIds, finalInboundCode);
+                    } catch (Exception e) {
+                        log.error("Marketplace stock sync failed after inbound receive: inboundCode={}",
+                                finalInboundCode, e);
+                    }
+                });
+            }
+        }
 
         String msg = (failCount == 0)
             ? "Nhập kho phiếu " + existing.getInboundCode() + " thành công! Tồn kho đã được cập nhật."

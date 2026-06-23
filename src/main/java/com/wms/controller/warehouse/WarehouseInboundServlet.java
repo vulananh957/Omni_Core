@@ -9,6 +9,9 @@ import com.wms.service.product.ProductService;
 import com.wms.service.warehouse.InboundService;
 import com.wms.model.ReceiptNote;
 import com.wms.service.warehouse.WarehouseService;
+import com.wms.service.warehouse.RtvService;
+import com.wms.model.RtvOrder;
+import com.wms.service.NotificationService;
 
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -32,6 +35,8 @@ public class WarehouseInboundServlet extends BaseController {
     private final InboundService inboundService = new InboundService();
     private final ProductService productService = new ProductService();
     private final WarehouseService warehouseService = new WarehouseService();
+    private final RtvService rtvService = new RtvService();
+    private final NotificationService notificationService = new NotificationService();
 
     @Override
     protected void doGet(HttpServletRequest req, HttpServletResponse resp)
@@ -47,6 +52,8 @@ public class WarehouseInboundServlet extends BaseController {
             req.setAttribute("products", products);
             setJsonAttr(req, "productsJson", products);
             req.setAttribute("warehouses", warehouses);
+            List<RtvOrder> rtvList = rtvService.findByWarehouse(myWarehouseId);
+            setJsonAttr(req, "rtvListJson", rtvList);
             req.setAttribute("myWarehouseId", currentWarehouseId(req));
         } catch (Exception e) {
             req.setAttribute("inboundList", List.of());
@@ -78,14 +85,7 @@ public class WarehouseInboundServlet extends BaseController {
             String expectedDateStr = req.getParameter("expectedDate");
             String notes = req.getParameter("notes");
 
-            int warehouseId = 0;
-            try {
-                warehouseId = Integer.parseInt(warehouseIdStr);
-            } catch (NumberFormatException e) {
-                setFlashError(req, "ID kho không hợp lệ.");
-                redirect(resp, "/warehouse/inbound");
-                return;
-            }
+            int warehouseId = currentWarehouseId(req);
 
             InboundService.ValidationResult validation = inboundService.validateForCreate(supplierName, warehouseId);
             if (!validation.isSuccess()) {
@@ -179,9 +179,21 @@ public class WarehouseInboundServlet extends BaseController {
             }
             try {
                 int inboundId = Integer.parseInt(inboundIdStr);
+                InboundOrder io = inboundService.findById(inboundId);
+                int myWarehouseId = currentWarehouseId(req);
+                if (io == null || io.getWarehouseId() != myWarehouseId) {
+                    setFlashError(req, "Bạn không có quyền xác nhận phiếu nhập thuộc kho khác.");
+                    redirect(resp, "/warehouse/inbound");
+                    return;
+                }
                 InboundService.TransitionResult result = inboundService.confirmInbound(inboundId);
                 if (result.isSuccess()) {
                     setFlashSuccess(req, result.getMessage());
+                    // Notify managers: GRN pending approval
+                    String whName = io.getWarehouseName();
+                    notificationService.notifyGrnPending(io.getWarehouseId(),
+                            whName != null ? whName : String.valueOf(io.getWarehouseId()),
+                            inboundId, io.getInboundCode());
                 } else {
                     setFlashError(req, result.getMessage());
                 }
@@ -204,6 +216,13 @@ public class WarehouseInboundServlet extends BaseController {
 
             try {
                 int inboundId = Integer.parseInt(inboundIdStr);
+                InboundOrder io = inboundService.findById(inboundId);
+                int myWarehouseId = currentWarehouseId(req);
+                if (io == null || io.getWarehouseId() != myWarehouseId) {
+                    setFlashError(req, "Bạn không có quyền nhận hàng cho phiếu nhập thuộc kho khác.");
+                    redirect(resp, "/warehouse/inbound");
+                    return;
+                }
                 List<InboundService.ReceiptItem> items = new ArrayList<>();
                 if (productIds != null && receivedQtys != null) {
                     for (int i = 0; i < productIds.length; i++) {
@@ -221,6 +240,10 @@ public class WarehouseInboundServlet extends BaseController {
 
                 if (result.isSuccess()) {
                     setFlashSuccess(req, result.getMessage());
+                    // Notify the WH staff who created this GRN: approved + stock updated
+                    if (io.getCreatedBy() > 0) {
+                        notificationService.notifyGrnApproved(io.getCreatedBy(), inboundId, io.getInboundCode());
+                    }
                 } else {
                     setFlashError(req, result.getMessage());
                 }
@@ -245,19 +268,6 @@ public class WarehouseInboundServlet extends BaseController {
         } catch (Exception ignored) {
         }
         return null;
-    }
-
-    private int currentWarehouseId(HttpServletRequest req) {
-        Object user = req.getSession(false) != null
-                ? req.getSession(false).getAttribute("loggedInUser")
-                : null;
-        if (user != null) {
-            try {
-                return (Integer) user.getClass().getMethod("getWarehouseId").invoke(user);
-            } catch (Exception ignored) {
-            }
-        }
-        return 1;
     }
 
     @com.fasterxml.jackson.annotation.JsonIgnoreProperties(ignoreUnknown = true)

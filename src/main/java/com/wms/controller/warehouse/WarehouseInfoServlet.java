@@ -106,12 +106,4 @@ public class WarehouseInfoServlet extends BaseController {
         }
         redirect(resp, req.getContextPath() + CONTEXT_PATH);
     }
-
-    private int currentWarehouseId(HttpServletRequest req) {
-        Object u = req.getSession().getAttribute(AppConstants.SESSION_USER);
-        if (u instanceof User && ((User) u).getWarehouseId() > 0) {
-            return ((User) u).getWarehouseId();
-        }
-        return 1;
-    }
 }

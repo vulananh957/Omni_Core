@@ -322,7 +322,7 @@ public class InventoryDAO {
             "SELECT inv.inventory_id, inv.product_id, p.sku_code, p.product_name, "
             + "inv.warehouse_id, w.warehouse_name, w.warehouse_code, "
             + "inv.qty_on_hand, inv.holding, inv.qty_available, inv.updated_at, "
-            + "p.min_stock, p.rop_calculated, "
+            + "p.min_stock, p.rop_calculated, inv.stock_type, "
             + "COALESCE(inb.inbound_qty, 0) AS inbound_qty "
             + "FROM inventory inv "
             + "LEFT JOIN products p ON inv.product_id = p.product_id "
@@ -353,6 +353,7 @@ public class InventoryDAO {
                     row.put("qtyOnHand", rs.getBigDecimal("qty_on_hand"));
                     row.put("holding", rs.getBigDecimal("holding"));
                     row.put("qtyAvailable", rs.getBigDecimal("qty_available"));
+                    row.put("stockType", rs.getString("stock_type"));
                     java.sql.Timestamp updated = rs.getTimestamp("updated_at");
                     row.put("updatedAt", updated != null ? updated.toLocalDateTime().toString() : "");
                     row.put("inboundQty", rs.getBigDecimal("inbound_qty"));

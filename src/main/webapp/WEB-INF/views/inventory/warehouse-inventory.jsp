@@ -85,6 +85,7 @@
                 <tr>
                     <th style="text-align: left;">Mã SKU</th>
                     <th style="text-align: left;">Tên sản phẩm</th>
+                    <th style="text-align: center;">Phân loại</th>
                     <th style="text-align: right;" title="Tồn vật lý (đếm được trên kệ)">Tồn VT</th>
                     <th style="text-align: right;" title="Đã phân bổ cho đơn đang xử lý">Tạm giữ</th>
                     <th style="text-align: right; font-weight:700;" title="On-Hand − Reserved — con số thực sự được bán">Khả dụng</th>
@@ -126,6 +127,24 @@
     background: rgba(5, 150, 105, 0.10);
     color: #059669;
     border: 1px solid rgba(5, 150, 105, 0.25);
+}
+.stock-type-badge {
+    display: inline-block;
+    padding: 2px 8px;
+    font-size: 11px;
+    font-weight: 700;
+    border-radius: 4px;
+    text-align: center;
+}
+.type-normal {
+    background: rgba(16, 185, 129, 0.1);
+    color: #10b981;
+    border: 1px solid rgba(16, 185, 129, 0.2);
+}
+.type-defective {
+    background: rgba(239, 68, 68, 0.1);
+    color: #ef4444;
+    border: 1px solid rgba(239, 68, 68, 0.2);
 }
 </style>
 
@@ -184,8 +203,8 @@
         var t = searchText.toLowerCase();
         return items.filter(function(item) {
             var matchText = !t ||
-                (item.sku_code && item.sku_code.toLowerCase().indexOf(t) !== -1) ||
-                (item.product_name && item.product_name.toLowerCase().indexOf(t) !== -1);
+                (item.skuCode && item.skuCode.toLowerCase().indexOf(t) !== -1) ||
+                (item.productName && item.productName.toLowerCase().indexOf(t) !== -1);
             var matchStatus = selectedStatus === 'Tất cả' || item.level === selectedStatus;
             return matchText && matchStatus;
         });
@@ -202,19 +221,27 @@
         totalCountEl.textContent    = filtered.length;
 
         var rows = filtered.map(function(item) {
-            var qtyOnHand   = parseFloat(item.qty_on_hand || 0);
+            var qtyOnHand   = parseFloat(item.qtyOnHand || 0);
             var holding     = parseFloat(item.holding || 0);
-            var qtyAvail    = parseFloat(item.qty_available || 0);
-            var inboundQty  = parseFloat(item.inbound_qty || 0);
+            var qtyAvail    = parseFloat(item.qtyAvailable || 0);
+            var inboundQty  = parseFloat(item.inboundQty || 0);
             var atp         = qtyAvail + inboundQty;
             var atpLabel    = fmt(atp);
-            var atpClass    = chipClass(item.atp_status || 'enough');
+            var atpClass    = chipClass(item.atpStatus || 'enough');
+
+            var stockTypeBadge = '';
+            if (item.stockType === 'DEFECTIVE') {
+                stockTypeBadge = '<span class="stock-type-badge type-defective">Hàng lỗi</span>';
+            } else {
+                stockTypeBadge = '<span class="stock-type-badge type-normal">Hàng thường</span>';
+            }
 
             return '<tr>' +
-                '<td class="font-mono" style="font-size:13px;font-weight:600;color:var(--primary)">' + (item.sku_code || '') + '</td>' +
+                '<td class="font-mono" style="font-size:13px;font-weight:600;color:var(--primary)">' + (item.skuCode || '') + '</td>' +
                 '<td style="max-width:260px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' +
-                    '<span title="' + (item.product_name || '') + '">' + (item.product_name || '—') + '</span>' +
+                    '<span title="' + (item.productName || '') + '">' + (item.productName || '—') + '</span>' +
                 '</td>' +
+                '<td class="text-center">' + stockTypeBadge + '</td>' +
                 '<td class="text-right" style="font-variant-numeric:tabular-nums">' + fmt(qtyOnHand) + '</td>' +
                 '<td class="text-right ' + (holding > 0 ? 'text-orange' : '') + '" style="font-variant-numeric:tabular-nums">' +
                     (holding > 0 ? fmt(holding) : '—') +
@@ -233,7 +260,7 @@
 
         tableBody.innerHTML = rows.length
             ? rows.join('')
-            : '<tr><td colspan="7" style="text-align:center;padding:32px;color:#9ca3af">Không có dữ liệu tồn kho</td></tr>';
+            : '<tr><td colspan="8" style="text-align:center;padding:32px;color:#9ca3af">Không có dữ liệu tồn kho</td></tr>';
 
         showingCountEl.textContent = 'Hiển thị ' + rows.length + ' / ' + filtered.length + ' dòng tồn kho';
     }

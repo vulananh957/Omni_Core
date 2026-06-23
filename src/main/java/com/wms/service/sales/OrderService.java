@@ -9,6 +9,7 @@ import com.wms.model.Product;
 import com.wms.model.Warehouse;
 import com.wms.service.lazada.LazadaShipmentService;
 import com.wms.service.warehouse.OutboundService;
+import com.wms.service.NotificationService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -31,6 +32,7 @@ public class OrderService {
     private final WarehouseDAO warehouseDAO = new WarehouseDAO();
     private final OutboundService outboundService = new OutboundService();
     private final InventoryDAO inventoryDAO = new InventoryDAO();
+    private final NotificationService notificationService = new NotificationService();
 
     public List<Order> findAllOrders() {
         return orderDAO.getAllOrders();
@@ -126,6 +128,11 @@ public class OrderService {
                         outboundService.autoCreateFromOrder(orderCode, warehouseId, 1);
                     } catch (Exception ex) {
                         log.warn("Failed to auto-create outbound for order {}: {}", orderCode, ex.getMessage());
+                    }
+                    // Notify sales staff who owns the order
+                    if (order != null && order.getCreatedBy() != null) {
+                        notificationService.notifyOrderStatus(order.getCreatedBy(),
+                                order.getOrderId(), orderCode, "PENDING", "PICKING");
                     }
                     return ActionResult.success("Duyệt đơn hàng thành công.");
                 } else {
@@ -238,6 +245,14 @@ public class OrderService {
                               : ActionResult.failure("Không thể cập nhật trạng thái.");
                 } else if ("DELIVERED".equals(status)) {
                     boolean ok = orderDAO.updateOrderStatus(orderCode, "DELIVERED");
+                    if (ok) {
+                        // Notify sales staff: order delivered
+                        Order o = orderDAO.findByOrderCode(orderCode);
+                        if (o != null && o.getCreatedBy() != null) {
+                            notificationService.notifyOrderStatus(o.getCreatedBy(),
+                                    o.getOrderId(), orderCode, "SHIPPED", "DELIVERED");
+                        }
+                    }
                     return ok ? ActionResult.success("Cập nhật trạng thái giao hàng thành công.")
                               : ActionResult.failure("Không thể cập nhật trạng thái.");
                 } else if ("RETURNED".equals(status)) {
@@ -342,6 +357,11 @@ public class OrderService {
         }
 
         log.info("Order cancelled by buyer via webhook: orderCode={}", orderCode);
+        // Notify sales staff: order cancelled by buyer
+        if (order.getCreatedBy() != null) {
+            notificationService.notifyOrderStatus(order.getCreatedBy(),
+                    order.getOrderId(), orderCode, order.getStatus(), "CANCELLED");
+        }
         return ActionResult.success("Đã hủy đơn theo yêu cầu khách hàng, tồn kho đã được trả lại.");
     }
 

@@ -3,6 +3,7 @@ package com.wms.filter;
 import com.wms.dao.InventoryDAO;
 import com.wms.util.AppConstants;
 import com.wms.model.User;
+import com.wms.service.NotificationService;
 
 import jakarta.servlet.*;
 import jakarta.servlet.http.HttpServletRequest;
@@ -19,16 +20,20 @@ import java.util.logging.Logger;
  * warehouse page request so the notification bell in the layout can display
  * a badge when defective goods are sitting in the warehouse.
  *
+ * <p>Also auto-creates a database notification when the defective stock count
+ * increases, so the WH staff and manager are alerted via the notification bell.</p>
+ *
  * Runs before any /warehouse/* servlet. Sets:
- *   - request attr "defectiveStocks"  : List<Map<String,Object>> of items with stock_type=DEFECTIVE and qty_on_hand > 0
- *   - request attr "defectiveCount"   : int total count of defective items (number of SKU rows)
- *   - request attr "defectiveTotal"   : int total units of defective stock across all SKUs
+ *   - request attr "defectiveStocks"  : List of items with stock_type=DEFECTIVE and qty_on_hand > 0
+ *   - request attr "defectiveCount"   : int total count of defective SKU rows
+ *   - request attr "defectiveTotal"  : int total units across all defective SKUs
  *
  * Only runs for WAREHOUSE_STAFF role scoped to their own warehouse.
  */
 public class DefectiveStockFilter implements Filter {
 
     private static final Logger log = Logger.getLogger(DefectiveStockFilter.class.getName());
+    private static final String SESSION_DEFECTIVE_COUNT = "_defectiveStockCount";
 
     @Override
     public void init(FilterConfig filterConfig) throws ServletException {}
@@ -77,6 +82,24 @@ public class DefectiveStockFilter implements Filter {
                         req.setAttribute("defectiveStocks", defectiveStocks);
                         req.setAttribute("defectiveCount", defectiveStocks.size());
                         req.setAttribute("defectiveTotal", defectiveTotal);
+
+                        // Auto-create notification when defective count increases
+                        int currentCount = defectiveStocks.size();
+                        Integer previousCount = (Integer) session.getAttribute(SESSION_DEFECTIVE_COUNT);
+                        if (currentCount > 0 && (previousCount == null || currentCount > previousCount)) {
+                            session.setAttribute(SESSION_DEFECTIVE_COUNT, currentCount);
+                            String whName = user.getWarehouseId() > 0
+                                    ? String.valueOf(user.getWarehouseId())
+                                    : String.valueOf(warehouseId);
+                            NotificationService ns = new NotificationService();
+                            ns.notifyDefectiveStock(warehouseId, whName, currentCount, defectiveTotal);
+                            log.info("DefectiveStockFilter: Defective stock alert sent for warehouseId=" + warehouseId + " count=" + currentCount);
+                        } else if (currentCount == 0 && previousCount != null && previousCount > 0) {
+                            // Defective stock cleared — update session so next appearance triggers again
+                            session.setAttribute(SESSION_DEFECTIVE_COUNT, 0);
+                        } else if (previousCount == null) {
+                            session.setAttribute(SESSION_DEFECTIVE_COUNT, currentCount);
+                        }
                     } catch (Exception e) {
                         log.warning("DefectiveStockFilter: Failed to load defective stocks: " + e.getMessage());
                         req.setAttribute("defectiveStocks", new ArrayList<>());

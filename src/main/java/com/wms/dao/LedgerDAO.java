@@ -470,6 +470,55 @@ public class LedgerDAO {
     }
 
     /**
+     * Returns the user_id of the creator of a document, given its type and id.
+     * Returns null if not found.
+     * Supports: GRN (inbound_orders), GI (outbound_orders), KK (physical_inventories),
+     *           TR (stock_transfers), RMA (return_orders).
+     */
+    public String getDocumentCreatorUserId(String docType, String docId) {
+        String sql = null;
+        switch (docType) {
+            case "GRN":
+            case "Phiếu Nhập Kho":
+                sql = "SELECT created_by FROM inbound_orders WHERE inbound_code = ? OR inbound_id = ?";
+                break;
+            case "GI":
+            case "Phiếu Xuất Kho":
+                sql = "SELECT created_by FROM outbound_orders WHERE outbound_code = ? OR outbound_id = ?";
+                break;
+            case "KK":
+            case "Phiếu Kiểm Kê":
+                sql = "SELECT created_by FROM physical_inventories WHERE check_code = ? OR inventory_check_id = ?";
+                break;
+            case "TR":
+            case "Phiếu Chuyển Kho":
+                sql = "SELECT created_by FROM stock_transfers WHERE transfer_code = ? OR transfer_id = ?";
+                break;
+            case "RMA":
+            case "Phiếu Hoàn Hàng":
+                sql = "SELECT created_by FROM return_orders WHERE return_code = ? OR return_id = ?";
+                break;
+            default:
+                return null;
+        }
+        if (sql == null) return null;
+        try (Connection conn = DBConnection.getConnection();
+             PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setString(1, docId);
+            ps.setString(2, docId);
+            try (ResultSet rs = ps.executeQuery()) {
+                if (rs.next()) {
+                    int uid = rs.getInt("created_by");
+                    return rs.wasNull() ? null : String.valueOf(uid);
+                }
+            }
+        } catch (SQLException e) {
+            LOGGER.log(Level.WARNING, "getDocumentCreatorUserId failed for type=" + docType + " id=" + docId, e);
+        }
+        return null;
+    }
+
+    /**
      * Fetch all global ledger history records.
      */
     public List<GlobalLedgerEntry> findGlobalLedgerEntries() {

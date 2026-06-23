@@ -1519,7 +1519,7 @@
                                         '<td style="border: 1px solid rgba(16, 55, 92, 0.15); padding: 10px 12px; text-align: center; font-size: 14px; color: rgba(16, 55, 92, 0.6);">' + totalReceived + '</td>' +
                                         '<td style="border: 1px solid rgba(16, 55, 92, 0.15); padding: 10px 12px; text-align: center; font-size: 14px; background: #fef2f2; color: #dc2626; font-weight: 800;">' + totalReturned + '</td>' +
                                         '<td style="border: 1px solid rgba(16, 55, 92, 0.15); padding: 10px 12px;"></td>' +
-                                        '<td style="border: 1px solid rgba(16, 55, 92, 0.15); padding: 10px 12px; text-align: right; font-size: 14px; font-weight: 800; color: var(--navy);">' + totalValue.toLocaleString(\'vi-VN\') + '</td>' +
+                                        '<td style="border: 1px solid rgba(16, 55, 92, 0.15); padding: 10px 12px; text-align: right; font-size: 14px; font-weight: 800; color: var(--navy);">' + totalValue.toLocaleString('vi-VN') + '</td>' +
                                     '</tr>' +
                                 '</tbody>' +
                             '</table>' +

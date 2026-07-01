@@ -170,7 +170,9 @@ public class LazadaErrorTranslator {
     }
 
     private static String textOr(JsonNode n, String def) {
-        return (n == null || n.isNull()) ? def : n.asText(def);
+        if (n == null || n.isNull()) return def;
+        String v = n.asText();
+        return v.isEmpty() ? def : v;
     }
 
     /** Translation record: VI message + UI field hint. */

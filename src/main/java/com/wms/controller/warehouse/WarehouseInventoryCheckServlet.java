@@ -1,13 +1,11 @@
 package com.wms.controller.warehouse;
 
-import com.fasterxml.jackson.databind.SerializationFeature;
-import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import com.wms.controller.BaseController;
 import com.wms.model.Product;
 import com.wms.model.User;
 import com.wms.service.product.ProductService;
 import com.wms.service.warehouse.WarehouseService;
-import com.wms.service.NotificationService;
+import com.wms.service.common.NotificationService;
 import com.wms.util.AppConstants;
 
 import jakarta.servlet.ServletException;
@@ -17,9 +15,7 @@ import jakarta.servlet.http.HttpSession;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.LinkedHashMap;
 import java.util.List;
-import java.util.Map;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -238,7 +234,11 @@ public class WarehouseInventoryCheckServlet extends BaseController {
         resultsJson = com.wms.util.JsonUtil.toJson(updatedList);
         
         warehouseService.submitInventoryCheckResults(checkId, resultsJson);
-        // Notify managers: inventory check submitted — pending approval
+        
+        // Directly approve the document to adjust inventory and set status to APPROVED immediately
+        new com.wms.dao.LedgerDAO().approveDocument(check.getCheckCode(), "Phiếu Kiểm Kê", userId);
+
+        // Notify managers: inventory check completed
         String whName;
         try {
             com.wms.model.Warehouse wh = warehouseService.findById(myWarehouseId);
@@ -246,7 +246,7 @@ public class WarehouseInventoryCheckServlet extends BaseController {
         } catch (Exception e) {
             whName = String.valueOf(myWarehouseId);
         }
-        notificationService.notifyInventoryCheckPending(myWarehouseId, whName, checkId, check.getCheckCode());
+        notificationService.notifyInventoryCheckCompleted(myWarehouseId, whName, checkId, check.getCheckCode());
     }
 
     private void handleAdjust(java.util.Map<String, Object> payload, int userId, int myWarehouseId) throws Exception {

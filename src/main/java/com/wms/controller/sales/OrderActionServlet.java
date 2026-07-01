@@ -8,7 +8,6 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
 import java.io.PrintWriter;
-import java.util.logging.Logger;
 
 /**
  * OrderActionServlet — Handles POST requests for order lifecycle status
@@ -16,7 +15,6 @@ import java.util.logging.Logger;
  * Maps to /sales/order-action.
  */
 public class OrderActionServlet extends BaseController {
-    private static final Logger LOGGER = Logger.getLogger(OrderActionServlet.class.getName());
 
     private final OrderService orderService = new OrderService();
 

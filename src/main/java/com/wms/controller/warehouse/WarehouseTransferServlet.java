@@ -6,7 +6,7 @@ import com.wms.model.Product;
 import com.wms.model.User;
 import com.wms.model.Warehouse;
 import com.wms.service.warehouse.TransferService;
-import com.wms.service.NotificationService;
+import com.wms.service.common.NotificationService;
 import com.wms.util.AppConstants;
 import com.wms.util.JsonUtil;
 

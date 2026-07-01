@@ -1,7 +1,6 @@
 package com.wms.dao;
 
 import com.wms.model.Category;
-import com.wms.util.DBConnection;
 
 import java.sql.Connection;
 import java.sql.PreparedStatement;

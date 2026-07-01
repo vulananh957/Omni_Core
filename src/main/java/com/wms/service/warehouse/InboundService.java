@@ -4,15 +4,12 @@ import com.wms.dao.InboundDAO;
 import com.wms.dao.InventoryDAO;
 import com.wms.dao.ProductDAO;
 import com.wms.model.InboundOrder;
-import com.wms.model.ReceiptNote;
 import com.wms.service.marketplace.MarketplaceSyncService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
-import java.time.LocalDateTime;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 
@@ -56,32 +53,15 @@ public class InboundService {
         InboundOrder order = new InboundOrder();
         order.setSupplierName(supplierName.trim());
         order.setWarehouseId(warehouseId);
-        order.setStatus(InboundOrder.STATUS_PENDING);
+        // Sau khi tối giản quy trình: phiếu mới vào thẳng trạng thái "Đang nhập kho"
+        // (WH staff tạo phiếu → nhập hàng → hoàn thành, không còn bước duyệt Manager/QC)
+        order.setStatus(InboundOrder.STATUS_IN_PROGRESS);
         order.setCreatedBy(createdBy);
         order.setNotes(notes != null && !notes.trim().isEmpty() ? notes.trim() : null);
         if (expectedDate != null) {
             order.setExpectedDate(expectedDate);
         }
         return inboundDAO.insert(order);
-    }
-
-    public TransitionResult confirmInbound(int inboundId) {
-        InboundOrder existing = inboundDAO.findById(inboundId);
-        if (existing == null) {
-            log.warn("Confirm inbound failed: order not found id={}", inboundId);
-            return TransitionResult.failure("Phiếu nhập không tồn tại.");
-        }
-        if (!InboundOrder.STATUS_PENDING.equals(existing.getStatus())) {
-            log.warn("Confirm inbound failed: wrong status id={} status={}", inboundId, existing.getStatus());
-            return TransitionResult.failure("Phiếu nhập không ở trạng thái chờ xác nhận.");
-        }
-        boolean updated = inboundDAO.updateStatus(inboundId, InboundOrder.STATUS_IN_PROGRESS);
-        if (!updated) {
-            log.error("Confirm inbound failed: DAO update returned false id={}", inboundId);
-            return TransitionResult.failure("Không thể xác nhận phiếu nhập.");
-        }
-        log.info("Inbound confirmed: id={} code={}", inboundId, existing.getInboundCode());
-        return TransitionResult.success("Xác nhận phiếu " + existing.getInboundCode() + " thành công!");
     }
 
     public ReceiveResult receiveGoods(int inboundId, List<ReceiptItem> receiptItems, int userId) {
@@ -92,10 +72,9 @@ public class InboundService {
         }
         if (!InboundOrder.STATUS_IN_PROGRESS.equals(existing.getStatus())) {
             log.warn("Receive goods failed: wrong status id={} status={}", inboundId, existing.getStatus());
-            return ReceiveResult.failure("Chỉ phiếu đã xác nhận mới có thể nhập kho.");
+            return ReceiveResult.failure("Chỉ phiếu đang nhập kho mới có thể nhận hàng.");
         }
 
-        LocalDateTime now = LocalDateTime.now();
         int successCount = 0;
         int failCount = 0;
 
@@ -103,47 +82,31 @@ public class InboundService {
             for (ReceiptItem item : receiptItems) {
                 try {
                     BigDecimal received = item.getReceivedQty() != null ? item.getReceivedQty() : BigDecimal.ZERO;
-                    BigDecimal accepted = item.getAcceptedQty() != null ? item.getAcceptedQty() : BigDecimal.ZERO;
-                    BigDecimal rejected = received.subtract(accepted); // auto-calculate
-
-                    if (received.compareTo(BigDecimal.ZERO) <= 0 && accepted.compareTo(BigDecimal.ZERO) <= 0) {
+                    if (received.compareTo(BigDecimal.ZERO) <= 0) {
                         continue;
                     }
+                    BigDecimal unitCost = item.getUnitCost() != null ? item.getUnitCost() : BigDecimal.ZERO;
 
-                    // Update all 4 fields in inbound_items (qty + unit_cost for MAC)
-                    inboundDAO.updateReceivedQtys(inboundId, item.getProductId(), received, accepted, rejected,
-                            item.getUnitCost() != null ? item.getUnitCost() : BigDecimal.ZERO);
-                    // Only accepted qty goes into inventory
-                    if (accepted.compareTo(BigDecimal.ZERO) > 0) {
-                        // MAC: Moving Average Cost — read state BEFORE inventory changes,
-                        // then recalculate after addInventory to include the new lot.
-                        double currentOnHand = 0.0;
-                        BigDecimal currentMac = BigDecimal.ZERO;
-                        var prod = productDAO.findById(item.getProductId());
-                        if (prod != null) {
-                            currentOnHand = prod.getQtyOnHand() != null ? prod.getQtyOnHand() : 0.0;
-                            currentMac = productDAO.findMacPrice(item.getProductId());
-                        }
-                        inventoryDAO.addInventory(item.getProductId(), existing.getWarehouseId(), accepted, userId);
-                        // unitCost may be null if not provided by caller (e.g. legacy paths).
-                        BigDecimal unitCost = item.getUnitCost() != null
-                                ? item.getUnitCost()
-                                : BigDecimal.ZERO;
-                        productDAO.updateMacPrice(
-                                item.getProductId(),
-                                BigDecimal.valueOf(currentOnHand),
-                                currentMac,
-                                accepted,
-                                unitCost);
+                    // Ghi nhận vào inbound_items (chỉ 1 cột qty thực nhận + đơn giá cho MAC).
+                    // Hàng hỏng (PO.expectedQty - receivedQty) được trả lại NCC tại chỗ,
+                    // KHÔNG lưu vào defective_inventory, KHÔNG tạo phiếu trả NCC.
+                    inboundDAO.updateReceivedQtys(inboundId, item.getProductId(), received, unitCost);
+
+                    // Cộng SL thực nhận vào tồn kho + cập nhật MAC.
+                    double currentOnHand = 0.0;
+                    BigDecimal currentMac = BigDecimal.ZERO;
+                    var prod = productDAO.findById(item.getProductId());
+                    if (prod != null) {
+                        currentOnHand = prod.getQtyOnHand() != null ? prod.getQtyOnHand() : 0.0;
+                        currentMac = productDAO.findMacPrice(item.getProductId());
                     }
-                    if (rejected.compareTo(BigDecimal.ZERO) > 0) {
-                        inventoryDAO.addDefectiveInventory(
-                                item.getProductId(),
-                                existing.getWarehouseId(),
-                                rejected,
-                                userId,
-                                "Hàng lỗi từ phiếu nhập " + existing.getInboundCode());
-                    }
+                    inventoryDAO.addInventory(item.getProductId(), existing.getWarehouseId(), received, userId);
+                    productDAO.updateMacPrice(
+                            item.getProductId(),
+                            BigDecimal.valueOf(currentOnHand),
+                            currentMac,
+                            received,
+                            unitCost);
                     successCount++;
                 } catch (Exception e) {
                     failCount++;
@@ -161,8 +124,8 @@ public class InboundService {
         // Push_Qty = SUM(qty_available all warehouses) - bufferStock, batched 20 SKU/call
         if (successCount > 0) {
             List<Integer> receivedProductIds = receiptItems.stream()
-                    .filter(item -> item.getAcceptedQty() != null
-                            && item.getAcceptedQty().compareTo(BigDecimal.ZERO) > 0)
+                    .filter(item -> item.getReceivedQty() != null
+                            && item.getReceivedQty().compareTo(BigDecimal.ZERO) > 0)
                     .map(item -> item.getProductId())
                     .distinct()
                     .toList();
@@ -187,19 +150,13 @@ public class InboundService {
 
     public static class ReceiptItem {
         private int productId;
-        private BigDecimal receivedQty;
-        private BigDecimal acceptedQty;
-        private BigDecimal rejectedQty;
-        private BigDecimal unitCost;  // used for MAC recalculation
+        private BigDecimal receivedQty;  // SL thực nhận (đã trừ hàng hỏng trả NCC tại chỗ)
+        private BigDecimal unitCost;     // đơn giá nhập, dùng để tính MAC
 
         public int getProductId() { return productId; }
         public void setProductId(int productId) { this.productId = productId; }
         public BigDecimal getReceivedQty() { return receivedQty; }
         public void setReceivedQty(BigDecimal receivedQty) { this.receivedQty = receivedQty; }
-        public BigDecimal getAcceptedQty() { return acceptedQty; }
-        public void setAcceptedQty(BigDecimal acceptedQty) { this.acceptedQty = acceptedQty; }
-        public BigDecimal getRejectedQty() { return rejectedQty; }
-        public void setRejectedQty(BigDecimal rejectedQty) { this.rejectedQty = rejectedQty; }
         public BigDecimal getUnitCost() { return unitCost; }
         public void setUnitCost(BigDecimal unitCost) { this.unitCost = unitCost; }
     }
@@ -219,27 +176,6 @@ public class InboundService {
 
         public static ValidationResult failure(String message) {
             return new ValidationResult(false, message);
-        }
-
-        public boolean isSuccess() { return success; }
-        public String getMessage() { return message; }
-    }
-
-    public static class TransitionResult {
-        private final boolean success;
-        private final String message;
-
-        private TransitionResult(boolean success, String message) {
-            this.success = success;
-            this.message = message;
-        }
-
-        public static TransitionResult success(String message) {
-            return new TransitionResult(true, message);
-        }
-
-        public static TransitionResult failure(String message) {
-            return new TransitionResult(false, message);
         }
 
         public boolean isSuccess() { return success; }

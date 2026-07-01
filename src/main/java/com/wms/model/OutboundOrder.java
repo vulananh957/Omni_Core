@@ -1,7 +1,6 @@
 package com.wms.model;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
-import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
@@ -29,6 +28,7 @@ public class OutboundOrder {
     private String outboundCode;
     private int orderId;
     private int warehouseId;
+    private Integer createdBy;
     private String status;
     private String notes;
     private LocalDateTime createdAt;
@@ -134,6 +134,14 @@ public class OutboundOrder {
 
     public void setWarehouseId(int warehouseId) {
         this.warehouseId = warehouseId;
+    }
+
+    public Integer getCreatedBy() {
+        return createdBy;
+    }
+
+    public void setCreatedBy(Integer createdBy) {
+        this.createdBy = createdBy;
     }
 
     public String getStatus() {

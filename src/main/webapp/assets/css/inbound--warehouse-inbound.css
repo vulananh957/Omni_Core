@@ -508,16 +508,14 @@
         display: inline-block;
     }
     .dropdown-menu {
+        /* position & coords set by JS (fixed) to escape overflow:hidden parents */
         position: absolute;
-        right: 0;
-        top: 100%;
-        margin-top: 8px;
         width: 180px;
         background: #fff;
         border: 1px solid var(--border);
         border-radius: var(--radius-btn);
-        box-shadow: 0 10px 15px -3px rgba(16, 55, 92, 0.1);
-        z-index: 50;
+        box-shadow: 0 10px 40px -4px rgba(16, 55, 92, 0.18), 0 2px 8px rgba(16,55,92,0.08);
+        z-index: 9999;
         display: none;
         overflow: hidden;
     }

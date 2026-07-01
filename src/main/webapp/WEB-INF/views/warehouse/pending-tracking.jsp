@@ -310,7 +310,7 @@
             const row = document.getElementById(rowId);
             const button = this;
 
-            if (!confirm('Cấp mã vận đơn cho đơn ' + orderCode + '?\n\nHệ thống sẽ sinh tracking và chuyển đơn sang PACKED.')) {
+            if (!confirm('Cấp mã vận đơn cho đơn ' + orderCode + '?\n\nHệ thống sẽ sinh tracking và tạo phiếu xuất kho.')) {
                 return;
             }
 

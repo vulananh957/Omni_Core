@@ -3,6 +3,7 @@ package com.wms.dao;
 import com.wms.util.DBConnection;
 import java.math.BigDecimal;
 import java.sql.Connection;
+import java.sql.Date;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
@@ -40,12 +41,33 @@ public class LedgerDAO {
         public String statusColor;
         public String remarks;
         public String supplier;
+        public String supplierAddress;
+        public String supplierPhone;
+        public String poReference;
         public String customer;
         public String poCode;
         public String supplierCode;
         public String contactPerson;
         public String proposal;
         public String inboundCode;
+        public String orderCode;
+        public String fromWarehouse;
+        public String fromWarehouseCode;
+        public String fromAddress;
+        public String toWarehouse;
+        public String toWarehouseCode;
+        public String toAddress;
+        public String warehouseCode;
+        public String warehouseAddress;
+        public String approver;
+        public String completedDate;
+        public String buyerName;
+        public String buyerPhone;
+        public String buyerAddress;
+        public String lazadaOrderNumber;
+        public String receiver;
+        public String shippingAddress;
+        public String customerPhone;
         public List<Map<String, Object>> itemsList = new ArrayList<>();
     }
 
@@ -92,7 +114,7 @@ public class LedgerDAO {
 
         // 1. Fetch Inbound Orders
         String sqlInbound =
-            "SELECT io.inbound_id, io.inbound_code, io.supplier, io.status, io.note, io.created_at, " +
+            "SELECT io.inbound_id, io.inbound_code, io.supplier, io.supplier_address, io.supplier_phone, io.po_reference, io.status, io.note, io.created_at, " +
             "w.warehouse_id, w.warehouse_name, u.full_name AS creator_name " +
             "FROM inbound_orders io " +
             "LEFT JOIN warehouses w ON io.warehouse_id = w.warehouse_id " +
@@ -107,19 +129,23 @@ public class LedgerDAO {
                 LedgerDocument d = new LedgerDocument();
                 d.id = rs.getString("inbound_code");
                 d.type = "Phiếu Nhập Kho";
-                
+
                 Timestamp ca = rs.getTimestamp("created_at");
                 d.date = (ca != null) ? ca.toLocalDateTime().format(DATE_FORMATTER) : "";
                 d.warehouse = rs.getString("warehouse_name");
                 d.warehouseId = rs.getInt("warehouse_id");
-                
+
                 String creator = rs.getString("creator_name");
                 d.createdBy = (creator != null) ? creator : "Hệ thống";
                 d.status = mapInboundStatus(rs.getString("status"));
                 d.statusColor = getStatusColor(d.status);
                 d.remarks = rs.getString("note");
                 d.supplier = rs.getString("supplier");
+                d.supplierAddress = rs.getString("supplier_address");
+                d.supplierPhone = rs.getString("supplier_phone");
+                d.poReference = rs.getString("po_reference");
                 d.items = countInboundItems(conn, rs.getInt("inbound_id"));
+                d.itemsList = loadInboundItems(conn, rs.getInt("inbound_id"));
                 docs.add(d);
             }
             }
@@ -130,11 +156,19 @@ public class LedgerDAO {
         // 2. Fetch Outbound Orders
         String sqlOutbound =
             "SELECT oo.outbound_id, oo.outbound_code, oo.status, oo.note, oo.created_at, " +
-            "w.warehouse_id, w.warehouse_name, u.full_name AS creator_name, o.channel " +
+            "w.warehouse_id, w.warehouse_name, w.warehouse_code, w.address, " +
+            "u.full_name AS creator_name, o.channel, o.order_code AS ref_order_code, " +
+            "lo.lazada_order_number, " +
+            "lo.customer_name AS lazada_buyer_name, lo.customer_phone AS lazada_buyer_phone, lo.shipping_address AS lazada_buyer_address, " +
+            "sd.recipient_name AS sd_recipient_name, sd.shipping_address AS sd_shipping_address, " +
+            "u2.phone AS customer_phone, u2.full_name AS customer_name " +
             "FROM outbound_orders oo " +
             "LEFT JOIN warehouses w ON oo.warehouse_id = w.warehouse_id " +
-            "LEFT JOIN users u ON oo.picked_by = u.user_id " +
             "LEFT JOIN orders o ON oo.order_id = o.order_id " +
+            "LEFT JOIN lazada_orders lo ON lo.lazada_order_id_str = o.channel_order_id " +
+            "LEFT JOIN order_shipping_details sd ON oo.order_id = sd.order_id " +
+            "LEFT JOIN users u2 ON o.customer_id = u2.user_id " +
+            "LEFT JOIN users u ON oo.created_by = u.user_id " +
             (byWh ? "WHERE oo.warehouse_id = ? " : "") +
             "ORDER BY oo.created_at DESC LIMIT 100";
         try (Connection conn = DBConnection.getConnection();
@@ -148,17 +182,63 @@ public class LedgerDAO {
                     d.id = "SOUT-OUT-" + rs.getInt("outbound_id");
                 }
                 d.type = "Phiếu Xuất Kho";
-                
+
                 Timestamp ca = rs.getTimestamp("created_at");
                 d.date = (ca != null) ? ca.toLocalDateTime().format(DATE_FORMATTER) : "";
                 d.warehouse = rs.getString("warehouse_name");
+                d.warehouseCode = rs.getString("warehouse_code");
+                d.warehouseAddress = rs.getString("address");
                 d.warehouseId = rs.getInt("warehouse_id");
-                
+
                 String creator = rs.getString("creator_name");
                 d.createdBy = (creator != null) ? creator : "Hệ thống";
                 d.remarks = rs.getString("note");
                 d.customer = rs.getString("channel");
                 if (d.customer == null) d.customer = "Khách mua lẻ";
+                d.orderCode = rs.getString("ref_order_code");
+                d.lazadaOrderNumber = rs.getString("lazada_order_number");
+
+                String lazadaName = rs.getString("lazada_buyer_name");
+                String lazadaPhone = rs.getString("lazada_buyer_phone");
+                String lazadaAddr = rs.getString("lazada_buyer_address");
+
+                String sdName = rs.getString("sd_recipient_name");
+                String sdAddr = rs.getString("sd_shipping_address");
+                String userPhone = rs.getString("customer_phone");
+                String userName = rs.getString("customer_name");
+
+                String name = "Khách mua lẻ";
+                if (lazadaName != null && !lazadaName.isEmpty()) {
+                    name = lazadaName;
+                } else if (sdName != null && !sdName.isEmpty()) {
+                    name = sdName;
+                } else if (userName != null && !userName.isEmpty()) {
+                    name = userName;
+                }
+
+                String phone = "";
+                if (lazadaPhone != null && !lazadaPhone.isEmpty()) {
+                    phone = lazadaPhone;
+                } else if (userPhone != null && !userPhone.isEmpty()) {
+                    phone = userPhone;
+                }
+
+                String address = "Khu vực hàng thường";
+                if (lazadaAddr != null && !lazadaAddr.isEmpty()) {
+                    address = lazadaAddr;
+                } else if (sdAddr != null && !sdAddr.isEmpty()) {
+                    address = sdAddr;
+                }
+
+                d.buyerName = name;
+                d.buyerPhone = phone;
+                d.buyerAddress = address;
+
+                d.receiver = name;
+                d.customerPhone = phone;
+                d.shippingAddress = address;
+
+                d.poReference = (d.lazadaOrderNumber != null && !d.lazadaOrderNumber.isEmpty()) ? d.lazadaOrderNumber : d.orderCode;
 
                 String dbStatus = rs.getString("status");
                 if (isOmnichannelChannel(d.customer)) {
@@ -175,6 +255,7 @@ public class LedgerDAO {
 
                 d.statusColor = getStatusColor(d.status);
                 d.items = countOutboundItems(conn, rs.getInt("outbound_id"));
+                try { d.itemsList = loadOutboundItems(conn, rs.getInt("outbound_id")); } catch (Exception ex) { d.itemsList = new java.util.ArrayList<>(); }
                 docs.add(d);
             }
             }
@@ -184,12 +265,15 @@ public class LedgerDAO {
 
         // 3. Fetch Stock Transfers
         String sqlTransfers =
-            "SELECT st.transfer_id, st.transfer_code, st.status, st.note, st.created_at, " +
-            "st.from_warehouse_id, w1.warehouse_name AS from_wh, w2.warehouse_name AS to_wh, u.full_name AS creator_name " +
+            "SELECT st.transfer_id, st.transfer_code, st.status, st.note, st.created_at, st.completed_at, " +
+            "st.from_warehouse_id, w1.warehouse_name AS from_wh, w1.warehouse_code AS from_code, w1.address AS from_addr, " +
+            "st.to_warehouse_id, w2.warehouse_name AS to_wh, w2.warehouse_code AS to_code, w2.address AS to_addr, " +
+            "u.full_name AS creator_name, ua.full_name AS approver_name " +
             "FROM stock_transfers st " +
             "LEFT JOIN warehouses w1 ON st.from_warehouse_id = w1.warehouse_id " +
             "LEFT JOIN warehouses w2 ON st.to_warehouse_id = w2.warehouse_id " +
             "LEFT JOIN users u ON st.created_by = u.user_id " +
+            "LEFT JOIN users ua ON st.approved_by = ua.user_id " +
             (byWh ? "WHERE (st.from_warehouse_id = ? OR st.to_warehouse_id = ?) " : "") +
             "ORDER BY st.created_at DESC LIMIT 100";
         try (Connection conn = DBConnection.getConnection();
@@ -200,18 +284,31 @@ public class LedgerDAO {
                 LedgerDocument d = new LedgerDocument();
                 d.id = rs.getString("transfer_code");
                 d.type = "Phiếu Chuyển Kho";
-                
+
                 Timestamp ca = rs.getTimestamp("created_at");
                 d.date = (ca != null) ? ca.toLocalDateTime().format(DATE_FORMATTER) : "";
                 d.warehouse = rs.getString("from_wh") + " → " + rs.getString("to_wh");
                 d.warehouseId = rs.getInt("from_warehouse_id");
-                
+
+                d.fromWarehouse = rs.getString("from_wh");
+                d.fromWarehouseCode = rs.getString("from_code");
+                d.fromAddress = rs.getString("from_addr");
+                d.toWarehouse = rs.getString("to_wh");
+                d.toWarehouseCode = rs.getString("to_code");
+                d.toAddress = rs.getString("to_addr");
+
                 String creator = rs.getString("creator_name");
                 d.createdBy = (creator != null) ? creator : "Hệ thống";
                 d.status = mapTransferStatus(rs.getString("status"));
                 d.statusColor = getStatusColor(d.status);
                 d.remarks = rs.getString("note");
+                d.approver = rs.getString("approver_name");
+
+                Timestamp completed = rs.getTimestamp("completed_at");
+                d.completedDate = (completed != null) ? completed.toLocalDateTime().format(java.time.format.DateTimeFormatter.ofPattern("dd/MM/yyyy")) : null;
+
                 d.items = countTransferItems(conn, rs.getInt("transfer_id"));
+                d.itemsList = loadTransferItems(conn, rs.getInt("transfer_id"));
                 docs.add(d);
             }
             }
@@ -222,34 +319,44 @@ public class LedgerDAO {
         // 4. Fetch Physical Inventories
         String sqlPhysical =
             "SELECT pi.inventory_check_id, pi.check_code, pi.status, pi.note, pi.created_at, " +
-            "w.warehouse_id, w.warehouse_name, u.full_name AS creator_name " +
+            "w.warehouse_id, w.warehouse_name, w.warehouse_code, w.address, " +
+            "u.full_name AS creator_name, ua.full_name AS approver_name " +
             "FROM physical_inventories pi " +
             "LEFT JOIN warehouses w ON pi.warehouse_id = w.warehouse_id " +
             "LEFT JOIN users u ON pi.created_by = u.user_id " +
+            "LEFT JOIN users ua ON pi.created_by = ua.user_id " +
             (byWh ? "WHERE pi.warehouse_id = ? " : "") +
             "ORDER BY pi.created_at DESC LIMIT 100";
         try (Connection conn = DBConnection.getConnection();
              PreparedStatement ps = conn.prepareStatement(sqlPhysical)) {
             if (byWh) ps.setInt(1, warehouseId);
+            LOGGER.info("[LedgerDAO] Physical query warehouseId=" + warehouseId + " sql=" + sqlPhysical.replace("\n", " "));
             try (ResultSet rs = ps.executeQuery()) {
-            while (rs.next()) {
-                LedgerDocument d = new LedgerDocument();
-                d.id = rs.getString("check_code");
-                d.type = "Phiếu Kiểm Kê";
-                
-                Timestamp ca = rs.getTimestamp("created_at");
-                d.date = (ca != null) ? ca.toLocalDateTime().format(DATE_FORMATTER) : "";
-                d.warehouse = rs.getString("warehouse_name");
-                d.warehouseId = rs.getInt("warehouse_id");
-                
-                String creator = rs.getString("creator_name");
-                d.createdBy = (creator != null) ? creator : "Hệ thống";
-                d.status = mapPhysicalStatus(rs.getString("status"));
-                d.statusColor = getStatusColor(d.status);
-                d.remarks = rs.getString("note");
-                d.items = countPhysicalItems(conn, rs.getInt("inventory_check_id"));
-                docs.add(d);
-            }
+                int count = 0;
+                while (rs.next()) {
+                    count++;
+                    LedgerDocument d = new LedgerDocument();
+                    d.id = rs.getString("check_code");
+                    d.type = "Phiếu Kiểm Kê";
+
+                    Timestamp ca = rs.getTimestamp("created_at");
+                    d.date = (ca != null) ? ca.toLocalDateTime().format(DATE_FORMATTER) : "";
+                    d.warehouse = rs.getString("warehouse_name");
+                    d.warehouseCode = rs.getString("warehouse_code");
+                    d.warehouseAddress = rs.getString("address");
+                    d.warehouseId = rs.getInt("warehouse_id");
+
+                    String creator = rs.getString("creator_name");
+                    d.createdBy = (creator != null) ? creator : "Hệ thống";
+                    d.approver = rs.getString("approver_name");
+                    d.status = mapPhysicalStatus(rs.getString("status"));
+                    d.statusColor = getStatusColor(d.status);
+                    d.remarks = rs.getString("note");
+                    d.items = countPhysicalItems(conn, rs.getInt("inventory_check_id"));
+                    d.itemsList = loadPhysicalItems(conn, rs.getInt("inventory_check_id"));
+                    docs.add(d);
+                }
+                LOGGER.info("[LedgerDAO] Physical fetched " + count + " rows");
             }
         } catch (SQLException e) {
             LOGGER.log(Level.WARNING, "LedgerDAO: Failed to fetch physical check documents", e);
@@ -257,10 +364,14 @@ public class LedgerDAO {
 
         // 5. Fetch RMA / Return Orders
         String sqlReturns =
-            "SELECT ro.return_id, ro.customer_name, ro.reason, ro.status, ro.created_at, " +
-            "w.warehouse_id, w.warehouse_name " +
+            "SELECT ro.return_id, ro.return_code, ro.order_id, ro.customer_name, ro.reason, ro.status, ro.created_at, ro.updated_at, " +
+            "w.warehouse_id, w.warehouse_name, w.warehouse_code, w.address, " +
+            "o.order_code AS ref_order_code, " +
+            "u.full_name AS creator_name " +
             "FROM return_orders ro " +
             "LEFT JOIN warehouses w ON ro.warehouse_id = w.warehouse_id " +
+            "LEFT JOIN orders o ON ro.order_id = o.order_id " +
+            "LEFT JOIN users u ON ro.created_by = u.user_id " +
             (byWh ? "WHERE ro.warehouse_id = ? " : "") +
             "ORDER BY ro.created_at DESC LIMIT 100";
         try (Connection conn = DBConnection.getConnection();
@@ -269,20 +380,27 @@ public class LedgerDAO {
             try (ResultSet rs = ps.executeQuery()) {
             while (rs.next()) {
                 LedgerDocument d = new LedgerDocument();
-                d.id = "RMA-" + String.format("%05d", rs.getInt("return_id"));
+                String rmaCode = rs.getString("return_code");
+                d.id = (rmaCode != null && !rmaCode.isEmpty()) ? rmaCode : "RMA-" + String.format("%05d", rs.getInt("return_id"));
                 d.type = "Phiếu Hoàn Hàng";
-                
+
                 Timestamp ca = rs.getTimestamp("created_at");
                 d.date = (ca != null) ? ca.toLocalDateTime().format(DATE_FORMATTER) : "";
                 d.warehouse = rs.getString("warehouse_name");
+                d.warehouseCode = rs.getString("warehouse_code");
+                d.warehouseAddress = rs.getString("address");
                 d.warehouseId = rs.getInt("warehouse_id");
-                d.createdBy = "Nhân viên tiếp nhận";
-                
+
+                String creator = rs.getString("creator_name");
+                d.createdBy = (creator != null && !creator.isEmpty()) ? creator : "Nhân viên tiếp nhận";
+
                 d.status = mapReturnStatus(rs.getString("status"));
                 d.statusColor = getStatusColor(d.status);
                 d.remarks = rs.getString("reason");
                 d.customer = rs.getString("customer_name");
+                d.orderCode = rs.getString("ref_order_code");
                 d.items = countReturnItems(conn, rs.getInt("return_id"));
+                d.itemsList = loadReturnItems(conn, rs.getInt("return_id"));
                 docs.add(d);
             }
             }
@@ -331,51 +449,7 @@ public class LedgerDAO {
             LOGGER.log(Level.WARNING, "LedgerDAO: Failed to fetch scrap documents", e);
         }
 
-        // 7. Fetch RTV Orders
-        String sqlRtv =
-            "SELECT r.rtv_id, r.rtv_code, r.supplier, r.status, r.reason, r.note, r.created_at, " +
-            "r.po_code, r.supplier_code, r.contact_person, r.proposal, io.inbound_code, " +
-            "w.warehouse_id, w.warehouse_name, u.full_name AS creator_name " +
-            "FROM rtv_orders r " +
-            "LEFT JOIN inbound_orders io ON r.inbound_id = io.inbound_id " +
-            "LEFT JOIN warehouses w ON r.warehouse_id = w.warehouse_id " +
-            "LEFT JOIN users u ON r.created_by = u.user_id " +
-            (byWh ? "WHERE r.warehouse_id = ? " : "") +
-            "ORDER BY r.created_at DESC LIMIT 100";
-        try (Connection conn = DBConnection.getConnection();
-             PreparedStatement ps = conn.prepareStatement(sqlRtv)) {
-            if (byWh) ps.setInt(1, warehouseId);
-            try (ResultSet rs = ps.executeQuery()) {
-                while (rs.next()) {
-                    LedgerDocument d = new LedgerDocument();
-                    d.id = rs.getString("rtv_code");
-                    d.type = "Phiếu Trả Hàng NCC";
-                    
-                    Timestamp ca = rs.getTimestamp("created_at");
-                    d.date = (ca != null) ? ca.toLocalDateTime().format(DATE_FORMATTER) : "";
-                    d.warehouse = rs.getString("warehouse_name");
-                    d.warehouseId = rs.getInt("warehouse_id");
-                    
-                    String creator = rs.getString("creator_name");
-                    d.createdBy = (creator != null) ? creator : "Hệ thống";
-                    
-                    String dbStatus = rs.getString("status");
-                    d.status = mapRtvStatus(dbStatus);
-                    d.statusColor = getStatusColor(d.status);
-                    d.remarks = rs.getString("reason");
-                    d.supplier = rs.getString("supplier");
-                    d.poCode = rs.getString("po_code");
-                    d.supplierCode = rs.getString("supplier_code");
-                    d.contactPerson = rs.getString("contact_person");
-                    d.proposal = rs.getString("proposal");
-                    d.inboundCode = rs.getString("inbound_code");
-                    d.items = countRtvItems(conn, rs.getInt("rtv_id"));
-                    docs.add(d);
-                }
-            }
-        } catch (SQLException e) {
-            LOGGER.log(Level.WARNING, "LedgerDAO: Failed to fetch RTV documents", e);
-        }
+
 
         // Sort overall list: newest first
         docs.sort((d1, d2) -> d2.date.compareTo(d1.date));
@@ -446,9 +520,7 @@ public class LedgerDAO {
             case "Phiếu Xuất Hủy":
                 sql = "SELECT warehouse_id FROM warehouse_issues WHERE issue_code = ?";
                 break;
-            case "Phiếu Trả Hàng NCC":
-                sql = "SELECT warehouse_id FROM rtv_orders WHERE rtv_code = ?";
-                break;
+
             default:
                 return false;
         }
@@ -501,7 +573,6 @@ public class LedgerDAO {
             default:
                 return null;
         }
-        if (sql == null) return null;
         try (Connection conn = DBConnection.getConnection();
              PreparedStatement ps = conn.prepareStatement(sql)) {
             ps.setString(1, docId);
@@ -569,7 +640,7 @@ public class LedgerDAO {
             conn = DBConnection.getConnection();
             if ("Phiếu Nhập Kho".equals(docType)) {
                 String sql =
-                    "SELECT ii.expected_qty, ii.received_qty, ii.accepted_qty, ii.rejected_qty, ii.unit_cost, p.sku_code, p.product_name, p.unit, p.base_price " +
+                    "SELECT ii.expected_qty, ii.received_qty, ii.accepted_qty, ii.rejected_qty, ii.unit_cost, ii.lot_number, ii.expiry_date, ii.notes, p.sku_code, p.product_name, p.unit, p.base_price " +
                     "FROM inbound_items ii " +
                     "LEFT JOIN products p ON ii.product_id = p.product_id " +
                     "LEFT JOIN inbound_orders io ON ii.inbound_id = io.inbound_id " +
@@ -584,13 +655,16 @@ public class LedgerDAO {
                             map.put("sku", rs.getString("sku_code"));
                             map.put("name", rs.getString("product_name"));
                             map.put("uom", rs.getString("unit"));
-                            map.put("lot", "LOT-AUTO-" + docId.hashCode() % 100);
-                            map.put("hsd", "31/12/2026");
+                            String lot = rs.getString("lot_number");
+                            map.put("lot", (lot != null && !lot.isEmpty()) ? lot : "—");
+                            Date exp = rs.getDate("expiry_date");
+                            map.put("hsd", (exp != null) ? new java.text.SimpleDateFormat("dd/MM/yyyy").format(exp) : "—");
                             map.put("ordered", rs.getDouble("expected_qty"));
                             map.put("received", rs.getDouble("received_qty"));
                             map.put("accepted", rs.getDouble("accepted_qty"));
                             map.put("rejected", rs.getDouble("rejected_qty"));
-                            map.put("remarks", "");
+                            String itemNotes = rs.getString("notes");
+                            map.put("remarks", (itemNotes != null) ? itemNotes : "");
                             // Use unit_cost if available, fallback to base_price
                             double unitCost = rs.getDouble("unit_cost");
                             if (rs.wasNull()) unitCost = rs.getDouble("base_price");
@@ -627,60 +701,92 @@ public class LedgerDAO {
                     }
                 }
             } else if ("Phiếu Chuyển Kho".equals(docType)) {
-                String sql = 
-                    "SELECT sti.shipped_qty, sti.received_qty, p.sku_code, p.product_name, p.unit " +
-                    "FROM stock_transfer_items sti " +
-                    "LEFT JOIN products p ON sti.product_id = p.product_id " +
-                    "LEFT JOIN stock_transfers st ON sti.transfer_id = st.transfer_id " +
-                    "WHERE st.transfer_code = ?";
-                try (PreparedStatement ps = conn.prepareStatement(sql)) {
+                String findTransfer = "SELECT transfer_id FROM stock_transfers WHERE transfer_code = ?";
+                try (PreparedStatement ps = conn.prepareStatement(findTransfer)) {
                     ps.setString(1, docId);
                     try (ResultSet rs = ps.executeQuery()) {
-                        int index = 1;
-                        while (rs.next()) {
-                            Map<String, Object> map = new HashMap<>();
-                            map.put("stt", index++);
-                            map.put("sku", rs.getString("sku_code"));
-                            map.put("name", rs.getString("product_name"));
-                            map.put("uom", rs.getString("unit"));
-                            map.put("lot", "LOT-TRANS");
-                            map.put("requested", rs.getDouble("shipped_qty"));
-                            map.put("transferred", rs.getObject("received_qty") != null ? rs.getDouble("received_qty") : rs.getDouble("shipped_qty"));
-                            map.put("remark", "");
-                            items.add(map);
+                        if (rs.next()) {
+                            int transferId = rs.getInt("transfer_id");
+                            String sql =
+                                "SELECT ti.shipped_qty, ti.received_qty, ti.lot_number, ti.notes, " +
+                                "p.sku_code, p.product_name, p.unit, p.base_price " +
+                                "FROM stock_transfer_items ti " +
+                                "LEFT JOIN products p ON ti.product_id = p.product_id " +
+                                "WHERE ti.transfer_id = ? " +
+                                "ORDER BY ti.transfer_item_id ASC";
+                            try (PreparedStatement ps2 = conn.prepareStatement(sql)) {
+                                ps2.setInt(1, transferId);
+                                try (ResultSet rs2 = ps2.executeQuery()) {
+                                    int index = 1;
+                                    while (rs2.next()) {
+                                        Map<String, Object> map = new HashMap<>();
+                                        map.put("stt", index++);
+                                        map.put("sku", rs2.getString("sku_code"));
+                                        map.put("name", rs2.getString("product_name"));
+                                        map.put("uom", rs2.getString("unit"));
+                                        String lot = rs2.getString("lot_number");
+                                        map.put("lot", (lot != null && !lot.isEmpty()) ? lot : "—");
+                                        map.put("requested", rs2.getDouble("shipped_qty"));
+                                        double receivedQty = rs2.getDouble("received_qty");
+                                        if (rs2.wasNull()) receivedQty = rs2.getDouble("shipped_qty");
+                                        map.put("transferred", receivedQty);
+                                        String note = rs2.getString("notes");
+                                        map.put("remark", (note != null) ? note : "");
+                                        map.put("price", rs2.getDouble("base_price"));
+                                        items.add(map);
+                                    }
+                                }
+                            }
                         }
                     }
                 }
             } else if ("Phiếu Kiểm Kê".equals(docType)) {
-                String sql = 
-                    "SELECT pid.system_qty, pid.actual_qty, pid.delta_qty, p.sku_code, p.product_name, p.unit " +
-                    "FROM physical_inventory_details pid " +
-                    "LEFT JOIN products p ON pid.product_id = p.product_id " +
-                    "LEFT JOIN physical_inventories pi ON pid.inventory_check_id = pi.inventory_check_id " +
-                    "WHERE pi.check_code = ?";
-                try (PreparedStatement ps = conn.prepareStatement(sql)) {
+                String findCheck = "SELECT inventory_check_id FROM physical_inventories WHERE check_code = ?";
+                try (PreparedStatement ps = conn.prepareStatement(findCheck)) {
                     ps.setString(1, docId);
                     try (ResultSet rs = ps.executeQuery()) {
-                        int index = 1;
-                        while (rs.next()) {
-                            Map<String, Object> map = new HashMap<>();
-                            map.put("stt", index++);
-                            map.put("sku", rs.getString("sku_code"));
-                            map.put("name", rs.getString("product_name"));
-                            map.put("uom", rs.getString("unit"));
-                            map.put("book", rs.getDouble("system_qty"));
-                            map.put("actual", rs.getObject("actual_qty") != null ? rs.getDouble("actual_qty") : rs.getDouble("system_qty"));
-                            map.put("diff", rs.getObject("delta_qty") != null ? rs.getDouble("delta_qty") : 0.0);
-                            map.put("remark", "");
-                            items.add(map);
+                        if (rs.next()) {
+                            int checkId = rs.getInt("inventory_check_id");
+                            String sql =
+                                "SELECT pid.system_qty, pid.actual_qty, pid.delta_qty, pid.variance_reason, pid.lot_number, " +
+                                "p.sku_code, p.product_name, p.unit " +
+                                "FROM physical_inventory_details pid " +
+                                "LEFT JOIN products p ON pid.product_id = p.product_id " +
+                                "WHERE pid.inventory_check_id = ? " +
+                                "ORDER BY pid.check_detail_id ASC";
+                            try (PreparedStatement ps2 = conn.prepareStatement(sql)) {
+                                ps2.setInt(1, checkId);
+                                try (ResultSet rs2 = ps2.executeQuery()) {
+                                    int index = 1;
+                                    while (rs2.next()) {
+                                        Map<String, Object> map = new HashMap<>();
+                                        map.put("stt", index++);
+                                        map.put("sku", rs2.getString("sku_code"));
+                                        map.put("name", rs2.getString("product_name"));
+                                        map.put("uom", rs2.getString("unit"));
+                                        String lot = rs2.getString("lot_number");
+                                        map.put("lot", (lot != null && !lot.isEmpty()) ? lot : "—");
+                                        map.put("book", rs2.getDouble("system_qty"));
+                                        double actual = rs2.getDouble("actual_qty");
+                                        if (rs2.wasNull()) actual = rs2.getDouble("system_qty");
+                                        map.put("actual", actual);
+                                        double diff = rs2.getDouble("delta_qty");
+                                        if (rs2.wasNull()) diff = 0.0;
+                                        map.put("diff", diff);
+                                        String reason = rs2.getString("variance_reason");
+                                        map.put("remark", (reason != null) ? reason : "");
+                                        items.add(map);
+                                    }
+                                }
+                            }
                         }
                     }
                 }
             } else if ("Phiếu Hoàn Hàng".equals(docType)) {
                 // RMA: format id is RMA-XXXXX where XXXXX is return_id
                 int returnId = Integer.parseInt(docId.replace("RMA-", ""));
-                String sql = 
-                    "SELECT ri.quantity, ri.return_reason, p.sku_code, p.product_name, p.unit, p.base_price " +
+                String sql =
+                    "SELECT ri.quantity, ri.unit_price, ri.return_reason, p.sku_code, p.product_name, p.unit, p.base_price " +
                     "FROM return_items ri " +
                     "LEFT JOIN products p ON ri.product_id = p.product_id " +
                     "WHERE ri.return_id = ?";
@@ -697,37 +803,15 @@ public class LedgerDAO {
                             map.put("returned", rs.getDouble("quantity"));
                             map.put("reuse", rs.getDouble("quantity"));
                             map.put("destroy", 0.0);
-                            map.put("price", rs.getDouble("base_price"));
+                            double unitPrice = rs.getDouble("unit_price");
+                            if (rs.wasNull() || unitPrice == 0) unitPrice = rs.getDouble("base_price");
+                            map.put("price", unitPrice);
                             map.put("remark", rs.getString("return_reason"));
                             items.add(map);
                         }
                     }
                 }
-            } else if ("Phiếu Trả Hàng NCC".equals(docType)) {
-                String sql = 
-                    "SELECT ri.qty_return, ri.unit_cost, p.sku_code, p.product_name, p.unit, " +
-                    "       (SELECT ii.received_qty FROM inbound_items ii WHERE ii.inbound_id = r.inbound_id AND ii.product_id = ri.product_id) AS qty_received " +
-                    "FROM rtv_items ri " +
-                    "LEFT JOIN products p ON ri.product_id = p.product_id " +
-                    "LEFT JOIN rtv_orders r ON ri.rtv_id = r.rtv_id " +
-                    "WHERE r.rtv_code = ?";
-                try (PreparedStatement ps = conn.prepareStatement(sql)) {
-                    ps.setString(1, docId);
-                    try (ResultSet rs = ps.executeQuery()) {
-                        int index = 1;
-                        while (rs.next()) {
-                            Map<String, Object> map = new HashMap<>();
-                            map.put("stt", index++);
-                            map.put("sku", rs.getString("sku_code"));
-                            map.put("name", rs.getString("product_name"));
-                            map.put("uom", rs.getString("unit"));
-                            map.put("received", rs.getDouble("qty_received"));
-                            map.put("returned", rs.getDouble("qty_return"));
-                            map.put("price", rs.getDouble("unit_cost"));
-                            items.add(map);
-                        }
-                    }
-                }
+
             }
         } catch (Exception e) {
             LOGGER.log(Level.WARNING, "LedgerDAO: Failed to fetch document items for id=" + docId, e);
@@ -895,14 +979,13 @@ public class LedgerDAO {
                     }
                 }
 
-                // Deduct from source and add to destination
+                // Deduct from source (already done on creation) and add to destination
                 for (Map<String, Object> item : xferItems) {
                     int prodId = (int) item.get("productId");
                     BigDecimal shipQty = (BigDecimal) item.get("shipped");
                     BigDecimal recQty = (BigDecimal) item.get("received");
 
-                    // 1. Source deductions
-                    upsertInventory(conn, prodId, fromWhId, shipQty.negate(), shipQty.negate());
+                    // 1. Source deductions (Already deducted physically on creation, only write ledger entry)
                     int fromInvId = getInventoryId(conn, prodId, fromWhId);
                     insertLedgerEntry(conn, fromInvId, prodId, fromWhId, "TRANSFER_OUT", transferId, shipQty.negate(), shipQty.negate(), userId, "Chuyển kho ra đi");
 
@@ -910,6 +993,24 @@ public class LedgerDAO {
                     upsertInventory(conn, prodId, toWhId, recQty, recQty);
                     int toInvId = getInventoryId(conn, prodId, toWhId);
                     insertLedgerEntry(conn, toInvId, prodId, toWhId, "TRANSFER_IN", transferId, recQty, recQty, userId, "Chuyển kho nhận về");
+
+                    // 3. Recalculate MAC (Moving Average Cost)
+                    try {
+                        ProductDAO productDAO = new ProductDAO();
+                        var prod = productDAO.findById(prodId);
+                        if (prod != null) {
+                            BigDecimal currentMac = productDAO.findMacPrice(prodId);
+                            double totalOnHand = prod.getQtyOnHand() != null ? prod.getQtyOnHand() : 0.0;
+                            productDAO.updateMacPrice(
+                                    prodId,
+                                    BigDecimal.valueOf(totalOnHand),
+                                    currentMac,
+                                    recQty,
+                                    currentMac);
+                        }
+                    } catch (Exception ex) {
+                        LOGGER.warning("Failed to update MAC price on transfer approve for productId=" + prodId + ": " + ex.getMessage());
+                    }
                 }
 
                 // Update status to RECEIVED
@@ -978,17 +1079,7 @@ public class LedgerDAO {
                     ps.setInt(1, checkId);
                     ps.executeUpdate();
                 }
-            } else if ("Phiếu Trả Hàng NCC".equals(docType)) {
-                String sqlUpdateStatus = "UPDATE rtv_orders SET status = 'APPROVED' WHERE rtv_code = ? AND status = 'PENDING'";
-                try (PreparedStatement ps = conn.prepareStatement(sqlUpdateStatus)) {
-                    ps.setString(1, docId);
-                    int rows = ps.executeUpdate();
-                    if (rows == 0) {
-                        conn.rollback();
-                        LOGGER.warning("approveDocument: RTV order not in PENDING state, code=" + docId);
-                        return false;
-                    }
-                }
+
             }
 
             conn.commit();
@@ -1022,8 +1113,7 @@ public class LedgerDAO {
             sql = "UPDATE stock_transfers SET status = 'CANCELLED', note = ?, approved_by = ? WHERE transfer_code = ?";
         } else if ("Phiếu Kiểm Kê".equals(docType)) {
             sql = "UPDATE physical_inventories SET status = 'DRAFT', note = ? WHERE check_code = ?"; // Rejected stocktakes go back to DRAFT or set status custom
-        } else if ("Phiếu Trả Hàng NCC".equals(docType)) {
-            sql = "UPDATE rtv_orders SET status = 'CANCELLED', note = ? WHERE rtv_code = ?";
+
         } else {
             return false;
         }
@@ -1209,15 +1299,15 @@ public class LedgerDAO {
         if ("PACKED".equals(dbStatus)) return "Đang xử lý";
         if ("SHIPPED".equals(dbStatus)) return "Đang giao";
         if ("DELIVERED".equals(dbStatus)) return "Hoàn thành";
-        if ("CANCELLED".equals(dbStatus)) return "Từ chối";
+        if ("CANCELLED".equals(dbStatus)) return "Đã huỷ";
         return dbStatus;
     }
 
     private String mapTransferStatus(String dbStatus) {
         if ("DRAFT".equals(dbStatus)) return "Nháp";
-        if ("IN_TRANSIT".equals(dbStatus)) return "Chờ duyệt";
+        if ("IN_TRANSIT".equals(dbStatus)) return "Đang chuyển";
         if ("RECEIVED".equals(dbStatus)) return "Hoàn thành";
-        if ("CANCELLED".equals(dbStatus)) return "Từ chối";
+        if ("CANCELLED".equals(dbStatus)) return "Đã huỷ";
         return dbStatus;
     }
 
@@ -1238,23 +1328,243 @@ public class LedgerDAO {
         return dbStatus;
     }
 
-    private String mapRtvStatus(String dbStatus) {
-        if ("PENDING".equals(dbStatus)) return "Chờ duyệt";
-        if ("APPROVED".equals(dbStatus)) return "Đã duyệt";
-        if ("COMPLETED".equals(dbStatus)) return "Hoàn thành";
-        if ("CANCELLED".equals(dbStatus)) return "Từ chối";
-        return dbStatus;
+
+
+    /**
+     * Load all outbound items for a given outbound_id, using real Lazada quantity
+     * and price from lazada_order_items.
+     */
+    private List<Map<String, Object>> loadOutboundItems(Connection conn, int outboundId) {
+        List<Map<String, Object>> items = new ArrayList<>();
+        String sql =
+            "SELECT oi.qty, oi.picked_qty, oi.shelf_location, " +
+            "p.sku_code, p.product_name, p.unit, p.base_price, " +
+            "loi.paid_price AS lazada_paid_price, loi.quantity AS lazada_qty, " +
+            "loi.item_price AS lazada_item_price " +
+            "FROM outbound_items oi " +
+            "LEFT JOIN products p ON oi.product_id = p.product_id " +
+            "LEFT JOIN outbound_orders oo ON oi.outbound_id = oo.outbound_id " +
+            "LEFT JOIN orders o ON oo.order_id = o.order_id " +
+            "LEFT JOIN lazada_orders lo ON lo.lazada_order_id_str = o.channel_order_id " +
+            "LEFT JOIN lazada_order_items loi ON loi.lazada_order_id_str = lo.lazada_order_id_str " +
+            "AND loi.sku = p.sku_code " +
+            "WHERE oi.outbound_id = ? " +
+            "ORDER BY oi.outbound_item_id ASC";
+        try (PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setInt(1, outboundId);
+            try (ResultSet rs = ps.executeQuery()) {
+                int index = 1;
+                while (rs.next()) {
+                    Map<String, Object> map = new HashMap<>();
+                    map.put("stt", index++);
+                    map.put("sku", rs.getString("sku_code"));
+                    map.put("name", rs.getString("product_name"));
+                    map.put("uom", rs.getString("unit"));
+                    double ordered = rs.getDouble("qty");
+                    double picked = rs.getDouble("picked_qty");
+                    map.put("ordered", ordered);
+                    map.put("received", picked);
+                    map.put("requested", ordered);
+                    map.put("shipped", picked);
+                    String loc = rs.getString("shelf_location");
+                    map.put("lot", (loc != null && !loc.isEmpty()) ? loc : "—");
+                    double lazadaPrice = rs.getObject("lazada_paid_price") != null
+                        ? rs.getDouble("lazada_paid_price") : rs.getDouble("base_price");
+                    map.put("price", lazadaPrice);
+                    map.put("lazadaQty", rs.getObject("lazada_qty"));
+                    map.put("lazadaItemPrice", rs.getObject("lazada_item_price"));
+                    items.add(map);
+                }
+            }
+        } catch (SQLException e) {
+            LOGGER.log(Level.WARNING, "LedgerDAO: loadOutboundItems failed for outbound_id=" + outboundId, e);
+        }
+        return items;
     }
 
-    private int countRtvItems(Connection conn, int id) throws SQLException {
-        String sql = "SELECT COUNT(*) FROM rtv_items WHERE rtv_id = ?";
+    /**
+     * Load all stock transfer items for a given transfer_id.
+     */
+    private List<Map<String, Object>> loadTransferItems(Connection conn, int transferId) {
+        List<Map<String, Object>> items = new ArrayList<>();
+        String sql =
+            "SELECT ti.shipped_qty, ti.received_qty, ti.lot_number, ti.notes, " +
+            "p.sku_code, p.product_name, p.unit, p.base_price " +
+            "FROM stock_transfer_items ti " +
+            "LEFT JOIN products p ON ti.product_id = p.product_id " +
+            "WHERE ti.transfer_id = ? " +
+            "ORDER BY ti.transfer_item_id ASC";
         try (PreparedStatement ps = conn.prepareStatement(sql)) {
-            ps.setInt(1, id);
+            ps.setInt(1, transferId);
             try (ResultSet rs = ps.executeQuery()) {
-                if (rs.next()) return rs.getInt(1);
+                int index = 1;
+                while (rs.next()) {
+                    Map<String, Object> map = new HashMap<>();
+                    map.put("stt", index++);
+                    map.put("sku", rs.getString("sku_code"));
+                    map.put("name", rs.getString("product_name"));
+                    map.put("uom", rs.getString("unit"));
+                    String lot = rs.getString("lot_number");
+                    map.put("lot", (lot != null && !lot.isEmpty()) ? lot : "—");
+                    double shippedQty = rs.getDouble("shipped_qty");
+                    double receivedQty = rs.getDouble("received_qty");
+                    if (rs.wasNull()) receivedQty = shippedQty;
+                    map.put("ordered", shippedQty);
+                    map.put("received", receivedQty);
+                    map.put("qty", shippedQty);
+                    String note = rs.getString("notes");
+                    map.put("remarks", (note != null) ? note : "");
+                    map.put("price", rs.getDouble("base_price"));
+                    items.add(map);
+                }
             }
+        } catch (SQLException e) {
+            LOGGER.log(Level.WARNING, "LedgerDAO: loadTransferItems failed for transfer_id=" + transferId, e);
         }
-        return 0;
+        return items;
+    }
+
+    /**
+     * Load all physical inventory details for a given inventory_check_id.
+     */
+    private List<Map<String, Object>> loadPhysicalItems(Connection conn, int checkId) {
+        List<Map<String, Object>> items = new ArrayList<>();
+        String sql =
+            "SELECT pid.system_qty, pid.actual_qty, pid.delta_qty, pid.variance_reason, pid.lot_number, " +
+            "p.sku_code, p.product_name, p.unit " +
+            "FROM physical_inventory_details pid " +
+            "LEFT JOIN products p ON pid.product_id = p.product_id " +
+            "WHERE pid.inventory_check_id = ? " +
+            "ORDER BY pid.check_detail_id ASC";
+        try (PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setInt(1, checkId);
+            try (ResultSet rs = ps.executeQuery()) {
+                int index = 1;
+                while (rs.next()) {
+                    Map<String, Object> map = new HashMap<>();
+                    map.put("stt", index++);
+                    map.put("sku", rs.getString("sku_code"));
+                    map.put("name", rs.getString("product_name"));
+                    map.put("uom", rs.getString("unit"));
+                    String lot = rs.getString("lot_number");
+                    map.put("lot", (lot != null && !lot.isEmpty()) ? lot : "—");
+                    double systemQty = rs.getDouble("system_qty");
+                    double actual = rs.getDouble("actual_qty");
+                    if (rs.wasNull()) actual = systemQty;
+                    map.put("ordered", systemQty);
+                    map.put("received", actual);
+                    map.put("systemQty", systemQty);
+                    map.put("physicalQty", actual);
+                    String reason = rs.getString("variance_reason");
+                    map.put("remarks", (reason != null) ? reason : "");
+                    items.add(map);
+                }
+            }
+        } catch (SQLException e) {
+            LOGGER.log(Level.WARNING, "LedgerDAO: loadPhysicalItems failed for check_id=" + checkId, e);
+        }
+        return items;
+    }
+
+    /**
+     * Load all return items (RMA) for a given return_id.
+     */
+    private List<Map<String, Object>> loadReturnItems(Connection conn, int returnId) {
+        List<Map<String, Object>> items = new ArrayList<>();
+        String sql =
+            "SELECT ri.quantity, ri.unit_price, ri.return_reason, " +
+            "p.sku_code, p.product_name, p.unit, p.base_price, qr.decision " +
+            "FROM return_items ri " +
+            "LEFT JOIN products p ON ri.product_id = p.product_id " +
+            "LEFT JOIN qc_records qr ON (ri.return_id = qr.return_id AND ri.product_id = qr.product_id) " +
+            "WHERE ri.return_id = ?";
+        try (PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setInt(1, returnId);
+            try (ResultSet rs = ps.executeQuery()) {
+                int index = 1;
+                while (rs.next()) {
+                    Map<String, Object> map = new HashMap<>();
+                    map.put("stt", index++);
+                    map.put("sku", rs.getString("sku_code"));
+                    map.put("name", rs.getString("product_name"));
+                    map.put("uom", rs.getString("unit"));
+                    double qty = rs.getDouble("quantity");
+                    map.put("ordered", qty);
+                    map.put("received", qty);
+                    map.put("rejected", 0.0);
+                    map.put("returnedQty", qty);
+                    
+                    String dec = rs.getString("decision");
+                    double reuseQty = 0;
+                    double destroyQty = 0;
+                    if (dec != null) {
+                        if ("PASS".equalsIgnoreCase(dec)) {
+                            reuseQty = qty;
+                        } else {
+                            destroyQty = qty;
+                        }
+                    }
+                    map.put("reuseQty", reuseQty);
+                    map.put("destroyQty", destroyQty);
+                    
+                    double unitPrice = rs.getDouble("unit_price");
+                    if (rs.wasNull() || unitPrice == 0) unitPrice = rs.getDouble("base_price");
+                    map.put("price", unitPrice);
+                    String reason = rs.getString("return_reason");
+                    map.put("remarks", (reason != null) ? reason : "");
+                    items.add(map);
+                }
+            }
+        } catch (SQLException e) {
+            LOGGER.log(Level.WARNING, "LedgerDAO: loadReturnItems failed for return_id=" + returnId, e);
+        }
+        return items;
+    }
+
+    /**
+     * Load all inbound items (with full detail) for a given inbound_id.
+     * Used when listing documents so itemsList is populated for the detail modal.
+     */
+    private List<Map<String, Object>> loadInboundItems(Connection conn, int inboundId) {
+        List<Map<String, Object>> items = new ArrayList<>();
+        String sql =
+            "SELECT ii.expected_qty, ii.received_qty, ii.accepted_qty, ii.rejected_qty, " +
+            "ii.unit_cost, ii.lot_number, ii.expiry_date, ii.notes, " +
+            "p.sku_code, p.product_name, p.unit, p.base_price " +
+            "FROM inbound_items ii " +
+            "LEFT JOIN products p ON ii.product_id = p.product_id " +
+            "WHERE ii.inbound_id = ? " +
+            "ORDER BY ii.inbound_item_id ASC";
+        try (PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setInt(1, inboundId);
+            try (ResultSet rs = ps.executeQuery()) {
+                int index = 1;
+                while (rs.next()) {
+                    Map<String, Object> map = new HashMap<>();
+                    map.put("stt", index++);
+                    map.put("sku", rs.getString("sku_code"));
+                    map.put("name", rs.getString("product_name"));
+                    map.put("uom", rs.getString("unit"));
+                    String lot = rs.getString("lot_number");
+                    map.put("lot", (lot != null && !lot.isEmpty()) ? lot : "—");
+                    Date exp = rs.getDate("expiry_date");
+                    map.put("hsd", (exp != null) ? new java.text.SimpleDateFormat("dd/MM/yyyy").format(exp) : "—");
+                    map.put("ordered", rs.getDouble("expected_qty"));
+                    map.put("received", rs.getDouble("received_qty"));
+                    map.put("accepted", rs.getDouble("accepted_qty"));
+                    map.put("rejected", rs.getDouble("rejected_qty"));
+                    String itemNotes = rs.getString("notes");
+                    map.put("remarks", (itemNotes != null) ? itemNotes : "");
+                    double unitCost = rs.getDouble("unit_cost");
+                    if (rs.wasNull()) unitCost = rs.getDouble("base_price");
+                    map.put("price", unitCost);
+                    items.add(map);
+                }
+            }
+        } catch (SQLException e) {
+            LOGGER.log(Level.WARNING, "LedgerDAO: loadInboundItems failed for inbound_id=" + inboundId, e);
+        }
+        return items;
     }
 
     private String getStatusColor(String status) {

@@ -16,7 +16,6 @@ import com.wms.service.channel.ChannelGateway;
 
 import java.math.BigDecimal;
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.logging.Level;
@@ -40,7 +39,6 @@ public class LazadaProductService {
     private static final ObjectMapper MAPPER = new ObjectMapper();
 
     private final ChannelGateway gateway;
-    private final LazadaHttpClient http;
     private final ImgbbImageUploader imgbb = new ImgbbImageUploader();
     private final CatboxImageUploader catbox = new CatboxImageUploader();
     private final ChannelProductDAO channelProductDAO = new ChannelProductDAO();
@@ -52,7 +50,6 @@ public class LazadaProductService {
 
     public LazadaProductService() {
         this.gateway = ChannelRegistry.get("Lazada");
-        this.http = new LazadaHttpClient();
         if (this.gateway == null) {
             throw new IllegalStateException(
                     "No ChannelGateway registered for platform 'Lazada'");
@@ -60,6 +57,43 @@ public class LazadaProductService {
     }
 
     // ── Pull & Map (UC-B2C01) ─────────────────────────────────
+
+    /**
+     * Pulls a single Lazada product by its item_id and upserts it into channel_products.
+     * Use this when you know the Lazada item_id but the product wasn't returned by
+     * the paginated catalog (e.g. inactive/archived items excluded by filter=live).
+     *
+     * @param channel the Lazada channel
+     * @param itemId  Lazada's item_id (from the product URL)
+     * @return PullResult with upserted=1 on success, 0 otherwise
+     */
+    public PullResult pullProductByItemId(Channel channel, String itemId) {
+        String response;
+        try {
+            response = gateway.getProductByItemId(channel, itemId);
+        } catch (Exception e) {
+            LOGGER.log(Level.WARNING, "pullProductByItemId: failed for itemId=" + itemId, e);
+            ChannelSyncAudit.logFailure(channel.getChannelId(),
+                    "PRODUCT_PULL", "itemId=" + itemId, null, null, e.getMessage());
+            return new PullResult(false, 0, 0, 0, e.getMessage());
+        }
+        ChannelSyncAudit.logSuccess(channel.getChannelId(),
+                "PRODUCT_PULL", "itemId=" + itemId, 200, null, response, 0);
+        try {
+            JsonNode root = MAPPER.readTree(response);
+            JsonNode data = root.path("data");
+            if (data.isMissingNode() || data.isNull()) {
+                return new PullResult(false, 0, 0, 0, "No product data returned for itemId=" + itemId);
+            }
+            LOGGER.info("pullProductByItemId: parsing itemId=" + itemId + " sellerSku=" + data.path("seller_sku"));
+            UpsertOutcome o = upsertOne(data, channel);
+            LOGGER.info("pullProductByItemId: upsert result upserted=" + o.upserted + " unmapped=" + o.unmapped);
+            return new PullResult(true, o.upserted ? 1 : 0, 1, o.unmapped ? 1 : 0, null);
+        } catch (Exception e) {
+            LOGGER.log(Level.WARNING, "pullProductByItemId: parse failed for itemId=" + itemId, e);
+            return new PullResult(false, 0, 0, 0, e.getMessage());
+        }
+    }
 
     /**
      * Pulls Lazada's product list and upserts every item into channel_products.
@@ -71,6 +105,9 @@ public class LazadaProductService {
      * @return sync summary
      */
     public PullResult pullProducts(Channel channel) {
+        // Clear/resolve old unresolved catalog exceptions before pulling the latest catalog
+        new com.wms.dao.SkuMappingDAO().resolveCatalogExceptions(channel.getChannelId());
+
         int pageNumber = 1;
         final int pageSize = 50;
         int totalPulled = 0;
@@ -126,8 +163,20 @@ public class LazadaProductService {
 
     /** Upserts a single Lazada product into channel_products. */
     private UpsertOutcome upsertOne(JsonNode product, Channel channel) {
-        String sellerSku = product.path("seller_sku").asText("").trim();
-        String itemId    = product.path("item_id").asText("").trim();
+        String sellerSku = product.path("seller_sku").asText().trim();
+        String skuId = "";  // Lazada's internal SkuId for stock updates
+        if (sellerSku.isEmpty()) {
+            JsonNode skus = product.path("skus");
+            if (skus.isArray() && !skus.isEmpty()) {
+                JsonNode firstSku = skus.get(0);
+                String nested = firstSku.path("SellerSku").asText();
+                sellerSku = (nested.isEmpty() ? firstSku.path("seller_sku").asText() : nested).trim();
+                // Extract SkuId from nested structure (required for stock updates post-Nov 2023)
+                String nestedSkuId = firstSku.path("SkuId").asText();
+                if (!nestedSkuId.isEmpty()) skuId = nestedSkuId;
+            }
+        }
+        String itemId    = product.path("item_id").asText().trim();
         if (sellerSku.isEmpty() && itemId.isEmpty()) {
             return new UpsertOutcome(false, false);
         }
@@ -136,18 +185,54 @@ public class LazadaProductService {
         // Try to match seller_sku -> product.sku_code (master SKU on our side)
         Product matched = productDAO.findBySkuCode(sellerSku);
         if (matched == null) {
-            // No match — log exception so Sales sees it on the mapping page
-            new com.wms.dao.SkuMappingDAO().logMappingException(
-                    channel.getChannelId(), sellerSku, null,
-                    "Lazada product pulled but no master SKU match for seller_sku="
-                            + sellerSku);
-            return new UpsertOutcome(false, true);
+            // Check if there is an active/pending mapping in sku_mappings table
+            com.wms.model.SkuMapping mapping = new com.wms.dao.SkuMappingDAO()
+                    .findMappingByChannelAndExternalSku(channel.getChannelId(), sellerSku);
+            if (mapping == null && !sellerSku.equals(itemId)) {
+                mapping = new com.wms.dao.SkuMappingDAO()
+                        .findMappingByChannelAndExternalSku(channel.getChannelId(), itemId);
+            }
+            if (mapping != null) {
+                matched = productDAO.findById(mapping.getSkuId());
+            }
         }
 
-        BigDecimal price = new BigDecimal(
-                product.path("price").asText(product.path("special_price").asText("0")));
-        BigDecimal stock = new BigDecimal(
-                product.path("quantity").asText(product.path("stock").asText("0")));
+        if (matched == null) {
+            // Retrieve actual product name from Lazada API response
+            String productName = product.path("attributes").path("name").asText().trim();
+            if (productName.isEmpty()) {
+                productName = "Sản phẩm sàn (" + sellerSku + ")";
+            }
+            // No match — log exception so Sales sees it on the mapping page
+            new com.wms.dao.SkuMappingDAO().logMappingException(
+                    channel.getChannelId(), sellerSku, null, productName);
+            return new UpsertOutcome(false, true);
+        } else {
+            // Ensure there is a record in the sku_mappings table for the auto-matched SKU
+            com.wms.dao.SkuMappingDAO mappingDAO = new com.wms.dao.SkuMappingDAO();
+            com.wms.model.SkuMapping existingMapping = mappingDAO
+                    .findMappingByChannelAndExternalSku(channel.getChannelId(), sellerSku);
+            if (existingMapping == null && !sellerSku.equals(itemId)) {
+                existingMapping = mappingDAO.findMappingByChannelAndExternalSku(channel.getChannelId(), itemId);
+            }
+            if (existingMapping == null) {
+                com.wms.model.SkuMapping newMapping = new com.wms.model.SkuMapping();
+                newMapping.setSkuId(matched.getProductId());
+                newMapping.setChannelId(channel.getChannelId());
+                newMapping.setExternalSku(itemId);
+                newMapping.setSellerSku(sellerSku);
+                newMapping.setSyncStatus("SYNCED");
+                newMapping.setLastSyncAt(java.time.LocalDateTime.now());
+                mappingDAO.insert(newMapping);
+            }
+        }
+
+        String priceStr = product.path("price").asText();
+        if (priceStr.isEmpty()) priceStr = product.path("special_price").asText();
+        BigDecimal price = new BigDecimal(priceStr.isEmpty() ? "0" : priceStr);
+        String stockStr = product.path("quantity").asText();
+        if (stockStr.isEmpty()) stockStr = product.path("stock").asText();
+        BigDecimal stock = new BigDecimal(stockStr.isEmpty() ? "0" : stockStr);
         if (stock.signum() < 0) stock = BigDecimal.ZERO;
 
         ChannelProduct existing = channelProductDAO.findByChannelSku(
@@ -171,12 +256,12 @@ public class LazadaProductService {
             cp.setListedAt(java.time.LocalDateTime.now());
             boolean inserted = channelProductDAO.insert(cp);
             if (inserted) {
-                // Persist Lazada item_id so /product/update can target it later
+                // Persist Lazada item_id + sku_id so /product/stock/sellable/update can target it later
                 ChannelProduct fresh = channelProductDAO.findByChannelSku(
                         channel.getChannelId(), sellerSku);
                 if (fresh != null) {
                     channelProductDAO.setChannelItemId(
-                            fresh.getId(), itemId.isEmpty() ? null : itemId, sellerSku);
+                            fresh.getId(), itemId.isEmpty() ? null : itemId, skuId);
                 }
             }
             return new UpsertOutcome(inserted, false);
@@ -185,7 +270,7 @@ public class LazadaProductService {
             channelProductDAO.syncPrice(existing.getId(), price);
             channelProductDAO.syncStock(existing.getId(), stock);
             channelProductDAO.setChannelItemId(existing.getId(),
-                    itemId.isEmpty() ? null : itemId, sellerSku);
+                    itemId.isEmpty() ? null : itemId, skuId);
             return new UpsertOutcome(true, false);
         }
     }
@@ -322,7 +407,6 @@ public class LazadaProductService {
                 payloadBuilder.validate(p, cp, images);
         if (!vErrs.isEmpty()) {
             // Record on channel row so Sales sees why the draft failed without re-running
-            String firstField = vErrs.get(0).field;
             String firstMsg = vErrs.get(0).viMessage;
             try {
                 channelProductDAO.recordPushFailure(cp.getId(), "VALIDATION", firstMsg);
@@ -488,6 +572,173 @@ public class LazadaProductService {
         return PushResult.success(parsed.itemId, parsed.skuId, parsed.fieldErrors);
     }
 
+    public PushResult updateProduct(Channel channel, int channelProductId,
+                                    BigDecimal price, String description,
+                                    List<String> customImageUrls, List<String> customImageBase64s) {
+        try {
+            ChannelProduct cp = channelProductDAO.findById(channelProductId);
+            if (cp == null) {
+                return PushResult.failure("NOT_FOUND", "Sản phẩm kênh không tồn tại.");
+            }
+            Product p = productDAO.findById(cp.getProductId());
+            if (p == null) {
+                return PushResult.failure("PRODUCT_NOT_FOUND", "Master product not found");
+            }
+
+            // Update local fields temporarily
+            cp.setChannelPrice(price);
+            cp.setShortDescription(description);
+            cp.setDescription(description);
+
+            // Image migration
+            List<String> sourceUrls = new ArrayList<>();
+            List<String> sourceBase64s = new ArrayList<>();
+            if (customImageUrls != null) {
+                for (String u : customImageUrls) {
+                    if (u != null && !u.isBlank()) sourceUrls.add(u.trim());
+                }
+            }
+            if (customImageBase64s != null) {
+                for (String b64 : customImageBase64s) {
+                    if (b64 != null && !b64.isBlank()) sourceBase64s.add(b64.trim());
+                    else sourceBase64s.add(null);
+                }
+            }
+            while (sourceBase64s.size() < sourceUrls.size()) sourceBase64s.add(null);
+
+            List<String> lazadaImageUrls = new ArrayList<>();
+            boolean anyUsedRelay = false;
+            try {
+                List<String> migrated = imageMigrator.migrateImages(channel, sourceUrls);
+                for (int i = 0; i < migrated.size(); i++) {
+                    String migratedUrl = migrated.get(i);
+                    if (migratedUrl != null && !migratedUrl.isBlank()) {
+                        lazadaImageUrls.add(migratedUrl);
+                    } else {
+                        String b64 = (i < sourceBase64s.size()) ? sourceBase64s.get(i) : null;
+                        if (b64 != null && !b64.isBlank()) {
+                            byte[] bytes = decodeBase64(b64);
+                            String publicUrl = imgbb.upload(bytes, "image.jpg");
+                            String verified = null;
+                            if (publicUrl != null && !publicUrl.isBlank()) {
+                                verified = imageMigrator.migrateSingle(channel, publicUrl);
+                            }
+                            if (verified != null && !verified.isBlank()) {
+                                lazadaImageUrls.add(verified);
+                                anyUsedRelay = true;
+                            } else {
+                                String catboxUrl = catbox.upload(bytes, "image.jpg");
+                                if (catboxUrl != null && !catboxUrl.isBlank()) {
+                                    verified = imageMigrator.migrateSingle(channel, catboxUrl);
+                                }
+                                if (verified != null && !verified.isBlank()) {
+                                    lazadaImageUrls.add(verified);
+                                    anyUsedRelay = true;
+                                } else {
+                                    lazadaImageUrls.add(null);
+                                }
+                            }
+                        } else {
+                            lazadaImageUrls.add(null);
+                        }
+                    }
+                }
+            } catch (Exception e) {
+                LOGGER.log(Level.WARNING, "LazadaProductService: image migration threw", e);
+                lazadaImageUrls = new ArrayList<>();
+                for (int i = 0; i < sourceUrls.size(); i++) {
+                    String b64 = (i < sourceBase64s.size()) ? sourceBase64s.get(i) : null;
+                    if (b64 != null && !b64.isBlank()) {
+                        byte[] bytes = decodeBase64(b64);
+                        String publicUrl = imgbb.upload(bytes, "image.jpg");
+                        String verified = null;
+                        if (publicUrl != null && !publicUrl.isBlank()) {
+                            verified = imageMigrator.migrateSingle(channel, publicUrl);
+                        }
+                        if (verified != null && !verified.isBlank()) {
+                            lazadaImageUrls.add(verified);
+                            anyUsedRelay = true;
+                        } else {
+                            String catboxUrl = catbox.upload(bytes, "image.jpg");
+                            if (catboxUrl != null && !catboxUrl.isBlank()) {
+                                verified = imageMigrator.migrateSingle(channel, catboxUrl);
+                            }
+                            if (verified != null && !verified.isBlank()) {
+                                lazadaImageUrls.add(verified);
+                                anyUsedRelay = true;
+                            } else {
+                                lazadaImageUrls.add(null);
+                            }
+                        }
+                    } else {
+                        lazadaImageUrls.add(null);
+                    }
+                }
+            }
+
+            List<String> usableImages = new ArrayList<>();
+            for (String u : lazadaImageUrls) {
+                if (u != null && !u.isBlank()) usableImages.add(u);
+            }
+
+            // Build update payload
+            Map<String, String> payload = payloadBuilder.buildUpdate(p, cp, usableImages);
+            LOGGER.info("Lazada update payload JSON for " + p.getSkuCode() + ": " + (payload != null ? payload.get("payload") : "null"));
+
+            // POST /product/update via Gateway
+            long t0 = System.currentTimeMillis();
+            String response;
+            try {
+                response = gateway.updateProduct(channel, cp.getChannelItemId(), payload);
+            } catch (Exception e) {
+                ChannelSyncAudit.logFailure(channel.getChannelId(),
+                        "PRODUCT_UPDATE", p.getSkuCode(), null, payload.toString(), e.getMessage());
+                pushErrorDAO.insert(cp.getId(), channel.getChannelId(), p.getSkuCode(),
+                        "TRANSPORT", e.getMessage(), null, null);
+                channelProductDAO.recordPushFailure(cp.getId(), "TRANSPORT", e.getMessage());
+                return PushResult.failure("TRANSPORT", e.getMessage());
+            }
+            long dt = System.currentTimeMillis() - t0;
+            LOGGER.info("LazadaProductService.updateProduct raw response: " + response);
+            ChannelSyncAudit.logSuccess(channel.getChannelId(),
+                    "PRODUCT_UPDATE", p.getSkuCode(), 200, payload.toString(), response, dt);
+
+            // Parse + persist
+            LazadaErrorTranslator.ParsedLazadaResponse parsed = LazadaErrorTranslator.parse(response);
+            if (!parsed.success) {
+                String msg = parsed.topMessage != null && !parsed.topMessage.isBlank()
+                        ? parsed.topMessage : "Lazada từ chối cập nhật sản phẩm";
+                if (!parsed.fieldErrors.isEmpty()) {
+                    StringBuilder sb = new StringBuilder();
+                    for (int i = 0; i < parsed.fieldErrors.size() && i < 3; i++) {
+                        if (i > 0) sb.append("; ");
+                        sb.append(parsed.fieldErrors.get(i).viMessage);
+                    }
+                    msg = sb.toString();
+                }
+                String errorCode = !parsed.fieldErrors.isEmpty()
+                        ? parsed.fieldErrors.get(0).fieldHint
+                        : "LAZADA_REJECTED";
+                pushErrorDAO.insert(cp.getId(), channel.getChannelId(), p.getSkuCode(),
+                        errorCode, msg, response, response);
+                channelProductDAO.recordPushFailure(cp.getId(), errorCode, msg);
+                return PushResult.failure(errorCode, msg);
+            }
+
+            // Success path: update local channel_price in DB
+            cp.setChannelPrice(price);
+            channelProductDAO.update(cp);
+
+            // Clear any old error status and mark ACTIVE
+            channelProductDAO.recordPushSuccess(cp.getId(), cp.getChannelItemId(), cp.getLazadaSkuId(), cp.getChannelStock() != null ? cp.getChannelStock() : BigDecimal.ZERO);
+
+            return PushResult.success(cp.getChannelItemId(), cp.getLazadaSkuId(), parsed.fieldErrors);
+        } catch (Exception e) {
+            LOGGER.log(Level.SEVERE, "LazadaProductService: updateProduct failed for id=" + channelProductId, e);
+            return PushResult.failure("SYSTEM_ERROR", "Lỗi hệ thống: " + e.getMessage());
+        }
+    }
+
     /** Ensures a {@code channel_products} row exists for this product+channel. Returns its id. */
     private int ensureChannelProductRow(ChannelProduct cp, Channel channel, Product p) {
         if (cp.getId() > 0) return cp.getId();
@@ -565,6 +816,63 @@ public class LazadaProductService {
         public static PushResult validation(List<LazadaProductPayloadBuilder.ValidationError> errs) {
             String summary = errs.isEmpty() ? "" : errs.get(0).viMessage;
             return new PushResult(false, "VALIDATION", summary, null, null, null, errs);
+        }
+    }
+
+    public static class DeleteResult {
+        public final boolean success;
+        public final String code;
+        public final String message;
+        public DeleteResult(boolean success, String code, String message) {
+            this.success = success;
+            this.code = code;
+            this.message = message;
+        }
+    }
+
+    public DeleteResult deleteProduct(Channel channel, int channelProductId) {
+        try {
+            ChannelProduct cp = channelProductDAO.findById(channelProductId);
+            if (cp == null) {
+                return new DeleteResult(false, "NOT_FOUND", "Sản phẩm kênh không tồn tại trong hệ thống WMS.");
+            }
+
+            String sellerSku = cp.getChannelSkuCode();
+            String itemId = cp.getChannelItemId();
+            String skuId = cp.getLazadaSkuId();
+
+            if (itemId == null || itemId.isEmpty()) {
+                // If it was never pushed successfully, we can just delete WMS records directly
+                channelProductDAO.delete(channelProductId);
+                new com.wms.dao.SkuMappingDAO().deleteByProductAndChannel(cp.getProductId(), cp.getChannelId());
+                return new DeleteResult(true, "0", "Đã xóa sản phẩm nháp khỏi WMS.");
+            }
+
+            // Construct lists
+            String sellerSkuListJson = "[\"" + sellerSku + "\"]";
+            String skuIdListJson = "[\"SkuId_" + itemId + "_" + (skuId != null ? skuId : "") + "\"]";
+
+            LOGGER.info("LazadaProductService: removing product from Lazada. sellerSku=" + sellerSku + " itemId=" + itemId + " skuId=" + skuId);
+            String response = gateway.removeProduct(channel, sellerSkuListJson, skuIdListJson);
+            JsonNode root = MAPPER.readTree(response);
+            String code = root.path("code").asText();
+
+            // "0" = success. Also accept typical already-deleted/not-found codes:
+            // "4137" (ITEM_NOT_FOUND) or "4136" (SELLER_SKU_NOT_FOUND)
+            boolean isDeletedOrMissing = "0".equals(code) || "4137".equals(code) || "4136".equals(code);
+
+            if (isDeletedOrMissing) {
+                // Delete from local WMS database
+                channelProductDAO.delete(channelProductId);
+                new com.wms.dao.SkuMappingDAO().deleteByProductAndChannel(cp.getProductId(), cp.getChannelId());
+                return new DeleteResult(true, "0", "Xóa sản phẩm khỏi sàn và hệ thống WMS thành công!");
+            } else {
+                String errorMsg = root.path("message").asText();
+                return new DeleteResult(false, code, "Lỗi từ Lazada API: " + errorMsg);
+            }
+        } catch (Exception e) {
+            LOGGER.log(Level.SEVERE, "LazadaProductService: deleteProduct failed for id=" + channelProductId, e);
+            return new DeleteResult(false, "SYSTEM_ERROR", "Lỗi hệ thống: " + e.getMessage());
         }
     }
 

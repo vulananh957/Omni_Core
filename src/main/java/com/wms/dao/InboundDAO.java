@@ -73,7 +73,7 @@ public class InboundDAO {
         "UPDATE inbound_orders SET status=?, received_at=? WHERE inbound_id=?";
 
     private static final String SQL_NEXT_SEQUENCE =
-        "SELECT COALESCE(MAX(CAST(SUBSTRING(inbound_code, 10) AS UNSIGNED)), 0) + 1 AS next_seq "
+        "SELECT COALESCE(MAX(CAST(SUBSTRING(inbound_code, 13) AS UNSIGNED)), 0) + 1 AS next_seq "
       + "FROM inbound_orders WHERE inbound_code LIKE ?";
 
     // ══ ReceiptNote queries ════════════════════════════════════════
@@ -87,12 +87,6 @@ public class InboundDAO {
       + "LEFT JOIN products p ON ii.product_id = p.product_id "
       + "WHERE ii.inbound_id = ?";
 
-    private static final String SQL_FIND_ALL_ITEMS_FOR_ORDERS =
-        "SELECT ii.inbound_item_id, ii.inbound_id, ii.product_id, "
-      + "p.sku_code, p.product_name, "
-      + "ii.expected_qty, ii.received_qty, ii.unit_cost "
-      + "FROM inbound_items ii "
-      + "LEFT JOIN products p ON ii.product_id = p.product_id";
 
     private static final String SQL_INSERT_RECEIPT =
         "INSERT INTO inbound_items (inbound_id, product_id, expected_qty, received_qty, accepted_qty, rejected_qty, unit_cost) "
@@ -336,7 +330,7 @@ public class InboundDAO {
     }
 
     /**
-     * Generates the next inbound code in format IN-YYYYMMDD-XXX.
+     * Generates the next inbound code in format IN-YYYYMMDD-SEQ.
      * Thread-safe within a transaction.
      */
     public String generateNextInboundCode(Connection conn) throws SQLException {
@@ -566,30 +560,25 @@ public class InboundDAO {
     }
 
     /**
-     * Updates received_qty, accepted_qty, rejected_qty, and unit_cost on inbound_items.
-     * Falls back gracefully if the new columns do not exist yet (idempotent migration).
+     * Updates received_qty + unit_cost on inbound_items (đơn giản hoá sau khi bỏ QC).
+     * Falls back gracefully if the unit_cost column does not exist yet.
      */
     public boolean updateReceivedQtys(int inboundId, int productId,
-            BigDecimal receivedQty, BigDecimal acceptedQty, BigDecimal rejectedQty,
-            BigDecimal unitCost) {
-        // Try UPDATE with all 4 columns (works when schema has been migrated)
-        String sqlUpdate = "UPDATE inbound_items SET received_qty = ?, accepted_qty = ?, rejected_qty = ?, unit_cost = ? "
+            BigDecimal receivedQty, BigDecimal unitCost) {
+        String sqlUpdate = "UPDATE inbound_items SET received_qty = ?, unit_cost = ? "
                           + "WHERE inbound_id = ? AND product_id = ?";
         try (Connection conn = DBConnection.getConnection();
              PreparedStatement ps = conn.prepareStatement(sqlUpdate)) {
             ps.setBigDecimal(1, receivedQty != null ? receivedQty : BigDecimal.ZERO);
-            ps.setBigDecimal(2, acceptedQty != null ? acceptedQty : BigDecimal.ZERO);
-            ps.setBigDecimal(3, rejectedQty != null ? rejectedQty : BigDecimal.ZERO);
-            ps.setBigDecimal(4, unitCost != null ? unitCost : BigDecimal.ZERO);
-            ps.setInt(5, inboundId);
-            ps.setInt(6, productId);
+            ps.setBigDecimal(2, unitCost != null ? unitCost : BigDecimal.ZERO);
+            ps.setInt(3, inboundId);
+            ps.setInt(4, productId);
             int rows = ps.executeUpdate();
             if (rows > 0) return true;
         } catch (SQLException e) {
             LOGGER.fine("updateReceivedQtys with unit_cost failed, falling back: " + e.getMessage());
         }
-
-        // Fallback: use simpler query without unit_cost (schema not yet migrated)
+        // Fallback nếu schema chưa có cột unit_cost
         return updateReceivedQty(inboundId, productId, receivedQty);
     }
 }

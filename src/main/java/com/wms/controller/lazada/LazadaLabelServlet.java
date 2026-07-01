@@ -3,7 +3,6 @@ package com.wms.controller.lazada;
 import com.wms.dao.OrderDAO;
 import com.wms.model.Order;
 import com.wms.service.lazada.LazadaShipmentService;
-import com.wms.service.lazada.LazadaShipmentService.ShipmentResult;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.annotation.WebServlet;
 import jakarta.servlet.http.HttpServlet;

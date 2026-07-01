@@ -20,7 +20,7 @@
             </div>
             <div class="inbound-kpi-card__info">
                 <div class="inbound-kpi-card__val" id="stat-pending">0</div>
-                <div class="inbound-kpi-card__lbl">Phiếu chờ hàng</div>
+                <div class="inbound-kpi-card__lbl">Phiếu chờ mua</div>
             </div>
         </div>
 
@@ -67,7 +67,7 @@
         </div>
         <button class="btn-create" id="btnCreateGRNTrigger">
             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
-            Tạo phiếu nhập
+            Tạo phiếu mua hàng
         </button>
     </div>
 
@@ -85,8 +85,8 @@
     <div class="modal-box" style="max-width: 800px;">
         <div class="modal-hdr">
             <div>
-                <h2 class="modal-title" id="draftModalTitle">Tạo phiếu nhập nháp</h2>
-                <p class="modal-subtitle">Lưu cục bộ ở trạng thái DRAFT, chưa ghi nhận tồn kho.</p>
+                <h2 class="modal-title" id="draftModalTitle">Tạo phiếu mua hàng</h2>
+                <p class="modal-subtitle">Tạo phiếu → nhập kho → hoàn thành. Không cần duyệt.</p>
             </div>
             <button class="modal-close" onclick="closeDraftModal()">&times;</button>
         </div>
@@ -119,7 +119,7 @@
         </div>
         <div class="modal-ftr" style="background:#fff;">
             <button class="modal-btn-cancel" onclick="closeDraftModal()">Hủy</button>
-            <button class="modal-btn-submit" onclick="submitDraftGRN()">Lưu nháp</button>
+            <button class="modal-btn-submit" id="btnSubmitGRN" onclick="submitDraftGRN()">Tạo phiếu &amp; Nhập kho</button>
         </div>
     </div>
 </div>
@@ -129,13 +129,13 @@
     <div class="modal-box">
         <div class="modal-hdr">
             <div>
-                <h2 class="modal-title">Xác nhận nhập thực tế</h2>
-                <p class="modal-subtitle" id="receiveModalSubtitle">Mã phiếu: GRN-XXXX · NCC: ABC</p>
+                <h2 class="modal-title">Nhập hàng thực tế</h2>
+                <p class="modal-subtitle" id="receiveModalSubtitle">Mã phiếu mua: ...</p>
             </div>
             <button class="modal-close" onclick="closeReceiveModal()">&times;</button>
         </div>
         <div class="modal-body">
-            <p style="font-size: 12px; color: rgba(16, 55, 92, 0.6); margin-bottom: 8px;">Nhập số lượng thực tế kiểm đếm cho từng SKU: SL Thực Nhận → SL Chấp Nhận (phần còn lại = SL Từ Chối).</p>
+            <p style="font-size: 12px; color: rgba(16, 55, 92, 0.6); margin-bottom: 8px;">Nhập SL thực nhận cho từng SKU. Phần chênh lệch (PO đặt − SL thực nhận) sẽ tự động ghi nhận là "Đã trả NCC tại chỗ" và không lưu vào tồn kho.</p>
             <input type="hidden" id="receive-grn-id"/>
             <div id="receiveItemsContainer" style="display:flex; flex-direction:column; gap:12px;">
                 <!-- Populate items with 3 inputs: received / accepted / rejected -->
@@ -153,8 +153,8 @@
     <div class="modal-box" style="max-width:560px;">
         <div class="modal-hdr">
             <div>
-                <h2 class="modal-title">Tạo phiếu nhập mới</h2>
-                <p class="modal-subtitle">Tạo đơn nhập hàng từ nhà cung cấp</p>
+                <h2 class="modal-title">Tạo phiếu mua hàng mới</h2>
+                <p class="modal-subtitle">Tạo đơn mua hàng từ nhà cung cấp</p>
             </div>
             <button class="modal-close" onclick="closeCreatePOModal()">&times;</button>
         </div>
@@ -185,7 +185,7 @@
             </div>
             <div class="modal-ftr" style="background:#fff;">
                 <button type="button" class="modal-btn-cancel" onclick="closeCreatePOModal()">Hủy</button>
-                <button type="submit" class="modal-btn-submit">Tạo phiếu nhập</button>
+                <button type="submit" class="modal-btn-submit">Tạo phiếu mua hàng</button>
             </div>
         </form>
     </div>
@@ -196,7 +196,7 @@
     <div class="modal-box" style="max-width:600px;">
         <div class="modal-hdr">
             <div>
-                <h2 class="modal-title">Xác nhận nhập kho thực tế</h2>
+                <h2 class="modal-title">Nhập hàng thực tế</h2>
                 <p class="modal-subtitle" id="receiveDB-subtitle">Mã phiếu: ...</p>
             </div>
             <button class="modal-close" onclick="closeReceiveDBModal()">&times;</button>
@@ -214,7 +214,7 @@
             </div>
             <div class="modal-ftr" style="background:#fff;">
                 <button type="button" class="modal-btn-cancel" onclick="closeReceiveDBModal()">Hủy</button>
-                <button type="submit" class="modal-btn-submit modal-btn-emerald">Xác nhận nhập kho</button>
+                <button type="submit" class="modal-btn-submit modal-btn-emerald">Xác nhận nhập hàng</button>
             </div>
         </form>
     </div>
@@ -225,7 +225,7 @@
     <div class="modal-box" style="max-width: 960px;">
         <div class="modal-hdr">
             <div>
-                <h2 class="modal-title">Chi tiết Phiếu nhập kho</h2>
+                <h2 class="modal-title">Chi tiết Phiếu mua hàng</h2>
                 <p class="modal-subtitle" id="detailModalSubtitle">GRN-XXXX</p>
             </div>
             <button class="modal-close" onclick="closeDetailModal()">&times;</button>
@@ -247,10 +247,9 @@
                             <th style="padding-left:16px; min-width:90px;">SKU</th>
                             <th style="min-width:140px;">Sản phẩm</th>
                             <th style="text-align:right; width:90px; white-space:nowrap;">Đơn giá</th>
-                            <th style="text-align:right; width:70px; white-space:nowrap;">Yêu cầu</th>
+                            <th style="text-align:right; width:70px; white-space:nowrap;">Đặt mua</th>
                             <th style="text-align:right; width:80px; white-space:nowrap;">Thực nhận</th>
-                            <th style="text-align:right; width:80px; white-space:nowrap; color:#047857;">Đạt chuẩn</th>
-                            <th style="text-align:right; width:80px; white-space:nowrap; color:#dc2626;">Hỏng/Lỗi</th>
+                            <th style="text-align:right; width:80px; white-space:nowrap; color:#b45309;">Trả NCC</th>
                             <th style="text-align:right; width:100px; white-space:nowrap; padding-right:16px;">Thành tiền</th>
                         </tr>
                     </thead>
@@ -314,74 +313,40 @@ window.WMS_USER = {
     myWarehouseId: parseInt("${myWarehouseId}") || 1
 };
 
-// Inbound Receipts (from server database)
-var savedGRNs = localStorage.getItem('wh_inbound_grns');
-var grns = safeJsonParse(savedGRNs, []);
-// Clean up any corrupted drafts from localStorage and sanitize items
-grns = grns.filter(function(g) {
-    return g && g.id && g.id !== 'undefined' && g.inboundCode !== 'undefined';
-}).map(function(g) {
-    if (g.items) {
-        g.items = g.items.map(function(item) {
-            return {
-                productId: item.productId || 0,
-                skuCode: item.skuCode || '',
-                skuName: item.skuName || '',
-                orderedQty: parseFloat(item.orderedQty || 0),
-                receivedQty: parseFloat(item.receivedQty || 0),
-                price: parseFloat(item.price || 0)
-            };
-        });
-    }
-    return g;
-});
-
-// Load from server data if available
+// Inbound Receipts — server data is single source of truth.
+// Local drafts are no longer used; all GRNs are created directly on the server.
 var serverInboundList = safeJsonParse(document.getElementById('db-inbound-list-data') && document.getElementById('db-inbound-list-data').textContent, []);
 console.log('[INBOUND] serverInboundList:', serverInboundList.length, serverInboundList);
-if (serverInboundList && serverInboundList.length > 0) {
-    var dbGrns = serverInboundList.map(function(o) {
-        var mappedStatus = o.status;
-        if (o.status === 'PENDING') mappedStatus = 'pending';
-        else if (o.status === 'IN_PROGRESS') mappedStatus = 'in_progress';
-        else if (o.status === 'RECEIVED') mappedStatus = 'completed';
-        else if (o.status === 'CANCELLED') mappedStatus = 'cancelled';
-        else mappedStatus = 'draft';
+var grns = (serverInboundList || []).map(function(o) {
+    var mappedStatus = o.status;
+    if (o.status === 'PENDING') mappedStatus = 'pending';
+    else if (o.status === 'IN_PROGRESS') mappedStatus = 'in_progress';
+    else if (o.status === 'RECEIVED') mappedStatus = 'completed';
+    else if (o.status === 'CANCELLED') mappedStatus = 'cancelled';
+    else mappedStatus = o.status || 'pending';
 
-        return {
-            id: o.inboundId,
-            inboundCode: o.inboundCode,
-            supplier: o.supplierName,
-            warehouseName: o.warehouseName,
-            status: mappedStatus,
-            createdAt: o.createdAt,
-            items: (o.items || []).map(function(item) {
-                return {
-                    productId: item.productId || 0,
-                    skuCode: item.skuCode || item.sku || '',
-                    skuName: item.skuName || item.productName || '',
-                    orderedQty: parseFloat(item.orderedQty || item.expectedQty || 0),
-                    receivedQty: parseFloat(item.receivedQty || 0),
-                    acceptedQty: parseFloat(item.acceptedQty || 0),
-                    rejectedQty: parseFloat(item.rejectedQty || 0),
-                    price: parseFloat(item.price || 0)
-                };
-            })
-        };
-    });
-
-    var localDrafts = grns.filter(function(g) {
-        if (g.status !== 'draft') return false;
-        var inDb = dbGrns.some(function(dg) {
-            return String(dg.inboundCode) === String(g.inboundCode) || String(dg.id) === String(g.id);
-        });
-        return !inDb;
-    });
-
-    grns = localDrafts.concat(dbGrns);
-    console.log('[INBOUND] grns after server mapping:', grns.length, grns);
-}
-console.log('[INBOUND] final grns:', grns.length, grns);
+    return {
+        id: o.inboundId,
+        inboundCode: o.inboundCode,
+        supplier: o.supplierName,
+        warehouseName: o.warehouseName,
+        status: mappedStatus,
+        createdAt: o.createdAt,
+        items: (o.items || []).map(function(item) {
+            return {
+                productId: item.productId || 0,
+                skuCode: item.skuCode || item.sku || '',
+                skuName: item.skuName || item.productName || '',
+                orderedQty: parseFloat(item.orderedQty || item.expectedQty || 0),
+                receivedQty: parseFloat(item.receivedQty || 0),
+                acceptedQty: parseFloat(item.acceptedQty || 0),
+                rejectedQty: parseFloat(item.rejectedQty || 0),
+                price: parseFloat(item.price || 0)
+            };
+        })
+    };
+});
+console.log('[INBOUND] grns loaded:', grns.length, grns);
 
 // Master SKUs
 var savedSKUs = localStorage.getItem('wms_skus');
@@ -403,7 +368,7 @@ if ((!skus || skus.length === 0) && DB_PRODUCTS.length > 0) {
 // Pricing configuration — removed (base_price managed by Manager in master-sku)
 
 // ─── STATE VARIABLES ───
-var activeStatusTab = 'all'; // 'all', 'draft', 'pending_bm', 'pending', 'in_progress', 'completed', 'cancelled'
+var activeStatusTab = 'all'; // 'all', 'pending', 'in_progress', 'completed', 'cancelled'
 var searchKeyword = '';
 var expandedGrnId = null;
 
@@ -506,36 +471,78 @@ window.toggleGrnExpand = function(grnId) {
 
 window.toggleDropdownMenu = function(grnId, event) {
     if (event) event.stopPropagation();
-    var menu = document.getElementById('dropdown-' + grnId);
-    var wasActive = menu.classList.contains('active');
-    
-    // Close all menus
-    var allMenus = document.querySelectorAll('.dropdown-menu');
-    allMenus.forEach(function(m) { m.classList.remove('active'); });
 
-    if (!wasActive) {
-        menu.classList.add('active');
+    var menu = document.getElementById('dropdown-' + grnId);
+    if (!menu) return;
+
+    var wasOpen = menu.dataset.open === '1';
+
+    // Close all menus first
+    var allMenus = document.querySelectorAll('.dropdown-menu');
+    allMenus.forEach(function(m) {
+        m.classList.remove('active');
+        m.removeAttribute('style'); // clear fixed positioning
+        m.dataset.open = '0';
+    });
+
+    // If it was already active, just close it and stop
+    if (wasOpen) {
+        return;
     }
+
+    // Position the menu using fixed coordinates relative to the trigger button
+    var btn = event ? event.currentTarget : null;
+    
+    // Set display block first so we can measure offsetHeight
+    menu.classList.add('active');
+    
+    if (btn) {
+        var rect = btn.getBoundingClientRect();
+        menu.style.position = 'fixed';
+        menu.style.zIndex = '9999';
+        
+        var menuHeight = menu.offsetHeight || 120;
+        var spaceBelow = window.innerHeight - rect.bottom;
+        
+        if (spaceBelow < menuHeight + 10 && rect.top > menuHeight + 10) {
+            // Position above the button
+            menu.style.top = 'auto';
+            menu.style.bottom = (window.innerHeight - rect.top + 8) + 'px';
+        } else {
+            // Position below the button
+            menu.style.top = (rect.bottom + 8) + 'px';
+            menu.style.bottom = 'auto';
+        }
+        
+        menu.style.right = (window.innerWidth - rect.right) + 'px';
+        menu.style.left = 'auto';
+    }
+
+    menu.dataset.open = '1';
 };
+
 
 // Close menus when clicking outside
 document.addEventListener('click', function(e) {
-    if (!e.target.closest('.dropdown-wrap')) {
+    if (!e.target.closest('.dropdown-wrap') && !e.target.closest('.dropdown-menu')) {
         var allMenus = document.querySelectorAll('.dropdown-menu');
-        allMenus.forEach(function(m) { m.classList.remove('active'); });
+        allMenus.forEach(function(m) {
+            m.classList.remove('active');
+            m.removeAttribute('style');
+            m.dataset.open = '0';
+        });
     }
 });
 
+
 function getStatusConfig(status) {
     var configs = {
-        draft: { label: "Bản nháp", bg: "draft", icon: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="8" height="4" x="8" y="2" rx="1" ry="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><path d="M9 9h6"/><path d="M9 13h6"/><path d="M9 17h6"/></svg>' },
-        pending_bm: { label: "Chờ BM duyệt", bg: "pending_bm", icon: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="11" x="3" y="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>' },
         pending: { label: "Chờ hàng về", bg: "pending", icon: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>' },
         in_progress: { label: "Đang nhập kho", bg: "in_progress", icon: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 17V3"/><path d="m6 11 6 6 6-6"/><path d="M19 21H5"/></svg>' },
         completed: { label: "Hoàn thành", bg: "completed", icon: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>' },
         cancelled: { label: "Đã hủy", bg: "cancelled", icon: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>' }
     };
-    return configs[status] || configs.draft;
+    return configs[status] || configs.pending;
 }
 
 function renderReceipts() {
@@ -569,10 +576,7 @@ function renderReceipts() {
         var receiveBtn = '';
         var isDbBacked = (typeof grn.id === 'number') || /^\d+$/.test(String(grn.id));
         if (isDbBacked) {
-            if (grn.status === 'pending') {
-                // PENDING = waiting for BM approval via Sổ Kho — WH staff cannot bypass this
-                receiveBtn = '<span class="btn-action-grn" style="cursor:default;opacity:0.65;pointer-events:none;" title="Đang chờ Business Manager phê duyệt trong Sổ Kho">⏳ Chờ BM duyệt</span>';
-            } else if (grn.status === 'in_progress') {
+            if (grn.status === 'in_progress') {
                 receiveBtn = '<button class="btn-action-grn btn-action-emerald" onclick="window.dbOpenReceiveModal(\'' + grn.id + '\', \'' + (grn.inboundCode || grn.id) + '\', event)">Nhập kho</button>';
             }
         } else {
@@ -587,51 +591,37 @@ function renderReceipts() {
             '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>' +
             '</button>';
 
-        // Pending BM badge
-        var pendingBmLabel = grn.status === 'pending_bm' ?
-            '<span class="pill-badge pending_bm" style="border:1px solid #fde68a; padding:6px 12px; font-size:11px;">' +
-            '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:12px;height:12px;margin-right:4px;vertical-align:middle;"><rect width="18" height="11" x="3" y="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>' +
-            'Chờ BM duyệt</span>' : '';
-
-        // Dropdown actions menu
+        // Dropdown actions menu (đã bỏ "Trình duyệt BM" — phiếu mới thẳng IN_PROGRESS)
         var dropdownHtml = '';
-        if (grn.status === 'draft' && !grn.isLocked) {
-            dropdownHtml = 
-                '<button class="dropdown-btn" onclick="submitForBMAvailability(\'' + grn.id + '\', event)">' +
-                    '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="11" x="3" y="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>' +
-                    'Trình duyệt BM' +
-                '</button>' +
-                '<button class="dropdown-btn" style="color:#b91c1c;" onclick="cancelDraftGRN(\'' + grn.id + '\', event)">' +
-                    '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg>' +
-                    'Hủy nháp' +
-                '</button>';
-        } else if (grn.status === 'pending_bm') {
-            dropdownHtml = 
-                '<button class="dropdown-btn" onclick="window.viewGRNDetail(\'' + grn.id + '\', event)">' +
+        if (grn.status === 'pending' || grn.status === 'in_progress') {
+            dropdownHtml =
+                '<button class="dropdown-btn" onclick="openDetailModal(\'' + grn.id + '\', event)">' +
                     '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>' +
                     'Xem chi tiết' +
-                '</button>' +
-                '<button class="dropdown-btn" style="color:#b91c1c;" onclick="cancelDraftGRN(\'' + grn.id + '\', event)">' +
-                    '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg>' +
-                    'Hủy phiếu' +
                 '</button>';
         }
 
-        var menuActions = 
-            '<div class="dropdown-wrap">' +
-                '<button class="btn-action-icon" onclick="window.toggleDropdownMenu(\'' + grn.id + '\', event)" title="Thao tác">' +
-                    '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="1"/><circle cx="12" cy="5" r="1"/><circle cx="12" cy="19" r="1"/></svg>' +
-                '</button>' +
-                '<div class="dropdown-menu" id="dropdown-' + grn.id + '">' +
-                    (grn.status === 'draft' && !grn.isLocked ?
+
+        var menuActions = '';
+        if (grn.status === 'draft' && !grn.isLocked) {
+            menuActions = 
+                '<div class="dropdown-wrap">' +
+                    '<button class="btn-action-icon" onclick="window.toggleDropdownMenu(\'' + grn.id + '\', event)" title="Thao tác">' +
+                        '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="1"/><circle cx="12" cy="5" r="1"/><circle cx="12" cy="19" r="1"/></svg>' +
+                    '</button>' +
+                    '<div class="dropdown-menu" id="dropdown-' + grn.id + '">' +
                         '<button class="dropdown-btn" onclick="window.editDraftGRN(\'' + grn.id + '\', event)">' +
                             '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 1 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>' +
                             'Chỉnh sửa' +
-                        '</button>' : ''
-                    ) +
-                    dropdownHtml +
-                '</div>' +
-            '</div>';
+                        '</button>' +
+                        '<button class="dropdown-btn" style="color:#dc2626;" onclick="window.deleteDraftGRN(\'' + grn.id + '\', event)">' +
+                            '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="#dc2626" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg>' +
+                            'Xoá nháp' +
+                        '</button>' +
+                        dropdownHtml +
+                    '</div>' +
+                '</div>';
+        }
 
 
         // Expanded table rows
@@ -704,7 +694,6 @@ function renderReceipts() {
                     '</div>' +
                     detailBtn +
                     receiveBtn +
-                    pendingBmLabel +
                     menuActions +
                     '<svg class="grn-chevron" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>' +
                 '</div>' +
@@ -750,7 +739,7 @@ window.openDraftModal = function(mode, sourceId) {
     var noteInput = document.getElementById('draft-note');
     
     if (mode === 'create') {
-        titleEl.textContent = 'Tạo phiếu nhập nháp';
+        titleEl.textContent = 'Tạo phiếu mua hàng';
         draftForm = {
             supplier: '',
             expectedDate: '',
@@ -862,6 +851,17 @@ window.editDraftGRN = function(grnId, event) {
     }
 };
 
+window.deleteDraftGRN = function(grnId, event) {
+    if (event) event.stopPropagation();
+    // Close any open dropdown
+    var allMenus = document.querySelectorAll('.dropdown-menu');
+    allMenus.forEach(function(m) { m.classList.remove('active'); m.dataset.open = '0'; });
+    if (!confirm('Bạn có chắc chắn muốn xoá bản nháp "' + grnId + '" không?')) return;
+    grns = grns.filter(function(g) { return g.id != grnId; });
+    localStorage.setItem('wh_inbound_grns', JSON.stringify(grns));
+    renderReceipts();
+};
+
 window.addDraftItemRow = function() {
     draftForm.items.push({ skuCode: '', skuName: '', orderedQty: 10, price: 0 });
     renderDraftRows();
@@ -925,13 +925,12 @@ window.submitDraftGRN = function() {
     var supplierInput = document.getElementById('draft-supplier').value.trim();
     var dateInput = document.getElementById('draft-date').value;
     var noteInput = document.getElementById('draft-note').value.trim();
-    
+
     if (!supplierInput || !dateInput) {
         alert('Vui lòng nhập đầy đủ Nhà cung cấp và Ngày dự kiến!');
         return;
     }
-    
-    // Filter out invalid items
+
     var validItems = draftForm.items.filter(function(i) {
         return i.skuCode && i.orderedQty > 0;
     }).map(function(i) {
@@ -943,49 +942,37 @@ window.submitDraftGRN = function() {
             price: i.price || 0
         };
     });
-    
+
     if (validItems.length === 0) {
         alert('Vui lòng chọn ít nhất một SKU hợp lệ với số lượng lớn hơn 0!');
         return;
     }
-    
-    // Generate GRN ID
-    var maxSequence = 0;
-    grns.forEach(function(g) {
-        if (g && g.id) {
-            var match = String(g.id).match(/GRN-2026-(\d+)/);
-            if (match) {
-                var seq = parseInt(match[1]);
-                if (seq > maxSequence) maxSequence = seq;
-            }
-        }
-    });
-    var nextSeq = String(maxSequence + 1).padStart(4, '0');
-    var newId = 'GRN-2026-' + nextSeq;
-    
-    var now = new Date();
-    var createdAtStr = now.getFullYear() + '-' + 
-                       padZero(now.getMonth()+1) + '-' + 
-                       padZero(now.getDate()) + ' ' + 
-                       padZero(now.getHours()) + ':' + 
-                       padZero(now.getMinutes());
 
-    var newGRN = {
-        id: newId,
-        inboundCode: newId,
-        supplier: supplierInput,
-        createdAt: createdAtStr,
-        expectedDate: dateInput,
-        status: 'draft',
-        isLocked: false,
-        items: validItems,
-        note: noteInput || undefined
-    };
-    
-    grns.unshift(newGRN);
-    closeDraftModal();
-    renderReceipts();
-    alert('Tạo phiếu nhập nháp thành công!');
+    var btn = document.getElementById('btnSubmitGRN');
+    btn.disabled = true;
+    btn.textContent = 'Đang tạo...';
+
+    fetch('${pageContext.request.contextPath}/warehouse/inbound', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: new URLSearchParams({
+            action: 'create',
+            supplierName: supplierInput,
+            expectedDate: dateInput,
+            notes: noteInput || '',
+            itemsJson: JSON.stringify(validItems)
+        })
+    }).then(function(res) {
+        if (res.redirected) {
+            window.location.href = res.url;
+        } else {
+            window.location.reload();
+        }
+    }).catch(function() {
+        btn.disabled = false;
+        btn.textContent = 'Tạo phiếu & Nhập kho';
+        alert('Lỗi kết nối. Vui lòng thử lại.');
+    });
 };
 
 // ─── ACTION BUTTONS ───
@@ -1267,20 +1254,21 @@ window.openDetailModal = function(grnId, event) {
     var isCompleted = (grn.status === 'completed');
     var html = grn.items.map(function(item) {
         var priceHtml = item.price ? item.price.toLocaleString('vi-VN') + ' đ' : '—';
-        var qtyForTotal = isCompleted ? (item.acceptedQty || 0) : (item.receivedQty || 0);
-        var lineTotal = (item.price && qtyForTotal) ? (item.price * qtyForTotal).toLocaleString('vi-VN') + ' đ' : '—';
-        var acceptedQty = (item.acceptedQty !== undefined) ? item.acceptedQty : '—';
-        var rejectedQty = (item.rejectedQty !== undefined && item.rejectedQty > 0)
-            ? '<span style="color:#dc2626; font-weight:700;">' + item.rejectedQty + '</span>'
+        // SL thực nhận = SL cộng vào tồn kho (đã loại bỏ QC/accepted/rejected).
+        var received = parseFloat(item.receivedQty || 0);
+        var ordered = parseFloat(item.orderedQty || 0);
+        var returnedNcc = Math.max(0, ordered - received);
+        var lineTotal = (item.price && received) ? (item.price * received).toLocaleString('vi-VN') + ' đ' : '—';
+        var returnedHtml = returnedNcc > 0
+            ? '<span style="color:#b45309; font-weight:700;">' + returnedNcc + '</span>'
             : '<span style="color:rgba(16,55,92,0.3);">0</span>';
         return '<tr>' +
             '<td style="white-space:nowrap;"><span style="font-family:monospace; font-size:11px; color:rgba(16,55,92,0.6);">' + escapeHtml(item.skuCode) + '</span></td>' +
             '<td><span style="font-weight:600; color:var(--navy);">' + escapeHtml(item.skuName) + '</span></td>' +
             '<td style="text-align:right; font-weight:600; color:var(--navy); white-space:nowrap;">' + priceHtml + '</td>' +
-            '<td style="text-align:right; font-weight:600; white-space:nowrap;">' + item.orderedQty + '</td>' +
-            '<td style="text-align:right; font-weight:600; white-space:nowrap;">' + (item.receivedQty || 0) + '</td>' +
-            '<td style="text-align:right; font-weight:700; color:#047857; white-space:nowrap;">' + acceptedQty + '</td>' +
-            '<td style="text-align:right; white-space:nowrap;">' + rejectedQty + '</td>' +
+            '<td style="text-align:right; font-weight:600; white-space:nowrap;">' + ordered + '</td>' +
+            '<td style="text-align:right; font-weight:600; white-space:nowrap; color:#047857;">' + received + '</td>' +
+            '<td style="text-align:right; white-space:nowrap;">' + returnedHtml + '</td>' +
             '<td style="text-align:right; font-weight:700; color:var(--navy); white-space:nowrap; padding-right:16px;">' + lineTotal + '</td>' +
         '</tr>';
     }).join('');
@@ -1369,41 +1357,19 @@ window.closeCreatePOModal = function() {
     document.getElementById('createPOModal').classList.remove('active');
 };
 
-window.dbConfirmInbound = function(id, code, event) {
-    if (event) event.stopPropagation();
-    if (confirm('Xác nhận phiếu ' + code + '? Trạng thái sẽ chuyển sang Đã xác nhận.')) {
-        var form = document.createElement('form');
-        form.method = 'POST';
-        form.action = '${pageContext.request.contextPath}/warehouse/inbound';
-        var actionInput = document.createElement('input');
-        actionInput.type = 'hidden';
-        actionInput.name = 'action';
-        actionInput.value = 'confirm';
-        var inboundIdInput = document.createElement('input');
-        inboundIdInput.type = 'hidden';
-        inboundIdInput.name = 'inboundId';
-        inboundIdInput.value = id;
-        form.appendChild(actionInput);
-        form.appendChild(inboundIdInput);
-        document.body.appendChild(form);
-        form.submit();
-    }
-};
-
 window.dbOpenReceiveModal = function(id, code, event) {
     if (event) event.stopPropagation();
     var grn = grns.find(function(g) { return g.id == id; });
     if (!grn) return;
 
     document.getElementById('receiveDB-inboundId').value = id;
-    document.getElementById('receiveDB-subtitle').textContent = 'Mã phiếu: ' + code;
+    document.getElementById('receiveDB-subtitle').textContent = 'Mã phiếu mua: ' + code;
 
     var container = document.getElementById('receiveDBItemsContainer');
     var html = grn.items.map(function(item) {
         var defaultVal = item.orderedQty - item.receivedQty;
         if (defaultVal < 0) defaultVal = 0;
-        var acceptedDefault = defaultVal; // default: chấp nhận hết
-        var rejectedDefault = 0;
+        var returnedNccDefault = 0;
         return '<div class="receive-item-card" style="padding:12px 16px; background:#f8fafc; border:1px solid var(--border); border-radius:8px; margin-bottom:8px;">' +
             '<div style="display:flex; justify-content:space-between; align-items:flex-start; gap:16px;">' +
             '<div style="flex:1;">' +
@@ -1416,15 +1382,11 @@ window.dbOpenReceiveModal = function(id, code, event) {
                     '<input type="hidden" name="unitCost" value="' + (item.price || 0) + '"/>' +
                     '<div style="display:flex; flex-direction:column; align-items:center; gap:2px;">' +
                         '<label style="font-size:10px; font-weight:700; color:#1d4ed8;">SL THỰC NHẬN</label>' +
-                        '<input class="price-input" style="width:70px; padding:5px; border:1px solid var(--border); border-radius:4px; text-align:right; font-size:13px; font-weight:600; color:#1d4ed8;" type="number" name="receivedQty" min="0" max="' + defaultVal + '" value="' + defaultVal + '" onchange="window.sync2Qty(this)"/>' +
+                        '<input class="price-input" style="width:80px; padding:5px; border:1px solid var(--border); border-radius:4px; text-align:right; font-size:13px; font-weight:600; color:#1d4ed8;" type="number" name="receivedQty" min="0" max="' + defaultVal + '" value="' + defaultVal + '" data-ordered="' + item.orderedQty + '" data-already-received="' + (item.receivedQty || 0) + '" onchange="window.syncReturnNcc(this)"/>' +
                     '</div>' +
                     '<div style="display:flex; flex-direction:column; align-items:center; gap:2px;">' +
-                        '<label style="font-size:10px; font-weight:700; color:#047857;">SL CHẤP NHẬN</label>' +
-                        '<input class="price-input" style="width:70px; padding:5px; border:1px solid #a7f3d0; border-radius:4px; text-align:right; font-size:13px; font-weight:600; color:#047857; background:#f0fdf4;" type="number" name="acceptedQty" min="0" max="' + defaultVal + '" value="' + acceptedDefault + '" onchange="window.sync2Qty(this)"/>' +
-                    '</div>' +
-                    '<div style="display:flex; flex-direction:column; align-items:center; gap:2px;">' +
-                        '<label style="font-size:10px; font-weight:700; color:#dc2626;">SL TỪ CHỐI</label>' +
-                        '<div id="rejected-display-' + item.skuCode.replace(/[^a-zA-Z0-9]/g,'_') + '" style="width:70px; padding:5px 6px; background:#fef2f2; border:1px solid #fca5a5; border-radius:4px; text-align:right; font-size:13px; font-weight:600; color:#dc2626; min-height:33px; line-height:1.5;">' + rejectedDefault + '</div>' +
+                        '<label style="font-size:10px; font-weight:700; color:#b45309;">TRẢ NCC TẠI CHỖ</label>' +
+                        '<div class="returned-ncc-cell" style="width:80px; padding:5px 6px; background:#fffbeb; border:1px solid #fde68a; border-radius:4px; text-align:right; font-size:13px; font-weight:600; color:#b45309; min-height:33px; line-height:1.5;">' + Math.max(0, item.orderedQty - (item.receivedQty || 0) - defaultVal) + '</div>' +
                     '</div>' +
                 '</div>' +
             '</div>' +
@@ -1437,6 +1399,18 @@ window.dbOpenReceiveModal = function(id, code, event) {
 
 window.closeReceiveDBModal = function() {
     document.getElementById('receiveDBModal').classList.remove('active');
+};
+
+// Auto-calc "Trả NCC tại chỗ" = PO đặt - SL thực nhận
+window.syncReturnNcc = function(inputEl) {
+    var ordered = parseFloat(inputEl.getAttribute('data-ordered')) || 0;
+    var alreadyReceived = parseFloat(inputEl.getAttribute('data-already-received')) || 0;
+    var receivedNow = parseFloat(inputEl.value) || 0;
+    // Tổng SL thực nhận cộng dồn (đã nhận trước đó + lần này)
+    var totalReceived = alreadyReceived + receivedNow;
+    var returned = Math.max(0, ordered - totalReceived);
+    var cell = inputEl.parentElement.parentElement.querySelector('.returned-ncc-cell');
+    if (cell) cell.textContent = returned;
 };
 
 ['createPOModal', 'receiveDBModal'].forEach(function(id) {

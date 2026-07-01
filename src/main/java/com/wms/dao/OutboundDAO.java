@@ -147,12 +147,30 @@ public class OutboundDAO extends BaseDAO {
     }
 
     /**
+     * Returns true if any non-cancelled outbound already exists for the given order.
+     * Used by autoCreateFromOrder to prevent duplicate outbound sheets on re-approve.
+     */
+    public boolean hasActiveOutboundForOrder(int orderId) {
+        String sql = "SELECT 1 FROM outbound_orders WHERE order_id = ? AND status != 'CANCELLED' LIMIT 1";
+        try (Connection conn = DBConnection.getConnection();
+             PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setInt(1, orderId);
+            try (ResultSet rs = ps.executeQuery()) {
+                return rs.next();
+            }
+        } catch (SQLException e) {
+            LOGGER.log(Level.WARNING, "hasActiveOutboundForOrder failed orderId=" + orderId, e);
+            return false;
+        }
+    }
+
+    /**
      * Inserts a new outbound order and returns the generated outboundId.
      */
     public int insert(OutboundOrder order) {
         String sql = "INSERT INTO outbound_orders "
-                   + "(outbound_code, order_id, warehouse_id, status, note, created_at, picked_by, shipped_at) "
-                   + "VALUES (?, ?, ?, ?, ?, ?, ?, ?)";
+                   + "(outbound_code, order_id, warehouse_id, created_by, status, note, created_at, picked_by, shipped_at) "
+                   + "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)";
 
         try (Connection conn = DBConnection.getConnection();
              PreparedStatement ps = conn.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)) {
@@ -160,15 +178,20 @@ public class OutboundDAO extends BaseDAO {
             ps.setString(1, order.getOutboundCode());
             ps.setInt(2, order.getOrderId());
             ps.setInt(3, order.getWarehouseId());
-            ps.setString(4, order.getStatus() != null ? order.getStatus() : OutboundOrder.STATUS_PENDING);
-            ps.setString(5, order.getNotes());
-            ps.setTimestamp(6, order.getCreatedAt() != null ? Timestamp.valueOf(order.getCreatedAt()) : new Timestamp(System.currentTimeMillis()));
-            if (order.getPickedBy() != null) {
-                ps.setInt(7, order.getPickedBy());
+            if (order.getCreatedBy() != null) {
+                ps.setInt(4, order.getCreatedBy());
             } else {
-                ps.setNull(7, java.sql.Types.INTEGER);
+                ps.setNull(4, java.sql.Types.INTEGER);
             }
-            ps.setTimestamp(8, order.getPickedAt() != null ? Timestamp.valueOf(order.getPickedAt()) : null);
+            ps.setString(5, order.getStatus() != null ? order.getStatus() : OutboundOrder.STATUS_PENDING);
+            ps.setString(6, order.getNotes());
+            ps.setTimestamp(7, order.getCreatedAt() != null ? Timestamp.valueOf(order.getCreatedAt()) : new Timestamp(System.currentTimeMillis()));
+            if (order.getPickedBy() != null) {
+                ps.setInt(8, order.getPickedBy());
+            } else {
+                ps.setNull(8, java.sql.Types.INTEGER);
+            }
+            ps.setTimestamp(9, order.getPickedAt() != null ? Timestamp.valueOf(order.getPickedAt()) : null);
 
             int rows = ps.executeUpdate();
             if (rows > 0) {
@@ -507,5 +530,47 @@ public class OutboundDAO extends BaseDAO {
                 "OutboundDAO: Failed to find by warehouse=" + warehouseId + " status=" + status, e);
         }
         return list;
+    }
+
+    /**
+     * Cancels all pending outbound orders for a given order code (legacy string).
+     * Looks up the numeric order_id from orders table first.
+     */
+    public int cancelByOrderId(String orderCode) {
+        // First find the numeric order_id
+        int numericOrderId = -1;
+        try (Connection conn = DBConnection.getConnection();
+             PreparedStatement ps = conn.prepareStatement(
+                     "SELECT order_id FROM orders WHERE order_code = ?")) {
+            ps.setString(1, orderCode);
+            try (ResultSet rs = ps.executeQuery()) {
+                if (rs.next()) {
+                    numericOrderId = rs.getInt("order_id");
+                }
+            }
+        } catch (SQLException e) {
+            LOGGER.log(Level.SEVERE, "cancelByOrderId: failed to find order_id for " + orderCode, e);
+            return 0;
+        }
+
+        if (numericOrderId <= 0) {
+            LOGGER.warning("cancelByOrderId: order not found for code: " + orderCode);
+            return 0;
+        }
+
+        String sql = "UPDATE outbound_orders SET status = 'CANCELLED', note = CONCAT(COALESCE(note, ''), ' [Hủy theo đơn hàng gốc]') "
+                   + "WHERE order_id = ? AND status NOT IN ('CANCELLED', 'DELIVERED')";
+        try (Connection conn = DBConnection.getConnection();
+             PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setInt(1, numericOrderId);
+            int updated = ps.executeUpdate();
+            if (updated > 0) {
+                LOGGER.info("Cancelled " + updated + " outbound order(s) for orderCode: " + orderCode + " (orderId: " + numericOrderId + ")");
+            }
+            return updated;
+        } catch (SQLException e) {
+            LOGGER.log(Level.SEVERE, "cancelByOrderId failed: " + orderCode, e);
+            return 0;
+        }
     }
 }

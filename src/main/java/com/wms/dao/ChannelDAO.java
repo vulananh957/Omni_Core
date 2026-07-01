@@ -102,6 +102,26 @@ public class ChannelDAO {
     }
 
     /**
+     * Retrieves all active channels (where is_active = 1).
+     *
+     * @return A list of active channels.
+     */
+    public List<Channel> findAllActive() {
+        List<Channel> list = new ArrayList<>();
+        String sql = "SELECT * FROM channels WHERE is_active = 1 ORDER BY channel_name ASC";
+        try (Connection conn = DBConnection.getConnection();
+             PreparedStatement ps = conn.prepareStatement(sql);
+             ResultSet rs = ps.executeQuery()) {
+            while (rs.next()) {
+                list.add(mapResultSetToChannel(rs));
+            }
+        } catch (SQLException e) {
+            LOGGER.log(Level.WARNING, "ChannelDAO: Failed to find active channels", e);
+        }
+        return list;
+    }
+
+    /**
      * Finds a single channel by its primary key.
      *
      * @param channelId The channel ID to look up.
@@ -193,11 +213,38 @@ public class ChannelDAO {
      * @return true if a row was deleted, false otherwise.
      */
     public boolean delete(int channelId) {
-        String sql = "DELETE FROM channels WHERE channel_id = ?";
-        try (Connection conn = DBConnection.getConnection();
-             PreparedStatement ps = conn.prepareStatement(sql)) {
-            ps.setInt(1, channelId);
-            return ps.executeUpdate() > 0;
+        String deleteItems = "DELETE FROM lazada_order_items WHERE lazada_order_id_str IN (SELECT lazada_order_id_str FROM lazada_orders WHERE channel_id = ?)";
+        String deleteOrders = "DELETE FROM lazada_orders WHERE channel_id = ?";
+        String deleteSkuMappings = "DELETE FROM sku_mappings WHERE channel_id = ?";
+        String deleteChannel = "DELETE FROM channels WHERE channel_id = ?";
+
+        try (Connection conn = DBConnection.getConnection()) {
+            conn.setAutoCommit(false);
+            try {
+                try (PreparedStatement ps = conn.prepareStatement(deleteItems)) {
+                    ps.setInt(1, channelId);
+                    ps.executeUpdate();
+                }
+                try (PreparedStatement ps = conn.prepareStatement(deleteOrders)) {
+                    ps.setInt(1, channelId);
+                    ps.executeUpdate();
+                }
+                try (PreparedStatement ps = conn.prepareStatement(deleteSkuMappings)) {
+                    ps.setInt(1, channelId);
+                    ps.executeUpdate();
+                }
+                try (PreparedStatement ps = conn.prepareStatement(deleteChannel)) {
+                    ps.setInt(1, channelId);
+                    boolean ok = ps.executeUpdate() > 0;
+                    conn.commit();
+                    return ok;
+                }
+            } catch (SQLException e) {
+                conn.rollback();
+                throw e;
+            } finally {
+                conn.setAutoCommit(true);
+            }
         } catch (SQLException e) {
             LOGGER.log(Level.WARNING, "ChannelDAO: Failed to delete channel " + channelId, e);
             return false;

@@ -26,6 +26,7 @@ public class Order {
 
     // Custom WMS fields
     private String trackingNo;
+    private String shipmentProvider;
     private String reviewNote;
     private String rmaReason;
     private String rmaPhysicalStatus;
@@ -182,6 +183,14 @@ public class Order {
 
     public void setTrackingNo(String trackingNo) {
         this.trackingNo = trackingNo;
+    }
+
+    public String getShipmentProvider() {
+        return shipmentProvider;
+    }
+
+    public void setShipmentProvider(String shipmentProvider) {
+        this.shipmentProvider = shipmentProvider;
     }
 
     public String getReviewNote() {

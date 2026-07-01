@@ -1,9 +1,7 @@
 package com.wms.controller.warehouse;
 
-import com.wms.util.AppConstants;
 import com.wms.controller.BaseController;
 import com.wms.dao.PendingTrackingDAO;
-import com.wms.model.User;
 import com.wms.service.sales.OrderService;
 
 import jakarta.servlet.ServletException;
@@ -82,17 +80,8 @@ public class PendingTrackingServlet extends BaseController {
             return;
         }
 
-        // Bước 2: cập nhật PACKED
-        OrderService.ActionResult packResult = orderService.handleAction(
-            "print_shipping", orderCode, null, null, null, null, null, null, null,
-            null, null);
-
-        if (packResult.isSuccess()) {
-            LOGGER.log(Level.INFO, "PendingTracking: tracking assigned orderCode={0}", orderCode);
-            out.write("{\"success\":true,\"message\":\"Đã cấp mã vận đơn và in tem thành công\"}");
-        } else {
-            out.write(jsonError("Đã sinh tracking nhưng cập nhật PACKED lỗi: " + packResult.getMessage()));
-        }
+        LOGGER.log(Level.INFO, "PendingTracking: tracking assigned and outbound created orderCode={0}", orderCode);
+        out.write("{\"success\":true,\"message\":\"Đã cấp mã vận đơn và tạo lệnh xuất kho thành công\"}");
     }
 
     private String jsonError(String message) {

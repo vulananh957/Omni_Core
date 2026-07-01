@@ -1,9 +1,7 @@
 package com.wms.service.ledger;
 
 import com.wms.dao.LedgerDAO;
-import com.wms.dao.UserDAO;
-import com.wms.model.User;
-import com.wms.service.NotificationService;
+import com.wms.service.common.NotificationService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 

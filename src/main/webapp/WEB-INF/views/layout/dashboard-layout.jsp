@@ -8,6 +8,9 @@
     <title>${pageTitle != null ? pageTitle : 'Dashboard'} — OmniCore</title>
     <link rel="stylesheet" href="${pageContext.request.contextPath}/assets/css/dashboard.css"/>
     <link rel="stylesheet" href="${pageContext.request.contextPath}/assets/css/notification.css"/>
+    <c:if test="${currentPage == 'product-performance'}">
+        <link rel="stylesheet" href="${pageContext.request.contextPath}/assets/css/business--product-performance.css?v=2"/>
+    </c:if>
 </head>
 <body>
 <div class="app-shell">
@@ -61,6 +64,26 @@
                     </svg>
                     <span>Dashboard</span>
                     <c:if test="${currentPage == 'dashboard'}">
+                        <svg class="nav-item__chevron" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
+                             stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="m9 18 6-6-6-6"/>
+                        </svg>
+                    </c:if>
+                </a>
+            </div>
+
+            <!-- BÁO CÁO -->
+            <div class="nav-group">
+                <div class="nav-group__label">Báo cáo</div>
+                <a href="${pageContext.request.contextPath}/business/performance"
+                   class="nav-item ${currentPage == 'product-performance' ? 'active' : ''}">
+                    <svg class="nav-item__icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
+                         stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/>
+                        <line x1="6" y1="20" x2="6" y2="14"/>
+                    </svg>
+                    <span>Hiệu suất sản phẩm</span>
+                    <c:if test="${currentPage == 'product-performance'}">
                         <svg class="nav-item__chevron" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
                              stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
                             <path d="m9 18 6-6-6-6"/>

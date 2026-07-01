@@ -23,7 +23,6 @@ import java.util.Map;
  */
 public class FulfillmentRequestServlet extends BaseController {
 
-    private static final String CONTEXT_PATH = "/warehouse/fulfillment";
     private final FulfillmentRequestDAO dao = new FulfillmentRequestDAO();
 
     @Override

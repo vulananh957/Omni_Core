@@ -136,6 +136,27 @@ public class FulfillmentRequestDAO {
     }
 
     /**
+     * Cancels all pending fulfillment requests for a given order.
+     * Called when an order is cancelled so warehouse staff no longer sees it.
+     */
+    public int cancelByOrderId(String orderId) {
+        String sql = "UPDATE fulfillment_requests SET status = 'CANCELLED', updated_at = NOW() "
+                   + "WHERE order_id = ? AND status = 'PENDING'";
+        try (Connection conn = DBConnection.getConnection();
+             PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setString(1, orderId);
+            int updated = ps.executeUpdate();
+            if (updated > 0) {
+                LOGGER.info("Cancelled " + updated + " fulfillment request(s) for order: " + orderId);
+            }
+            return updated;
+        } catch (SQLException e) {
+            LOGGER.log(Level.SEVERE, "cancelByOrderId failed: " + orderId, e);
+            return 0;
+        }
+    }
+
+    /**
      * Inserts a new fulfillment request.
      */
     public boolean insert(FulfillmentRequest fr) {

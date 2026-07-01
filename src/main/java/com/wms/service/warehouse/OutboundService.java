@@ -72,12 +72,13 @@ public class OutboundService {
         return ValidationResult.success();
     }
 
-    public int createOutbound(int orderId, int warehouseId, String notes) {
+    public int createOutbound(int orderId, int warehouseId, String notes, Integer userId) {
         String outboundCode = generateOutboundCode();
         OutboundOrder order = new OutboundOrder();
         order.setOutboundCode(outboundCode);
         order.setOrderId(orderId);
         order.setWarehouseId(warehouseId);
+        order.setCreatedBy(userId);
         order.setStatus(OutboundOrder.STATUS_PENDING);
         order.setNotes(notes != null ? notes.trim() : null);
         order.setCreatedAt(LocalDateTime.now());
@@ -123,6 +124,21 @@ public class OutboundService {
             return StatusUpdateResult.failure("Trạng thái '" + newStatus + "' không hợp lệ hoặc không thể chuyển đổi.");
         }
 
+        String normalized = newStatus.trim().toUpperCase();
+        if ("PACKED".equals(normalized) || "SHIPPED".equals(normalized)) {
+            OutboundOrder outbound = outboundDAO.findById(outboundId);
+            if (outbound != null && outbound.getOrderCode() != null) {
+                Order order = orderDAO.findByOrderCode(outbound.getOrderCode());
+                if (order != null && ("LAZADA".equalsIgnoreCase(order.getChannel())
+                        || "SHOPEE".equalsIgnoreCase(order.getChannel())
+                        || "TIKTOK".equalsIgnoreCase(order.getChannel()))) {
+                    if (order.getTrackingNo() == null || order.getTrackingNo().trim().isEmpty()) {
+                        return StatusUpdateResult.failure("Không thể đóng gói/xuất kho: Đơn hàng trên sàn chưa được cấp mã vận đơn (tracking). Vui lòng cấp mã vận đơn trước.");
+                    }
+                }
+            }
+        }
+
         if ("SHIPPED".equalsIgnoreCase(newStatus)) {
             if (isOmnichannelOutbound(outboundId)) {
                 OutboundOrder order = outboundDAO.findById(outboundId);
@@ -153,7 +169,7 @@ public class OutboundService {
             }
         }
 
-        String normalized = newStatus.trim().toUpperCase();
+        normalized = newStatus.trim().toUpperCase();
         boolean updated = outboundDAO.updateStatus(outboundId, normalized);
         if (!updated) {
             log.error("Outbound status update failed: DAO returned false outboundId={} status={}", outboundId, newStatus);
@@ -168,19 +184,30 @@ public class OutboundService {
             outboundDAO.markAllPicked(outboundId);
             outboundDAO.completePickingSheet(outboundId);
             outboundDAO.createShippingLabel(outboundId);
+            // Sync sales order status to PACKED
+            OutboundOrder order = outboundDAO.findById(outboundId);
+            if (order != null && order.getOrderCode() != null) {
+                new com.wms.dao.OrderDAO().updateOrderStatus(order.getOrderCode(), "PACKED");
+            }
         } else if (OutboundOrder.STATUS_SHIPPED.equals(normalized)) {
             // On SHIPPED, deduct actual on-hand stock.
             // Previously only the status was updated, so on_hand stayed inflated.
             OutboundOrder order = outboundDAO.findById(outboundId);
-            if (order != null && order.getItems() != null) {
-                for (OutboundItem item : order.getItems()) {
-                    java.math.BigDecimal qty = item.getQty();
-                    if (qty != null && qty.compareTo(java.math.BigDecimal.ZERO) > 0) {
-                        boolean ok = inventoryDAO.deductShippedInventory(
-                            item.getProductId(), order.getWarehouseId(), qty);
-                        if (!ok) {
-                            log.warn("SHIPPED: deduct thất bại cho productId={} qty={} (tồn không đủ)",
-                                item.getProductId(), qty);
+            if (order != null) {
+                // Sync sales order status to SHIPPED
+                if (order.getOrderCode() != null) {
+                    new com.wms.dao.OrderDAO().updateOrderStatus(order.getOrderCode(), "SHIPPED");
+                }
+                if (order.getItems() != null) {
+                    for (OutboundItem item : order.getItems()) {
+                        java.math.BigDecimal qty = item.getQty();
+                        if (qty != null && qty.compareTo(java.math.BigDecimal.ZERO) > 0) {
+                            boolean ok = inventoryDAO.deductShippedInventory(
+                                item.getProductId(), order.getWarehouseId(), qty);
+                            if (!ok) {
+                                log.warn("SHIPPED: deduct thất bại cho productId={} qty={} (tồn không đủ)",
+                                    item.getProductId(), qty);
+                            }
                         }
                     }
                 }
@@ -207,7 +234,6 @@ public class OutboundService {
                     String channelName = rs.getString("channel_name");
                     String rawChannel = rs.getString("channel");
                     String note = rs.getString("note");
-                    String trackingNo = rs.getString("tracking_no");
 
                     if (channelName == null) {
                         channelName = "Khách mua lẻ";
@@ -297,6 +323,15 @@ public class OutboundService {
         Order order = orderDAO.findByOrderCode(orderCode);
         if (order == null) {
             log.warn("autoCreateFromOrder: order not found orderCode={}", orderCode);
+            return;
+        }
+
+        // Idempotency guard: skip if a non-cancelled outbound already exists for this order.
+        // Prevents duplicate outbound sheets when Sales Staff approves the same order more than once
+        // (e.g. due to a UI bug that kept showing it as pending after the first approval).
+        if (outboundDAO.hasActiveOutboundForOrder(order.getOrderId())) {
+            log.warn("autoCreateFromOrder: skipped — active outbound already exists for orderCode={} orderId={}",
+                    orderCode, order.getOrderId());
             return;
         }
 
@@ -393,5 +428,34 @@ public class OutboundService {
 
         public boolean isSuccess() { return success; }
         public String getMessage() { return message; }
+    }
+
+    /**
+     * Releases inventory allocations for a cancelled outbound order.
+     * This restores the temporarily held stock back to available inventory.
+     */
+    public boolean releaseAllocationsForOutbound(int outboundId) {
+        try {
+            OutboundOrder outbound = outboundDAO.findById(outboundId);
+            if (outbound == null) {
+                log.warn("releaseAllocationsForOutbound: outbound not found: {}", outboundId);
+                return false;
+            }
+
+            List<OutboundItem> items = outboundDAO.findItemsByOutboundId(outboundId);
+            for (OutboundItem item : items) {
+                // Release the full allocated quantity (not just picked qty)
+                double qtyToRelease = item.getQty().doubleValue();
+                if (qtyToRelease > 0) {
+                    inventoryDAO.releaseSoftAllocateInventory(item.getProductId(), outbound.getWarehouseId(), java.math.BigDecimal.valueOf(qtyToRelease));
+                    log.info("Released {} units of product {} from warehouse {} for cancelled outbound {}",
+                            qtyToRelease, item.getProductId(), outbound.getWarehouseId(), outboundId);
+                }
+            }
+            return true;
+        } catch (Exception e) {
+            log.error("releaseAllocationsForOutbound failed for outbound {}: {}", outboundId, e.getMessage(), e);
+            return false;
+        }
     }
 }

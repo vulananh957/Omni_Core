@@ -251,6 +251,111 @@ public class LazadaProductPayloadBuilder {
         return out;
     }
 
+    /**
+     * Builds the Lazada-compliant payload JSON string for {@code /product/update}.
+     * Result is serialized as:
+     * {@code {"Request":{"Product":{"ItemId": "...", "Skus":{"Sku":[{"SkuId":"...",...}]}}}}}
+     */
+    public String buildUpdateJson(Product p, ChannelProduct cp, List<String> lazadaImageUrls) {
+        List<String> finalImages = (lazadaImageUrls != null && !lazadaImageUrls.isEmpty())
+                ? lazadaImageUrls : new ArrayList<>();
+        Map<String, Object> sku = new LinkedHashMap<>();
+        sku.put("SellerSku", firstNonBlank(cp == null ? null : cp.getSellerSku(),
+                                           cp == null ? null : cp.getChannelSkuCode()));
+        if (cp != null && cp.getLazadaSkuId() != null && !cp.getLazadaSkuId().isEmpty()) {
+            sku.put("SkuId", cp.getLazadaSkuId());
+        }
+        sku.put("quantity", String.valueOf(cp.getChannelStock() != null ? cp.getChannelStock() : 0));
+        sku.put("price", cp.getChannelPrice().toPlainString());
+        if (cp.getSpecialPrice() != null) {
+            sku.put("special_price", cp.getSpecialPrice().toPlainString());
+            String fromDate = java.time.LocalDate.now().toString() + " 00:00:00";
+            String toDate   = java.time.LocalDate.now().plusDays(30).toString() + " 23:59:59";
+            sku.put("special_from_date", fromDate);
+            sku.put("special_to_date", toDate);
+        }
+        Double weight = parseWeight(cp == null ? null : cp.getWeightKg(),
+                                      p == null ? null : p.getWeightKg());
+        if (weight != null) {
+            sku.put("package_weight", String.valueOf(weight));
+        }
+        if (cp.getDimensions() != null && !cp.getDimensions().isBlank()) {
+            int[] dims = parseDimensions(cp.getDimensions());
+            if (dims != null) {
+                sku.put("package_length", String.valueOf(dims[0]));
+                sku.put("package_width", String.valueOf(dims[1]));
+                sku.put("package_height", String.valueOf(dims[2]));
+            }
+        }
+        if (!finalImages.isEmpty()) {
+            Map<String, Object> skuImages = new LinkedHashMap<>();
+            skuImages.put("Image", finalImages);
+            sku.put("Images", skuImages);
+        }
+
+        Map<String, Object> skus = new LinkedHashMap<>();
+        skus.put("Sku", new Object[]{ sku });
+
+        Map<String, Object> attributes = new LinkedHashMap<>();
+        attributes.put("name", trim(p.getProductName(), 255));
+        String brandVal = firstNonBlank(cp == null ? null : cp.getBrand(), BRAND);
+        attributes.put("brand", brandVal);
+        String longDesc = firstNonBlank(p.getShortDescription(),
+                cp == null ? null : cp.getShortDescription());
+        attributes.put("description", trim(longDesc, 5000));
+        attributes.put("short_description", trim(longDesc, 255));
+
+        if (cp != null && cp.getLazadaCategoryId() != null && cp.getLazadaCategoryId() == 62453404L) {
+            attributes.put("recommended_gender", "Unisex");
+            attributes.put("warranty_type", "No Warranty");
+            if (cp.getDimensions() != null && !cp.getDimensions().isBlank()) {
+                int[] dims = parseDimensions(cp.getDimensions());
+                if (dims != null) {
+                    attributes.put("package_length", String.valueOf(dims[0]));
+                    attributes.put("package_width", String.valueOf(dims[1]));
+                    attributes.put("package_height", String.valueOf(dims[2]));
+                }
+            }
+        }
+
+        Map<String, Object> product = new LinkedHashMap<>();
+        if (cp != null && cp.getChannelItemId() != null && !cp.getChannelItemId().isEmpty()) {
+            product.put("ItemId", cp.getChannelItemId());
+        }
+        Long lazadaCatId = cp == null ? null : cp.getLazadaCategoryId();
+        if (lazadaCatId != null) {
+            product.put("PrimaryCategory", String.valueOf(lazadaCatId));
+        } else if (p.getCategoryId() != null) {
+            product.put("PrimaryCategory", String.valueOf(p.getCategoryId()));
+        }
+        if (!finalImages.isEmpty()) {
+            Map<String, Object> productImages = new LinkedHashMap<>();
+            productImages.put("Image", finalImages);
+            product.put("Images", productImages);
+        }
+        product.put("Attributes", attributes);
+        product.put("Skus", skus);
+
+        Map<String, Object> request = new LinkedHashMap<>();
+        request.put("Product", product);
+
+        Map<String, Object> payload = new HashMap<>();
+        payload.put("Request", request);
+
+        try {
+            return MAPPER.writeValueAsString(payload);
+        } catch (Exception e) {
+            throw new RuntimeException("Failed to serialize Lazada update payload", e);
+        }
+    }
+
+    public Map<String, String> buildUpdate(Product p, ChannelProduct cp,
+                                           List<String> lazadaImageUrls) {
+        Map<String, String> out = new LinkedHashMap<>();
+        out.put("payload", buildUpdateJson(p, cp, lazadaImageUrls));
+        return out;
+    }
+
     static int[] parseDimensions(String s) {
         if (s == null) return null;
         String[] parts = s.split("\\s*[xX*\\u00d7\\u2715\\u2716\\uff58\\uff38]\\s*");

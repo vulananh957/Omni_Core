@@ -1,6 +1,33 @@
 <%@ page language="java" contentType="text/html; charset=UTF-8" pageEncoding="UTF-8" isELIgnored="false" %>
 <%@ taglib prefix="c" uri="jakarta.tags.core" %>
 
+<%-- Pricing warning chip — lãi ít / hoà vốn / bán lỗ --%>
+<style>
+.price-warn-chip {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 999px;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.3px;
+}
+.price-warn-chip--low {
+    background: rgba(234, 179, 8, 0.15);
+    color: #b45309;
+    border: 1px solid rgba(234, 179, 8, 0.35);
+}
+.price-warn-chip--breakeven {
+    background: rgba(249, 115, 22, 0.12);
+    color: #c2410c;
+    border: 1px solid rgba(249, 115, 22, 0.30);
+}
+.price-warn-chip--loss {
+    background: rgba(220, 38, 38, 0.12);
+    color: #dc2626;
+    border: 1px solid rgba(220, 38, 38, 0.30);
+}
+</style>
+
 <%-- ══════════════════════════════════════════════════════════════════
      Sales Staff — Quản Lý Sản Phẩm Theo Kênh & Cấu Hình Giá Bán
      JSP port of React: ChannelProducts.tsx & PricingConfiguration.tsx
@@ -13,7 +40,6 @@
 <%-- ── SUB-TABS NAVIGATION BAR ── --%>
 <div class="cp-tab-bar">
     <button class="cp-tab-btn active" id="tabProductsBtn" onclick="switchMainTab('products')">Sản phẩm theo kênh</button>
-    <button class="cp-tab-btn" id="tabPricingBtn" onclick="switchMainTab('pricing')">Cấu hình giá bán</button>
     <button class="cp-tab-btn" id="tabChannelsBtn" onclick="switchMainTab('channels')">Cấu hình SL tồn đệm</button>
 </div>
 
@@ -56,11 +82,10 @@
                     <tr>
                         <th style="width: 12%;">Mã SKU</th>
                         <th style="width: 15%;">SKU kênh</th>
-                        <th style="width: 32%;">Tên sản phẩm</th>
+                        <th style="width: 37%;">Tên sản phẩm</th>
                         <th style="width: 8%;">Kênh</th>
                         <th style="width: 9%; text-align: right;">Giá sàn</th>
                         <th style="width: 8%; text-align: right;">Tồn vật lý</th>
-                        <th style="width: 10%; text-align: center;">Hàng đệm</th>
                         <th style="width: 8%; text-align: right;">Tồn trên sàn</th>
                         <th style="width: 10%;">Đồng bộ</th>
                         <th style="width: 8%;">Trạng thái</th>
@@ -76,62 +101,7 @@
 </div>
 
 <%-- ══════════════════════════════════════════════════════════════════
-     TAB 2: CẤU HÌNH GIÁ BÁN
-     ══════════════════════════════════════════════════════════════════ --%>
-<div id="tabPricingContent" style="display:none">
-
-
-
-
-    <%-- Channel Selector Panel --%>
-    <div class="pr-channel-panel">
-        <div>
-            <div style="font-size: 12px; font-weight: 600; color: rgba(16, 55, 92, 0.7); margin-bottom: 0.5rem">Chọn kênh bán</div>
-            <div class="pr-channel-pills">
-                <button class="pr-channel-pill active" id="prChannelLazada" onclick="setPricingChannel('lazada')">
-                    <span class="pr-dot" style="background: #0F146D"></span>
-                    Lazada
-                </button>
-                <button class="pr-channel-pill" id="prChannelWebsite" onclick="setPricingChannel('website')">
-                    <span class="pr-dot" style="background: #EB8317"></span>
-                    Website
-                </button>
-            </div>
-        </div>
-        <div class="pr-active-indicator">
-            <div class="pr-active-ind-label">Đang chỉnh</div>
-            <div class="pr-active-ind-val" id="prActiveChannelLabel">Lazada</div>
-        </div>
-    </div>
-
-    <%-- Pricing Data Table --%>
-    <div class="cp-table-card">
-        <div class="cp-table-scroll">
-            <table class="cp-table">
-                <thead>
-                    <tr>
-                        <th style="width: 15%;">Master SKU</th>
-                        <th style="width: 25%;">Sản phẩm</th>
-                        <th style="width: 10%; text-align: center;">Trạng thái</th>
-                        <th style="width: 10%; text-align: right;">Giá nhập</th>
-                        <th style="width: 10%; text-align: right;">MAC (Giá vốn BQ)</th>
-                        <th style="width: 12%; text-align: right;">Retail Price</th>
-                        <th style="width: 12%; text-align: right;">Promo Price</th>
-                        <th style="width: 10%; text-align: right;">Biên lợi nhuận</th>
-                        <th style="width: 6%; text-align: right;">Hành động</th>
-                    </tr>
-                </thead>
-                <tbody id="prPricingTableBody">
-                    <%-- Populated by JS --%>
-                </tbody>
-            </table>
-        </div>
-    </div>
-
-    </div>
-
-<%-- ══════════════════════════════════════════════════════════════════
-     TAB 3: QUẢN LÝ KÊNH BÁN
+     TAB 2: QUẢN LÝ KÊNH BÁN
      ══════════════════════════════════════════════════════════════════ --%>
 <div id="tabChannelsContent" style="display:none">
 
@@ -412,6 +382,8 @@
 <div id="channelsDataContainer" style="display: none;">${channelsJson}</div>
 <div id="productsDataContainer" style="display: none;">${productsJson}</div>
 <div id="categoriesDataContainer" style="display: none;">${categoriesJson}</div>
+<%-- Channel products loaded from DB — source of truth, replaces localStorage dependency --%>
+<div id="channelProductsDataContainer" style="display: none;">${channelProductsJson}</div>
 
 <script>
 // ── GLOBALS & STORE ──────────────────────────────────────────────────
@@ -460,10 +432,6 @@ let LAZADA_LEAVES = [];
 let editTargetProductId = null;
 let editImagesList = [];
 
-// Pricing states
-let pricingSelectedChannel = "lazada";
-let pricingSaveStatusText = "Chưa lưu";
-
 // High-quality default covers to prevent placeholder look
 const DYNAMIC_PRODUCT_COVERS = {
     "Vở": "https://images.unsplash.com/photo-1531346878377-a5be20888e57?auto=format&fit=crop&q=80&w=400",
@@ -504,7 +472,8 @@ function loadData() {
                     categoryId: p.categoryId || null,
                     qtyOnHand: p.qtyOnHand || 0,
                     weight: p.weight,
-                    dimensions: p.dimensions
+                    dimensions: p.dimensions,
+                    basePrice: p.basePrice || p.price || 0
                 };
             });
         } catch(e) {
@@ -523,7 +492,8 @@ function loadData() {
                     category: p.categoryName || p.category || '',
                     categoryId: p.categoryId || null,
                     qtyOnHand: p.qtyOnHand || 0,
-                    weight: p.weight, dimensions: p.dimensions
+                    weight: p.weight, dimensions: p.dimensions,
+                    basePrice: p.basePrice || p.price || 0
                 }));
             } catch(e) { wmsSKUs = []; }
         } else {
@@ -531,57 +501,70 @@ function loadData() {
         }
     }
 
-    // 2. Channel Products
-    const storedCP = localStorage.getItem("channel_products_v2");
-    if (storedCP) {
-        try { channelProducts = JSON.parse(storedCP); } catch(e) { channelProducts = []; }
-    } else {
-        // Zero hardcoded seed data fallback
-        channelProducts = [];
-        localStorage.setItem("channel_products_v2", JSON.stringify([]));
+    // 2. Channel Products — prefer DB data from server (always fresh), fall back to localStorage
+    const cpServerElem = document.getElementById("channelProductsDataContainer");
+    let serverCPs = [];
+    if (cpServerElem && cpServerElem.textContent.trim() && cpServerElem.textContent.trim() !== '[]') {
+        try { serverCPs = JSON.parse(cpServerElem.textContent.trim()); } catch(e) { serverCPs = []; }
     }
-
-    // 3. Pricing Configuration (sales pricing)
-    const storedPricing = localStorage.getItem("wh_pricing_sales");
-    if (storedPricing) {
-        try { pricingRecords = JSON.parse(storedPricing); } catch(e) { pricingRecords = []; }
-    } else {
-        // Initialize pricingRecords dynamically based on approved WMS SKUs (no hardcoded templates)
-        pricingRecords = wmsSKUs.map(sku => {
-            const importP = sku.importPrice || 50000;
-            const retailP = sku.price || (importP * 1.5);
-            const promoP = Math.round(retailP * 0.9);
-            const today = new Date().toISOString().slice(0,10);
-            return {
-                id: sku.id || "pr_" + sku.sku,
-                sku: sku.sku,
-                name: sku.name,
-                category: sku.category || "General",
-                status: "active",
-                qtyOnHand: sku.qtyOnHand || 0,
-                importPrice: importP,
-                macPrice: sku.macPrice || 0,  // Moving Average Cost from inbound receipts
-                costOfGoodsSold: importP,
-                importUpdatedAt: today + " 12:00",
-                channelPrices: {
-                    shopee: { retailPrice: retailP, promoPrice: promoP, effectiveDate: today },
-                    tiktok: { retailPrice: retailP, promoPrice: promoP, effectiveDate: today },
-                    lazada: { retailPrice: retailP, promoPrice: promoP, effectiveDate: today },
-                    website: { retailPrice: retailP, promoPrice: promoP, effectiveDate: today }
+    
+    // Read old cache to preserve local bufferStock values if any
+    let localBufferMap = {};
+    try {
+        const storedCP = localStorage.getItem("channel_products_v2");
+        if (storedCP) {
+            JSON.parse(storedCP).forEach(function(item) {
+                if (item && item.id) {
+                    localBufferMap[item.id] = item.bufferStock || 0;
                 }
+            });
+        }
+    } catch(e) {}
+
+    if (serverCPs.length > 0) {
+        channelProducts = serverCPs.map(function(cp) {
+            const uiId = cp.id;
+            // Lookup product from WMS inventory to show accurate physical stock
+            const masterProd = wmsSKUs.find(w => w.id === cp.productId || w.sku === cp.skuCode);
+            const physicalStock = masterProd ? (masterProd.qtyOnHand || 0) : (cp.channelStock || 0);
+            const activePrice = (cp.channelPrice && cp.channelPrice > 0) ? cp.channelPrice : (masterProd ? (masterProd.basePrice || 0) : 0);
+            
+            return {
+                id:            uiId,
+                productId:     cp.productId,
+                channelId:     cp.channelId,
+                masterSKU:     cp.skuCode || '',
+                channelSKU:    cp.channelSkuCode || '',
+                productName:   cp.productName || '',
+                channel:       (cp.channelPlatform || '').toLowerCase(),
+                channelName:   cp.channelName || '',
+                description:   cp.description || (cp.productName + " - Đồng bộ bán trên sàn " + (cp.channelPlatform || '').toUpperCase()),
+                price:         activePrice,
+                stock:         physicalStock,
+                bufferStock:   localBufferMap[uiId] || 0,
+                syncStatus:    cp.lastErrorCode ? 'failed' : 'success',
+                status:        (cp.status || 'active').toLowerCase(),
+                channelItemId: cp.channelItemId || '',
+                lazadaSkuId:   cp.lazadaSkuId || '',
+                lastPushAt:    cp.lastPushAt || null
             };
         });
-        localStorage.setItem("wh_pricing_sales", JSON.stringify(pricingRecords));
+        // Also sync back to localStorage so other pages (order-processing) can read
+        localStorage.setItem("channel_products_v2", JSON.stringify(channelProducts));
+    } else {
+        // Fallback: localStorage (for offline / cached sessions)
+        const storedCP = localStorage.getItem("channel_products_v2");
+        if (storedCP) {
+            try { channelProducts = JSON.parse(storedCP); } catch(e) { channelProducts = []; }
+        } else {
+            channelProducts = [];
+        }
     }
 
-    // Load last saved pricing timestamp
-    const timestamp = localStorage.getItem("wh_pricing_sales_timestamp");
-    pricingSaveStatusText = timestamp ? "Đã lưu lúc " + timestamp : "Chưa lưu";
 }
 
 function saveData() {
     localStorage.setItem("channel_products_v2", JSON.stringify(channelProducts));
-    localStorage.setItem("wh_pricing_sales", JSON.stringify(pricingRecords));
     window.dispatchEvent(new CustomEvent("ORDER_STORE_UPDATED"));
 }
 
@@ -612,8 +595,6 @@ function showToast(msg, type = "success") {
 function renderAll() {
     if (mainTab === "products") {
         renderProductsTab();
-    } else if (mainTab === "pricing") {
-        renderPricingTab();
     } else if (mainTab === "channels") {
         renderChannelsTab();
     }
@@ -622,19 +603,14 @@ function renderAll() {
 function switchMainTab(tab) {
     mainTab = tab;
     document.getElementById("tabProductsBtn").classList.remove("active");
-    document.getElementById("tabPricingBtn").classList.remove("active");
     document.getElementById("tabChannelsBtn").classList.remove("active");
     
     document.getElementById("tabProductsContent").style.display = "none";
-    document.getElementById("tabPricingContent").style.display = "none";
     document.getElementById("tabChannelsContent").style.display = "none";
     
     if (tab === "products") {
         document.getElementById("tabProductsBtn").classList.add("active");
         document.getElementById("tabProductsContent").style.display = "block";
-    } else if (tab === "pricing") {
-        document.getElementById("tabPricingBtn").classList.add("active");
-        document.getElementById("tabPricingContent").style.display = "block";
     } else {
         document.getElementById("tabChannelsBtn").classList.add("active");
         document.getElementById("tabChannelsContent").style.display = "block";
@@ -855,9 +831,6 @@ function renderProductsTab() {
             </td>
             <td style="text-align: right; font-weight: 700; font-size: 13px; white-space:nowrap">\${Number(p.price).toLocaleString()}đ</td>
             <td style="text-align: right; font-weight: 600; color: \${p.stock === 0 ? "#ef4444" : "#059669"}">\${p.stock}</td>
-            <td style="text-align: center;">
-                <input type="number" class="cp-input-text cp-input-buffer" min="0" value="\${p.bufferStock || 0}" onchange="onBufferStockInput('\${p.id}', this.value)" title="Cài đặt hàng đệm an toàn để tránh bán lố (Overselling)" />
-            </td>
             <td style="text-align: right; font-weight: 700; font-family: monospace; font-size: 13px">
                 \${Math.max(0, p.stock - (p.bufferStock || 0))}
             </td>
@@ -895,7 +868,7 @@ function onBufferStockInput(productId, value) {
     const nextVal = Math.max(0, parseInt(value) || 0);
 
     channelProducts = channelProducts.map(p => {
-        if (p.id === productId) {
+        if (p.id == productId) {
             return { ...p, bufferStock: nextVal };
         }
         return p;
@@ -908,10 +881,25 @@ function onBufferStockInput(productId, value) {
 // ── DELETE CHANNEL PRODUCT ────────────────────────────────────────────
 function deleteChannelProduct(productId, masterSKU) {
     if (!confirm('Bạn có chắc muốn xóa sản phẩm "' + masterSKU + '" khỏi kênh bán hàng?\nThao tác này không thể hoàn tác.')) return;
-    channelProducts = channelProducts.filter(p => p.id !== productId);
-    saveData();
-    renderProductsTab();
-    showToast('Đã xóa sản phẩm ' + masterSKU + ' khỏi kênh bán hàng.');
+    
+    showToast("Đang gửi yêu cầu xóa sản phẩm lên Lazada...", "info");
+    
+    fetchJson("${pageContext.request.contextPath}/sales/channel-products", {
+        method: "POST",
+        headers: { "Content-Type": "application/x-www-form-urlencoded" },
+        body: "action=delete&id=" + encodeURIComponent(productId)
+    }).then(res => {
+        if (res.success) {
+            channelProducts = channelProducts.filter(p => p.id != productId);
+            saveData();
+            renderProductsTab();
+            showToast(res.message || 'Đã xóa sản phẩm ' + masterSKU + ' khỏi kênh bán hàng.', 'success');
+        } else {
+            showToast(res.message || 'Xóa sản phẩm thất bại.', 'error');
+        }
+    }).catch(err => {
+        showToast(err.message || 'Lỗi kết nối khi xóa sản phẩm.', 'error');
+    });
 }
 
 // ── MANUAL INVENTORY SYNC ──────────────────────────────────────────────
@@ -964,14 +952,15 @@ function executePublishProduct() {
         return;
     }
 
-    // BR-PRICE-01: client-side validation — price must be >= priceMin (basePrice * 1.30)
+    // BR-PRICE-01: removed hard block — giờ chỉ hiển thị warning chip trong UI
+    // (price < cost = cảnh báo "Bán lỗ" nhưng vẫn cho lưu)
+    // Thresholds lấy từ /api/config/pricing qua window.WMS_PRICING_THRESHOLDS
     const cfg = wizChannelConfigs.lazada || {};
-    const priceMin = cfg.priceMin || 0;
     const enteredPrice = Number(cfg.price) || 0;
-    if (priceMin > 0 && enteredPrice < priceMin) {
-        showToast("Giá bán phải từ " + priceMin.toLocaleString() + "đ trở lên (giá nhập × 1.30).", "error");
-        if (pushBtn) { pushBtn.disabled = false; renderWizProgress(); }
-        return;
+    const macPrice = cfg.macPrice || 0;
+    if (macPrice > 0 && enteredPrice > 0 && enteredPrice < macPrice) {
+        showToast("Cảnh báo: Giá bán thấp hơn giá vốn (bán lỗ). Vẫn cho lưu, vui lòng kiểm tra lại.", "info");
+        // Không return — tiếp tục push
     }
 
     pushToLazada(channelId, productId).then(result => {
@@ -1057,20 +1046,27 @@ function loadLazadaLeaves(channelId) {
     }).then(data => {
         if (data.success) {
             LAZADA_LEAVES = data.leaves || [];
+            // Auto-sync if DB is empty — no need to manual "Đồng bộ" button
+            if (LAZADA_LEAVES.length === 0) {
+                syncLazadaLeaves(channelId);
+            }
         }
         return data;
     });
 }
 
 function syncLazadaLeaves(channelId) {
-    fetchJson(window.location.pathname, {
+    fetchJson("${pageContext.request.contextPath}/sales/channel-products", {
         method: "POST",
         headers: { "Content-Type": "application/x-www-form-urlencoded" },
-        body: `action=syncLazadaCategories&channelId=\${channelId}`
+        body: "action=syncLazadaCategories&channelId=" + channelId
     }).then(data => {
         return loadLazadaLeaves(channelId);
     }).then(() => {
-        renderWizStep3(); // re-render with fresh leaves — tryAutoFillLazadaLeaf runs again
+        // Only re-render Step 3 if the wizard is already there
+        if (wizStep === 3) {
+            renderWizStep3();
+        }
     }).catch(function(err) {
         console.warn("[syncLeaves] failed:", err.message);
     });
@@ -1131,178 +1127,6 @@ function showValidationErrors(errs) {
 function showFieldErrors(errs) {
     const lines = errs.map(e => `• [\${e.field}] \${e.message}`).join("\n");
     showToast(`Lazada từ chối:\n\${lines}`, "error", 6000);
-}
-
-// ── TAB 2: PRICING CONFIGURATION & HANDLERS ──────────────────────────
-function renderPricingTab() {
-    const activeCount = pricingRecords.filter(r => r.status === "active").length;
-    const inactiveCount = pricingRecords.filter(r => r.status === "inactive").length;
-
-
-
-    // Highlight active Channel Pill
-    document.querySelectorAll(".pr-channel-pill").forEach(p => p.classList.remove("active"));
-    const selectedBtnId = "prChannel" + pricingSelectedChannel.charAt(0).toUpperCase() + pricingSelectedChannel.slice(1);
-    const activeBtn = document.getElementById(selectedBtnId);
-    if (activeBtn) activeBtn.classList.add("active");
-
-    const channelLabels = { shopee: "Shopee", tiktok: "TikTok", lazada: "Lazada", website: "Website" };
-    document.getElementById("prActiveChannelLabel").textContent = channelLabels[pricingSelectedChannel] || pricingSelectedChannel;
-    document.getElementById("prSaveStatus").textContent = pricingSaveStatusText;
-
-    const tbody = document.getElementById("prPricingTableBody");
-    tbody.innerHTML = "";
-
-    if (pricingRecords.length === 0) {
-        tbody.innerHTML = `
-            <tr>
-                <td colspan="8" class="op-empty">
-                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>
-                    Không tìm thấy Master SKU nào đã duyệt để cấu hình giá bán.
-                </td>
-            </tr>
-        `;
-        return;
-    }
-
-    pricingRecords.forEach(r => {
-        const editable = r.status === "active";
-        const channelPrice = r.channelPrices[pricingSelectedChannel] || { retailPrice: 0, promoPrice: 0 };
-        const retailMargin = channelPrice.retailPrice - r.importPrice;
-        const promoMargin = channelPrice.promoPrice - r.importPrice;
-
-        // Badge config
-        let badgeHtml = "";
-        if (r.status === "active") {
-            badgeHtml = `<span class="cp-status-pill active">Active</span>`;
-        } else if (r.status === "low_stock") {
-            badgeHtml = `<span class="cp-status-pill out_of_stock" style="background:rgba(245,158,11,.15);color:#d97706">Sắp hết</span>`;
-        } else {
-            badgeHtml = `<span class="cp-status-pill inactive">Inactive</span>`;
-        }
-
-        const tr = document.createElement("tr");
-        tr.innerHTML = `
-            <td>
-                <div class="cp-font-mono" style="color:var(--navy);font-weight:700">\${r.sku}</div>
-                <div style="font-size:11px;color:rgba(16,55,92,.45);margin-top:2px">\${r.category || ""}</div>
-            </td>
-            <td>
-                <div style="font-weight: 600; color: var(--navy)">\${r.name}</div>
-                <div style="font-size:11px;color:rgba(16,55,92,.45);margin-top:2px">Chỉ áp dụng cho kênh \${channelLabels[pricingSelectedChannel]}</div>
-            </td>
-            <td style="text-align: center">\${badgeHtml}</td>
-            <td style="text-align: right; font-weight: 700">\${Number(r.importPrice).toLocaleString()}đ</td>
-            <td style="text-align: right;">
-                <span style="font-weight:700; color:\${r.macPrice > 0 ? '#b45309' : '#9ca3af'}" title="Giá vốn bình quân (Moving Average Cost)">
-                    \${r.macPrice > 0 ? Number(r.macPrice).toLocaleString() + 'đ' : '—'}
-                </span>
-            </td>
-            <td style="text-align: right">
-                <input type="number" class="pr-price-input" min="0" value="\${channelPrice.retailPrice}" oninput="onPricingPriceChange('\${r.id}', 'retailPrice', this.value)" \${editable ? "" : "disabled"} />
-            </td>
-            <td style="text-align: right">
-                <input type="number" class="pr-price-input" min="0" value="\${channelPrice.promoPrice}" oninput="onPricingPriceChange('\${r.id}', 'promoPrice', this.value)" \${editable ? "" : "disabled"} />
-            </td>
-            <td style="text-align: right">
-                <div style="font-weight: 700; color: var(--navy)">\${Math.max(retailMargin, promoMargin).toLocaleString()}đ</div>
-                <div style="font-size:11px;color:rgba(16,55,92,.45);margin-top:1px">Promo: \${promoMargin.toLocaleString()}đ</div>
-            </td>
-            <td style="text-align: right">
-                <button class="pr-save-btn" onclick="savePricingRecord('\${r.id}')" \${editable ? "" : "disabled"}>
-                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4" /></svg>
-                    Lưu
-                </button>
-            </td>
-        `;
-        tbody.appendChild(tr);
-    });
-}
-
-function setPricingChannel(channel) {
-    pricingSelectedChannel = channel;
-    renderPricingTab();
-}
-
-function onPricingPriceChange(recordId, field, value) {
-    const nextVal = Math.max(0, Number(value) || 0);
-    pricingRecords = pricingRecords.map(r => {
-        if (r.id === recordId) {
-            const updatedChannelPrices = { ...r.channelPrices };
-            updatedChannelPrices[pricingSelectedChannel] = {
-                ...updatedChannelPrices[pricingSelectedChannel],
-                [field]: nextVal
-            };
-            return { ...r, channelPrices: updatedChannelPrices };
-        }
-        return r;
-    });
-    pricingSaveStatusText = "Có thay đổi chưa lưu";
-    document.getElementById("prSaveStatus").textContent = pricingSaveStatusText;
-}
-
-function savePricingRecord(recordId) {
-    const today = new Date().toISOString().slice(0, 10);
-    pricingRecords = pricingRecords.map(r => {
-        if (r.id === recordId) {
-            const updatedChannelPrices = { ...r.channelPrices };
-            updatedChannelPrices[pricingSelectedChannel] = {
-                ...updatedChannelPrices[pricingSelectedChannel],
-                effectiveDate: today
-            };
-            return { ...r, channelPrices: updatedChannelPrices };
-        }
-        return r;
-    });
-
-    // Also update any matching product in channelProducts list
-    const record = pricingRecords.find(r => r.id === recordId);
-    if (record) {
-        channelProducts = channelProducts.map(p => {
-            if (p.masterSKU === record.sku && p.channel === pricingSelectedChannel) {
-                const specConfig = record.channelPrices[pricingSelectedChannel];
-                return { ...p, price: specConfig.retailPrice };
-            }
-            return p;
-        });
-    }
-
-    saveData();
-    const timeStr = new Date().toLocaleTimeString("vi-VN");
-    pricingSaveStatusText = "Đã lưu lúc " + timeStr;
-    localStorage.setItem("wh_pricing_sales_timestamp", timeStr);
-    renderPricingTab();
-    showToast("Cập nhật giá bán thành công cho SKU!");
-}
-
-function saveAllPricingRecords() {
-    const today = new Date().toISOString().slice(0, 10);
-    pricingRecords = pricingRecords.map(r => {
-        const updatedChannelPrices = { ...r.channelPrices };
-        for (let ch in updatedChannelPrices) {
-            updatedChannelPrices[ch] = {
-                ...updatedChannelPrices[ch],
-                effectiveDate: today
-            };
-        }
-        return { ...r, channelPrices: updatedChannelPrices };
-    });
-
-    // Sync all channel products prices
-    channelProducts = channelProducts.map(p => {
-        const record = pricingRecords.find(r => r.sku === p.masterSKU);
-        if (record && record.channelPrices[p.channel]) {
-            return { ...p, price: record.channelPrices[p.channel].retailPrice };
-        }
-        return p;
-    });
-
-    saveData();
-    const timeStr = new Date().toLocaleTimeString("vi-VN");
-    pricingSaveStatusText = "Đã lưu tất cả - " + timeStr;
-    localStorage.setItem("wh_pricing_sales_timestamp", timeStr);
-    renderPricingTab();
-    showToast("Đã lưu bảng cấu hình giá bán của tất cả sản phẩm!");
 }
 
 // ── TAB 1 MODAL: PUBLISH NEW WIZARD ──────────────────────────────────
@@ -1438,15 +1262,14 @@ function selectWizMasterSKU(sku) {
     wizSelectedMasterSKU = sku;
     renderWizMasterList();
 
-    // Pre-fill wizard fields with SKU defaults so the user doesn't accidentally
-    // push a product at 150,000 VND (the old hardcoded default).
-    // basePrice = product's cost price in WMS.
-    // BR-PRICE-01: pre-fill with basePrice * 1.30 (minimum required selling price, 30% margin).
-    const basePrice = (sku.basePrice && sku.basePrice > 0) ? sku.basePrice : 100000;
-    const minPrice = Math.round(basePrice * 1.30);
+    // Pre-fill wizard fields with SKU defaults.
+    // macPrice = moving average cost; nếu chưa có MAC thì fallback basePrice.
+    // BR-PRICE-01: đã bỏ hard block — Manager cấu hình ngưỡng warning qua /manager/config/pricing
+    const mac = (sku.macPrice && sku.macPrice > 0) ? sku.macPrice : (sku.basePrice && sku.basePrice > 0 ? sku.basePrice : 0);
+    const defaultPrice = mac > 0 ? Math.round(mac * 1.30) : 100000;
     const qty = (sku.qtyOnHand && sku.qtyOnHand > 0) ? Math.floor(sku.qtyOnHand) : 0;
-    wizChannelConfigs.lazada.price = minPrice; // pre-fill with min required price
-    wizChannelConfigs.lazada.priceMin = minPrice; // store for validation
+    wizChannelConfigs.lazada.price = defaultPrice;
+    wizChannelConfigs.lazada.macPrice = mac; // lưu MAC để warning chip tính margin
     wizChannelConfigs.lazada.quantity = qty;
     wizChannelConfigs.lazada.weight = parseFloat(String(sku.weightKg || sku.weight || 0.2).replace(/[^0-9.]/g, '')) || 0.2;
     wizChannelConfigs.lazada.dimensions = sku.dimensions || "10x10x10";
@@ -1668,16 +1491,20 @@ function renderWizStep3() {
                             \${lazadaLeafOptions}
                         </select>
                         <div style="display:flex;gap:0.5rem;margin-top:0.35rem;align-items:center;min-height:22px">
-                            <button type="button" id="lazadaLeafSyncBtn" class="cp-btn-edit" style="font-size:11px;padding:0.25rem 0.5rem;display:none" onclick="syncLazadaLeaves(\${lazadaChan.channelId})">
-                                ⟳ Đồng bộ từ Lazada
+                            <button type="button" id="lazadaLeafSyncBtn" onclick="syncLazadaLeaves(\${lazadaChan.channelId})" style="font-size:11px;padding:0.25rem 0.75rem;display:inline-flex;align-items:center;gap:0.3rem;background:rgba(16,115,230,0.08);color:#1073e6;border:1px solid rgba(16,115,230,0.25);border-radius:6px;cursor:pointer;font-weight:700;transition:all 0.15s;white-space:nowrap">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"></polyline><polyline points="1 20 1 14 7 14"></polyline><path d="M3.51 9a9 9 0 0114.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0020.49 15"></path></svg>
+                                Đồng bộ danh mục Lazada
                             </button>
-                            <span id="lazadaLeafStatus" style="font-size:11px;color:rgba(16,55,92,.5)">\${hasPreselected ? '✓ Đã gợi ý từ ánh xạ WMS.' : 'Chưa chọn danh mục Lazada'}</span>
+                            <span id="lazadaLeafStatus" style="font-size:11px;color:rgba(16,55,92,.5)">\${LAZADA_LEAVES.length > 0 ? (hasPreselected ? '✓ Đã gợi ý từ ánh xạ WMS.' : 'Sẵn sàng để chọn danh mục Lazada.') : 'Chưa có danh mục Lazada — bấm "Đồng bộ" để tải về.'}</span>
                         </div>
                     </div>
                     <div class="cp-form-group">
                         <label class="cp-form-label">Giá bán lẻ (Retail Price) *</label>
-                        <input type="number" class="cp-input-text" style="padding:0.5rem; text-align:right" value="\${wizChannelConfigs.lazada.price}" oninput="wizChannelConfigs.lazada.price = Math.max(0, Number(this.value) || 0)" />
-                        <div id="wizPriceHint" style="font-size:11px; color:rgba(16,55,92,.5); margin-top:2px">Tối thiểu: \${wizChannelConfigs.lazada.priceMin ? wizChannelConfigs.lazada.priceMin.toLocaleString() + 'đ' : '—'} (giá nhập × 1.30)</div>
+                        <input id="wizPriceInput" type="number" class="cp-input-text" style="padding:0.5rem; text-align:right" value="\${wizChannelConfigs.lazada.price}" oninput="wizChannelConfigs.lazada.price = Math.max(0, Number(this.value) || 0); window.updatePriceWarningChip(this);" />
+                        <div id="wizPriceHint" style="font-size:11px; color:rgba(16,55,92,.5); margin-top:2px">
+                            <span id="wizPriceMac">Giá vốn (MAC): \${(wizChannelConfigs.lazada.macPrice || 0).toLocaleString()}đ</span>
+                            <span id="wizPriceChip" class="price-warn-chip" style="display:none; margin-left:8px;"></span>
+                        </div>
                     </div>
                     <div class="cp-form-group">
                         <label class="cp-form-label">Số lượng tồn (Quantity) *</label>
@@ -1974,20 +1801,9 @@ function finalizePublishData(realLazadaItemId, realLazadaSkuId) {
             });
         }
 
-        // 4. Update pricing configuration retail/promo targets
-        const existPriceIdx = pricingRecords.findIndex(r => r.sku === wizSelectedMasterSKU.sku);
-        if (existPriceIdx > -1) {
-            const recordPrices = pricingRecords[existPriceIdx].channelPrices;
-            if (recordPrices[platform]) {
-                recordPrices[platform].retailPrice = Number(config.price) || 150000;
-                recordPrices[platform].promoPrice = Math.round((Number(config.price) || 150000) * 0.95);
-                recordPrices[platform].effectiveDate = today;
-            }
-        }
+        localStorage.setItem("sku_mappings_v2", JSON.stringify(storedMapList));
+        localStorage.setItem("sku_raw_mappings_v2", JSON.stringify(rawMappings));
     });
-
-    localStorage.setItem("sku_mappings_v2", JSON.stringify(storedMapList));
-    localStorage.setItem("sku_raw_mappings_v2", JSON.stringify(rawMappings));
 
     saveData();
     closePublishWizard();
@@ -1997,7 +1813,7 @@ function finalizePublishData(realLazadaItemId, realLazadaSkuId) {
 
 // ── TAB 1 MODAL: EDIT PRODUCT DETAILS ───────────────────────────────
 function openEditModal(productId) {
-    const p = channelProducts.find(item => item.id === productId);
+    const p = channelProducts.find(item => item.id == productId);
     if (!p) return;
 
     editTargetProductId = productId;
@@ -2010,6 +1826,26 @@ function openEditModal(productId) {
 
     document.getElementById("editProductOverlay").classList.add("open");
     renderEditUploader();
+
+    // Fetch fresh description and images from database/master product
+    fetchJson("${pageContext.request.contextPath}/sales/channel-products?action=getProductDetail&productId=" + encodeURIComponent(p.productId))
+        .then(res => {
+            if (res.success) {
+                if (res.description) {
+                    document.getElementById("editProductDesc").value = res.description;
+                }
+                if (res.images && res.images.length > 0) {
+                    editImagesList = res.images;
+                } else {
+                    const defaultImg = getDynamicCover(p.productName);
+                    editImagesList = [defaultImg];
+                }
+                renderEditUploader();
+            }
+        })
+        .catch(err => {
+            console.warn("Failed to load product detail:", err);
+        });
 }
 
 function closeEditModal() {
@@ -2073,38 +1909,99 @@ function submitEditProduct() {
         return;
     }
 
-    channelProducts = channelProducts.map(p => {
-        if (p.id === editTargetProductId) {
-            return {
-                ...p,
-                price: price,
-                description: desc,
-                images: editImagesList
-            };
+    // Split editImagesList into server URLs and base64 strings
+    const urls = [];
+    const base64s = [];
+    editImagesList.forEach(img => {
+        if (img.startsWith("data:")) {
+            urls.push("");
+            base64s.push(img);
+        } else {
+            urls.push(img);
+            base64s.push("");
         }
-        return p;
     });
 
-    // Also sync price to pricing configuration channel price
-    const prod = channelProducts.find(item => item.id === editTargetProductId);
-    if (prod) {
-        const today = new Date().toISOString().slice(0, 10);
-        pricingRecords = pricingRecords.map(r => {
-            if (r.sku === prod.masterSKU) {
-                const updatedChannelPrices = { ...r.channelPrices };
-                if (updatedChannelPrices[prod.channel]) {
-                    updatedChannelPrices[prod.channel].retailPrice = price;
-                    updatedChannelPrices[prod.channel].effectiveDate = today;
-                }
-                return { ...r, channelPrices: updatedChannelPrices };
-            }
-            return r;
-        });
-    }
+    showToast("Đang cập nhật sản phẩm lên Lazada...", "info");
 
-    saveData();
-    closeEditModal();
-    renderProductsTab();
-    showToast("Cập nhật thông tin sản phẩm kênh thành công!");
+    const saveBtn = document.querySelector("#editProductOverlay button[onclick='submitEditProduct()']");
+    if (saveBtn) saveBtn.disabled = true;
+
+    fetchJson("${pageContext.request.contextPath}/sales/channel-products", {
+        method: "POST",
+        headers: { "Content-Type": "application/x-www-form-urlencoded" },
+        body: "action=edit&id=" + encodeURIComponent(editTargetProductId)
+            + "&price=" + encodeURIComponent(price)
+            + "&description=" + encodeURIComponent(desc)
+            + "&imageUrls=" + encodeURIComponent(urls.join("|"))
+            + "&imageBase64s=" + encodeURIComponent(base64s.join("|"))
+    }).then(res => {
+        if (res.success) {
+            channelProducts = channelProducts.map(p => {
+                if (p.id == editTargetProductId) {
+                    return {
+                        ...p,
+                        price: price,
+                        description: desc,
+                        images: editImagesList
+                    };
+                }
+                return p;
+            });
+            saveData();
+            closeEditModal();
+            renderProductsTab();
+            showToast("Cập nhật thông tin sản phẩm lên Lazada thành công!", "success");
+        } else {
+            if (res.fieldErrors && res.fieldErrors.length > 0) {
+                showToast("Cập nhật thất bại: " + res.fieldErrors[0].message, "error");
+            } else {
+                showToast(res.message || "Cập nhật thất bại.", "error");
+            }
+        }
+    }).catch(err => {
+        showToast(err.message || "Lỗi kết nối khi cập nhật sản phẩm.", "error");
+    }).finally(() => {
+        if (saveBtn) saveBtn.disabled = false;
+    });
 }
+
+// ══════════════════════════════════════════════════════════════════
+// Pricing warning chip — đọc ngưỡng từ /api/config/pricing (cache 60s)
+// ══════════════════════════════════════════════════════════════════
+(function initPricingThresholds() {
+    fetch('${pageContext.request.contextPath}/api/config/pricing')
+        .then(r => r.ok ? r.json() : null)
+        .then(j => { if (j && j.thresholds) window.WMS_PRICING_THRESHOLDS = j.thresholds; })
+        .catch(() => {});
+})();
+
+window.updatePriceWarningChip = function(inputEl) {
+    var cfg = (typeof wizChannelConfigs !== 'undefined' && wizChannelConfigs.lazada) || {};
+    var mac = Number(cfg.macPrice) || 0;
+    var price = Number(inputEl.value) || 0;
+    var chip = document.getElementById('wizPriceChip');
+    if (!chip) return;
+    if (!(mac > 0) || !(price > 0)) { chip.style.display = 'none'; return; }
+    var margin = (price - mac) / mac;
+    var t = window.WMS_PRICING_THRESHOLDS || {};
+    var tLow   = Number(t['pricing.warn_margin_low'])       || 0.10;
+    var tBeq   = Number(t['pricing.warn_margin_breakeven']) || 0.00;
+    var tLoss  = Number(t['pricing.warn_margin_loss_threshold']) || -0.05;
+    if (margin < tLoss) {
+        chip.textContent = 'Bán lỗ';
+        chip.className = 'price-warn-chip price-warn-chip--loss';
+        chip.style.display = 'inline-block';
+    } else if (margin < tBeq) {
+        chip.textContent = 'Hoà vốn';
+        chip.className = 'price-warn-chip price-warn-chip--breakeven';
+        chip.style.display = 'inline-block';
+    } else if (margin < tLow) {
+        chip.textContent = 'Lãi ít';
+        chip.className = 'price-warn-chip price-warn-chip--low';
+        chip.style.display = 'inline-block';
+    } else {
+        chip.style.display = 'none';
+    }
+};
 </script>

@@ -115,10 +115,7 @@ public class LazadaSyncScheduler implements ServletContextListener {
         private final ChannelDAO channelDAO = new ChannelDAO();
         private final LazadaOrderSyncService syncService = new LazadaOrderSyncService();
         private final int lookbackMinutes;
-        private final ServletContext ctx;
-
         SyncTask(ServletContext servletContext) {
-            this.ctx = servletContext;
             this.lookbackMinutes = parseLookback(servletContext);
         }
 
@@ -187,7 +184,7 @@ public class LazadaSyncScheduler implements ServletContextListener {
             try (Connection conn = DBConnection.getConnection()) {
                 conn.setAutoCommit(false);
                 for (JsonNode orderNode : ordersArray) {
-                    String orderCode = orderNode.path("order_id").asText("");
+                    String orderCode = orderNode.path("order_id").asText();
                     String detailJson = null;
                     try {
                         detailJson = orderService.getOrderDetail(channel, orderCode);

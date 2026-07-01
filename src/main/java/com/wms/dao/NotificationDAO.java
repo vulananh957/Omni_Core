@@ -105,7 +105,7 @@ public class NotificationDAO extends BaseDAO {
         );
         List<Object> params = new ArrayList<>();
         params.add(recipientRole);
-        params.add(warehouseId != null ? warehouseId : java.sql.Types.INTEGER);
+        params.add(warehouseId);
         params.add(tmpl.getNotificationType());
         params.add(tmpl.getTitle());
         params.add(tmpl.getMessage());
@@ -123,7 +123,12 @@ public class NotificationDAO extends BaseDAO {
             if (conn == null) return 0;
             try (PreparedStatement ps = conn.prepareStatement(sql.toString())) {
                 for (int i = 0; i < params.size(); i++) {
-                    ps.setObject(i + 1, params.get(i));
+                    Object val = params.get(i);
+                    if (val == null) {
+                        ps.setNull(i + 1, java.sql.Types.NULL);
+                    } else {
+                        ps.setObject(i + 1, val);
+                    }
                 }
                 return ps.executeUpdate();
             }
@@ -222,8 +227,7 @@ public class NotificationDAO extends BaseDAO {
             "  AND n.recipient_role = ? " +
             "  AND n.is_read = 0 " +
             "  AND (n.warehouse_id = ? OR n.warehouse_id IS NULL)";
-        try {
-            Connection conn = openConnection(LOGGER);
+        try (Connection conn = openConnection(LOGGER)) {
             if (conn == null) return 0;
             try (PreparedStatement ps = conn.prepareStatement(sql)) {
                 ps.setInt(1, userId);

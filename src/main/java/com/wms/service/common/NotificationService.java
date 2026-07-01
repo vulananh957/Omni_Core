@@ -1,4 +1,4 @@
-package com.wms.service;
+package com.wms.service.common;
 
 import com.wms.dao.NotificationDAO;
 import com.wms.model.Notification;
@@ -299,6 +299,18 @@ public class NotificationService {
         String title = "Phiếu kiểm kê chờ duyệt";
         String msg = "Kho " + warehouseName + " gửi phiếu kiểm kê " +
                 checkCode + " cần phê duyệt điều chỉnh tồn kho.";
+        notifyManagersForWarehouse(warehouseId, Notification.TYPE_INVENTORY,
+                title, msg, "KK", checkId, Notification.PRIORITY_NORMAL);
+    }
+
+    /**
+     * Inventory check completed.
+     */
+    public void notifyInventoryCheckCompleted(int warehouseId, String warehouseName,
+                                              long checkId, String checkCode) {
+        String title = "Phiếu kiểm kê hoàn thành";
+        String msg = "Kho " + warehouseName + " đã hoàn tất kiểm kê phiếu " +
+                checkCode + ", tồn kho đã được tự động cập nhật.";
         notifyManagersForWarehouse(warehouseId, Notification.TYPE_INVENTORY,
                 title, msg, "KK", checkId, Notification.PRIORITY_NORMAL);
     }

@@ -419,4 +419,19 @@ public class ChannelProductDAO {
             return false;
         }
     }
+
+    /**
+     * Deletes a channel product record by its primary key.
+     */
+    public boolean delete(int id) {
+        String sql = "DELETE FROM channel_products WHERE id = ?";
+        try (Connection conn = DBConnection.getConnection();
+             PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setInt(1, id);
+            return ps.executeUpdate() > 0;
+        } catch (SQLException e) {
+            LOGGER.log(Level.WARNING, "ChannelProductDAO: Failed to delete channel product by ID " + id, e);
+            return false;
+        }
+    }
 }

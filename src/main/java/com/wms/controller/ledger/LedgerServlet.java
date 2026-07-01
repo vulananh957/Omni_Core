@@ -21,6 +21,7 @@ import java.util.List;
 public class LedgerServlet extends BaseController {
 
     private final LedgerService ledgerService = new LedgerService();
+    private final com.wms.service.warehouse.WarehouseService warehouseService = new com.wms.service.warehouse.WarehouseService();
 
     @Override
     protected void doGet(HttpServletRequest req, HttpServletResponse resp)
@@ -42,6 +43,15 @@ public class LedgerServlet extends BaseController {
         }
 
         try {
+            List<com.wms.model.Warehouse> warehouses = warehouseService.findAllActive();
+            req.setAttribute("warehouses", warehouses);
+            setJsonAttr(req, "warehousesJson", warehouses);
+        } catch (Exception e) {
+            req.setAttribute("warehouses", List.<com.wms.model.Warehouse>of());
+            req.setAttribute("warehousesJson", "[]");
+        }
+
+        try {
             List<LedgerDAO.LedgerDocument> docs = ledgerService.findAllDocuments();
             req.setAttribute("documents", docs);
             setJsonAttr(req, "documentsJson", docs);
@@ -55,6 +65,25 @@ public class LedgerServlet extends BaseController {
             req.setAttribute("ledgerEntries", entries);
         } catch (Exception e) {
             req.setAttribute("ledgerEntries", List.of());
+        }
+
+        // Load system settings (company info) so PDF headers reflect real data
+        try {
+            java.util.Map<String, String> settings = new java.util.HashMap<>();
+            try (java.sql.Connection conn = com.wms.util.DBConnection.getConnection();
+                 java.sql.PreparedStatement ps = conn.prepareStatement(
+                     "SELECT setting_key, setting_value FROM system_settings");
+                 java.sql.ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) {
+                    settings.put(rs.getString("setting_key"), rs.getString("setting_value"));
+                }
+            }
+            req.setAttribute("companyName",    settings.getOrDefault("company_name", "Công ty TNHH OmniCore"));
+            req.setAttribute("companyAddress", settings.getOrDefault("company_address", ""));
+            req.setAttribute("companyPhone",   settings.getOrDefault("company_phone", ""));
+            req.setAttribute("companyTaxCode", settings.getOrDefault("company_tax_code", ""));
+        } catch (Exception e) {
+            req.setAttribute("companyName", "Công ty TNHH OmniCore");
         }
 
         // Page metadata for the layout shell

@@ -2,6 +2,7 @@ package com.wms.controller.warehouse;
 
 import com.wms.controller.BaseController;
 import com.wms.dao.FulfillmentRequestDAO;
+import com.wms.dao.InventoryDAO;
 import com.wms.model.FulfillmentRequest;
 import com.wms.model.OutboundOrder;
 import com.wms.model.User;
@@ -13,13 +14,14 @@ import com.wms.service.warehouse.InboundService;
 import com.wms.service.warehouse.OutboundService;
 import com.wms.service.warehouse.RtvService;
 import com.wms.service.warehouse.WarehouseService;
-import com.wms.service.NotificationService;
+import com.wms.service.common.NotificationService;
 import com.wms.util.AppConstants;
 import com.wms.util.JsonUtil;
 
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import jakarta.servlet.annotation.MultipartConfig;
 import java.io.IOException;
 import java.util.List;
 
@@ -31,11 +33,13 @@ import java.util.List;
  * to that single warehouse, and the staff may create disposal notes that are saved
  * (not deducted) for BM approval.
  */
+@MultipartConfig
 public class WarehouseOutboundServlet extends BaseController {
 
     private static final String CONTEXT_PATH = "/warehouse/outbound";
     private final OutboundService outboundService = new OutboundService();
     private final WarehouseService warehouseService = new WarehouseService();
+    private final InventoryDAO inventoryDAO = new InventoryDAO();
     private final FulfillmentRequestDAO fulfillmentDAO = new FulfillmentRequestDAO();
     private final ProductService productService = new ProductService();
     private final InboundService inboundService = new InboundService();
@@ -69,6 +73,14 @@ public class WarehouseOutboundServlet extends BaseController {
 
             setJsonAttr(req, "productsJson", productService.findAll());
 
+            // Real-time inventory stock for stock validation on dispatch
+            try {
+                var stockRows = inventoryDAO.findInventorySummaryByWarehouse(myWarehouseId);
+                setJsonAttr(req, "inventoryStockJson", stockRows);
+            } catch (Exception ex) {
+                setJsonAttr(req, "inventoryStockJson", List.of());
+            }
+
             List<com.wms.model.InboundOrder> inboundList = inboundService.findByWarehouse(myWarehouseId);
             req.setAttribute("inboundList", inboundList);
 
@@ -82,6 +94,7 @@ public class WarehouseOutboundServlet extends BaseController {
             req.setAttribute("fulfillmentRequests", List.<FulfillmentRequest>of());
             req.setAttribute("fulfillmentRequestsJson", "[]");
             req.setAttribute("productsJson", "[]");
+            req.setAttribute("inventoryStockJson", "[]");
             req.setAttribute("inboundList", List.of());
             req.setAttribute("rtvList", List.of());
             setJsonAttr(req, "rtvListJson", "[]");
@@ -126,6 +139,11 @@ public class WarehouseOutboundServlet extends BaseController {
 
         if ("disposal".equals(action)) {
             handleDisposal(req, resp);
+            return;
+        }
+
+        if ("restock".equals(action)) {
+            handleRestock(req, resp);
             return;
         }
 
@@ -175,7 +193,7 @@ public class WarehouseOutboundServlet extends BaseController {
         }
 
         try {
-            int newId = outboundService.createOutbound(orderId, warehouseId, notes);
+            int newId = outboundService.createOutbound(orderId, warehouseId, notes, currentUserId(req));
             if (newId > 0) {
                 setFlashSuccess(req, "Tạo phiếu xuất kho thành công!");
             } else {
@@ -252,6 +270,43 @@ public class WarehouseOutboundServlet extends BaseController {
         redirect(resp, req.getContextPath() + CONTEXT_PATH);
     }
 
+    /**
+     * Handles "Hoàn kệ" action for cancelled outbound orders.
+     * Releases the temporary inventory allocation back to available stock.
+     */
+    private void handleRestock(HttpServletRequest req, HttpServletResponse resp) throws IOException {
+        String outboundIdStr = req.getParameter("outboundId");
+
+        if (outboundIdStr == null || outboundIdStr.trim().isEmpty()) {
+            setFlashError(req, "Thiếu ID phiếu xuất cần hoàn kệ.");
+            redirect(resp, req.getContextPath() + CONTEXT_PATH);
+            return;
+        }
+
+        try {
+            int outboundId = Integer.parseInt(outboundIdStr.trim());
+            OutboundOrder oo = outboundService.findById(outboundId);
+            int myWarehouseId = currentWarehouseId(req);
+            if (oo == null || oo.getWarehouseId() != myWarehouseId) {
+                setFlashError(req, "Bạn không có quyền hoàn kệ phiếu xuất thuộc kho khác.");
+                redirect(resp, req.getContextPath() + CONTEXT_PATH);
+                return;
+            }
+
+            // Release inventory allocation for this outbound
+            boolean released = outboundService.releaseAllocationsForOutbound(outboundId);
+            if (released) {
+                setFlashSuccess(req, "Đã hoàn kệ thành công. Tồn kho đã được giải phóng.");
+            } else {
+                setFlashSuccess(req, "Đã xác nhận hoàn kệ (hoặc tồn kho đã được giải phóng trước đó).");
+            }
+        } catch (NumberFormatException e) {
+            setFlashError(req, "ID phiếu xuất không hợp lệ.");
+        }
+
+        redirect(resp, req.getContextPath() + CONTEXT_PATH);
+    }
+
     /** AJAX: persist a single line item's picked state during picking. */
     private void handlePickItem(HttpServletRequest req, HttpServletResponse resp) throws IOException {
         resp.setContentType("application/json;charset=UTF-8");
@@ -293,14 +348,6 @@ public class WarehouseOutboundServlet extends BaseController {
             setFlashError(req, r.getMessage());
         }
         redirect(resp, req.getContextPath() + CONTEXT_PATH);
-    }
-
-    private Integer currentUserId(HttpServletRequest req) {
-        Object u = req.getSession().getAttribute(AppConstants.SESSION_USER);
-        if (u instanceof User) {
-            return ((User) u).getUserId();
-        }
-        return null;
     }
 
     private void handleCreateRtv(HttpServletRequest req, HttpServletResponse resp) throws IOException {

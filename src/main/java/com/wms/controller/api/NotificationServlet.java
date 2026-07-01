@@ -1,10 +1,11 @@
-package com.wms.controller;
+package com.wms.controller.api;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
+import com.wms.controller.BaseController;
 import com.wms.model.Notification;
-import com.wms.service.NotificationService;
+import com.wms.service.common.NotificationService;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;

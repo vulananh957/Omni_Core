@@ -1,6 +1,5 @@
 package com.wms.controller.warehouse;
 
-import com.fasterxml.jackson.core.type.TypeReference;
 import com.wms.controller.BaseController;
 import com.wms.model.InboundOrder;
 import com.wms.model.Product;
@@ -9,7 +8,7 @@ import com.wms.service.product.ProductService;
 import com.wms.service.warehouse.InboundService;
 import com.wms.model.ReceiptNote;
 import com.wms.service.warehouse.WarehouseService;
-import com.wms.service.NotificationService;
+import com.wms.service.common.NotificationService;
 
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -20,7 +19,6 @@ import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
 
-import com.wms.util.JsonUtil;
 
 /**
  * WarehouseInboundServlet — Handles Inbound Receipts (Nhập kho) for the
@@ -76,7 +74,6 @@ public class WarehouseInboundServlet extends BaseController {
 
         if ("create".equals(action) || action == null) {
             String supplierName = req.getParameter("supplierName");
-            String warehouseIdStr = req.getParameter("warehouseId");
             String expectedDateStr = req.getParameter("expectedDate");
             String notes = req.getParameter("notes");
 
@@ -164,43 +161,13 @@ public class WarehouseInboundServlet extends BaseController {
             } catch (Exception e) {
                 setFlashError(req, "Lỗi cơ sở dữ liệu: " + e.getMessage());
             }
-
-        } else if ("confirm".equals(action)) {
-            String inboundIdStr = req.getParameter("inboundId");
-            if (inboundIdStr == null || inboundIdStr.trim().isEmpty()) {
-                setFlashError(req, "Thiếu ID phiếu nhập.");
-                redirect(resp, "/warehouse/inbound");
-                return;
-            }
-            try {
-                int inboundId = Integer.parseInt(inboundIdStr);
-                InboundOrder io = inboundService.findById(inboundId);
-                int myWarehouseId = currentWarehouseId(req);
-                if (io == null || io.getWarehouseId() != myWarehouseId) {
-                    setFlashError(req, "Bạn không có quyền xác nhận phiếu nhập thuộc kho khác.");
-                    redirect(resp, "/warehouse/inbound");
-                    return;
-                }
-                InboundService.TransitionResult result = inboundService.confirmInbound(inboundId);
-                if (result.isSuccess()) {
-                    setFlashSuccess(req, result.getMessage());
-                    // Notify managers: GRN pending approval
-                    String whName = io.getWarehouseName();
-                    notificationService.notifyGrnPending(io.getWarehouseId(),
-                            whName != null ? whName : String.valueOf(io.getWarehouseId()),
-                            inboundId, io.getInboundCode());
-                } else {
-                    setFlashError(req, result.getMessage());
-                }
-            } catch (NumberFormatException e) {
-                setFlashError(req, "ID phiếu nhập không hợp lệ.");
-            }
+            redirect(resp, "/warehouse/inbound");
+            return;
 
         } else if ("receive".equals(action)) {
             String inboundIdStr = req.getParameter("inboundId");
             String[] productIds = req.getParameterValues("productId");
             String[] receivedQtys = req.getParameterValues("receivedQty");
-            String[] acceptedQtys = req.getParameterValues("acceptedQty");
             String[] unitCosts = req.getParameterValues("unitCost");
 
             if (inboundIdStr == null || inboundIdStr.trim().isEmpty()) {
@@ -224,7 +191,6 @@ public class WarehouseInboundServlet extends BaseController {
                         InboundService.ReceiptItem item = new InboundService.ReceiptItem();
                         item.setProductId(Integer.parseInt(productIds[i]));
                         item.setReceivedQty(parseDecimal(receivedQtys[i]));
-                        item.setAcceptedQty(parseDecimal(acceptedQtys != null ? acceptedQtys[i] : null));
                         item.setUnitCost(parseDecimal(unitCosts != null ? unitCosts[i] : null));
                         items.add(item);
                     }
@@ -235,7 +201,7 @@ public class WarehouseInboundServlet extends BaseController {
 
                 if (result.isSuccess()) {
                     setFlashSuccess(req, result.getMessage());
-                    // Notify the WH staff who created this GRN: approved + stock updated
+                    // Notify the WH staff who created this GRN: stock updated
                     if (io.getCreatedBy() > 0) {
                         notificationService.notifyGrnApproved(io.getCreatedBy(), inboundId, io.getInboundCode());
                     }
@@ -265,13 +231,13 @@ public class WarehouseInboundServlet extends BaseController {
         return null;
     }
 
-    @com.fasterxml.jackson.annotation.JsonIgnoreProperties(ignoreUnknown = true)
     public static BigDecimal parseDecimal(String val) {
         if (val == null || val.trim().isEmpty()) return null;
         try { return new BigDecimal(val.trim()); }
         catch (NumberFormatException e) { return null; }
     }
 
+    @com.fasterxml.jackson.annotation.JsonIgnoreProperties(ignoreUnknown = true)
     public static class DraftItem {
         private String skuCode;
         private BigDecimal orderedQty;
